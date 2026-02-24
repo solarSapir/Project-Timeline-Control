@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,36 +186,47 @@ const stageIcons: Record<string, any> = {
 
 const STAGE_COLORS: Record<string, { bar: string; text: string }> = {
   uc_application: { bar: "bg-blue-500", text: "text-white" },
-  rebates_payment: { bar: "bg-amber-500", text: "text-white" },
-  contract_signing: { bar: "bg-orange-400", text: "text-white" },
+  rebates_payment: { bar: "bg-purple-500", text: "text-white" },
+  contract_signing: { bar: "bg-amber-500", text: "text-white" },
   site_visit: { bar: "bg-emerald-500", text: "text-white" },
   ahj_permitting: { bar: "bg-orange-500", text: "text-white" },
   install_booking: { bar: "bg-cyan-500", text: "text-white" },
-  installation: { bar: "bg-violet-500", text: "text-white" },
-  close_off: { bar: "bg-rose-400", text: "text-white" },
+  installation: { bar: "bg-indigo-500", text: "text-white" },
+  close_off: { bar: "bg-rose-500", text: "text-white" },
 };
 
 function GanttChart({
   stages,
-  projectCreatedDate,
 }: {
   stages: Record<string, { target: string | null; expected: string | null; status: string }>;
   projectCreatedDate: string | null;
 }) {
-  const createdDate = projectCreatedDate ? parseISO(projectCreatedDate) : new Date();
+  const [zoomed, setZoomed] = useState(false);
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const allExpected = PROJECT_STAGES
+    .map(k => stages[k]?.expected ? parseISO(stages[k].expected!) : null)
+    .filter(Boolean) as Date[];
+
+  const earliestExpected = allExpected.length > 0 ? new Date(Math.min(...allExpected.map(d => d.getTime()))) : now;
+  const baseDate = earliestExpected > now ? now : earliestExpected;
+
+  const zoomBase = zoomed ? now : baseDate;
 
   const stageData = PROJECT_STAGES.map((key, idx) => {
     const stage = stages[key];
     if (!stage) return null;
     const expectedDate = stage.expected ? parseISO(stage.expected) : null;
-    const endDay = expectedDate ? differenceInDays(expectedDate, createdDate) : 0;
+    const endDay = expectedDate ? Math.max(0, differenceInDays(expectedDate, zoomBase)) : 0;
 
     let startDay = 0;
     if (idx > 0) {
       const prevKey = PROJECT_STAGES[idx - 1];
       const prevStage = stages[prevKey];
       const prevExpected = prevStage?.expected ? parseISO(prevStage.expected) : null;
-      startDay = prevExpected ? differenceInDays(prevExpected, createdDate) : 0;
+      startDay = prevExpected ? Math.max(0, differenceInDays(prevExpected, zoomBase)) : 0;
     }
 
     if (key === 'rebates_payment') startDay = 0;
@@ -226,7 +238,14 @@ function GanttChart({
   }).filter(Boolean) as { key: string; startDay: number; endDay: number; duration: number; stage: { target: string | null; expected: string | null; status: string }; isLate: boolean }[];
 
   const maxDay = Math.max(...stageData.map(s => s.endDay), 1);
-  const todayDay = differenceInDays(new Date(), createdDate);
+  const todayDay = Math.max(0, differenceInDays(now, zoomBase));
+
+  const startLabel = zoomed
+    ? format(now, "MMM d, yyyy")
+    : format(zoomBase, "MMM d, yyyy");
+  const endDate = new Date(zoomBase);
+  endDate.setDate(endDate.getDate() + maxDay);
+  const endLabel = format(endDate, "MMM d, yyyy");
 
   return (
     <div className="space-y-1.5" data-testid="gantt-chart">
@@ -234,9 +253,11 @@ function GanttChart({
         const Icon = stageIcons[key] || Clock;
         const isCompleted = stage.status === "completed";
         const leftPct = (startDay / maxDay) * 100;
-        const widthPct = Math.max(2, (duration / maxDay) * 100);
+        const widthPct = Math.max(3, (duration / maxDay) * 100);
         const colors = STAGE_COLORS[key] || { bar: "bg-gray-400", text: "text-white" };
         const barClass = isCompleted ? "bg-green-500" : isLate ? "bg-red-400" : colors.bar;
+
+        const expectedStr = stage.expected ? format(parseISO(stage.expected), "MMM d") : "";
 
         return (
           <div key={key} className="flex items-center gap-2" data-testid={`gantt-row-${key}`}>
@@ -245,7 +266,7 @@ function GanttChart({
               <span className="text-xs truncate">{STAGE_LABELS[key] || key}</span>
             </div>
             <div className="flex-1 relative h-7 rounded bg-muted/30">
-              {todayDay >= 0 && todayDay <= maxDay && (
+              {!zoomed && todayDay >= 0 && todayDay <= maxDay && (
                 <div
                   className="absolute top-0 bottom-0 w-px bg-blue-400/60 z-10"
                   style={{ left: `${(todayDay / maxDay) * 100}%` }}
@@ -255,38 +276,49 @@ function GanttChart({
               <div
                 className={`absolute top-1 h-5 rounded ${barClass} flex items-center justify-center transition-all`}
                 style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                title={`${STAGE_LABELS[key]}: Day ${startDay} → Day ${endDay} (${duration}d)`}
+                title={`${STAGE_LABELS[key]}: ${duration}d (${expectedStr})`}
               >
                 <span className={`text-[10px] font-medium ${colors.text} drop-shadow-sm`}>
                   {duration}d
                 </span>
               </div>
             </div>
-            <div className="w-[40px] flex-shrink-0 text-right">
-              <span className="text-[11px] text-muted-foreground font-medium">d{endDay}</span>
+            <div className="w-[55px] flex-shrink-0 text-right">
+              <span className="text-[10px] text-muted-foreground">{expectedStr}</span>
             </div>
           </div>
         );
       })}
 
       <div className="flex items-center justify-between mt-1 pt-1.5 border-t text-[10px] text-muted-foreground">
-        <span>Day 0 (Project Created)</span>
-        <span>Day {maxDay}</span>
+        <span>{startLabel}</span>
+        <span>{endLabel}</span>
       </div>
 
-      <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-green-500" />
-          <span>Complete</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded bg-green-500" />
+            <span>Complete</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded bg-red-400" />
+            <span>Late</span>
+          </div>
+          {!zoomed && (
+            <div className="flex items-center gap-1">
+              <div className="w-px h-4 bg-blue-400/60" />
+              <span>Today</span>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-red-400" />
-          <span>Late</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-px h-4 bg-blue-400/60" />
-          <span>Today</span>
-        </div>
+        <button
+          onClick={() => setZoomed(!zoomed)}
+          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+          data-testid="button-zoom-gantt"
+        >
+          {zoomed ? "Show full timeline" : "Zoom to today →"}
+        </button>
       </div>
     </div>
   );
