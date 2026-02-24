@@ -5,6 +5,7 @@ import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, m
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
+import OpenAI from "openai";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -572,11 +573,59 @@ export async function registerRoutes(
         req.file.mimetype
       );
 
+      let extracted: { hydroCompanyName?: string; hydroAccountNumber?: string; hydroCustomerName?: string } = {};
+
+      const isImage = req.file.mimetype.startsWith('image/');
+      if (isImage) {
+        try {
+          const openai = new OpenAI({
+            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          });
+
+          const base64 = req.file.buffer.toString('base64');
+          const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+
+          const aiResponse = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert at reading utility/hydro bills. Extract the following fields from the bill image. Return ONLY a JSON object with these exact keys: hydroCompanyName (the utility/hydro company name), hydroAccountNumber (the customer account number), hydroCustomerName (the full customer name exactly as it appears on the bill). If you cannot find a field, set its value to null. Do not include any explanation, just the JSON."
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "Extract the hydro company name, account number, and customer name from this utility bill." },
+                  { type: "image_url", image_url: { url: dataUrl } }
+                ]
+              }
+            ],
+            max_tokens: 500,
+          });
+
+          const content = aiResponse.choices[0]?.message?.content || '';
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            extracted = {
+              hydroCompanyName: parsed.hydroCompanyName || undefined,
+              hydroAccountNumber: parsed.hydroAccountNumber || undefined,
+              hydroCustomerName: parsed.hydroCustomerName || undefined,
+            };
+            console.log(`AI extracted hydro bill info for ${project.name}:`, extracted);
+          }
+        } catch (aiErr: any) {
+          console.error("AI extraction failed (non-blocking):", aiErr.message);
+        }
+      }
+
       const updated = await storage.updateProject(req.params.id, {
         hydroBillUrl: result.view_url || result.download_url || 'uploaded',
+        ...extracted,
       });
 
-      res.json({ attachment: result, project: updated });
+      res.json({ attachment: result, project: updated, extracted });
     } catch (error: any) {
       console.error("Hydro bill upload error:", error);
       res.status(500).json({ message: error.message });

@@ -87,9 +87,17 @@ function HydroInfoSection({ project }: { project: any }) {
       if (!res.ok) throw new Error('Failed to upload');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Hydro bill uploaded to Asana" });
+      if (data.extracted && (data.extracted.hydroCompanyName || data.extracted.hydroAccountNumber || data.extracted.hydroCustomerName)) {
+        const parts = [];
+        if (data.extracted.hydroCompanyName) parts.push(data.extracted.hydroCompanyName);
+        if (data.extracted.hydroAccountNumber) parts.push(`Acct: ${data.extracted.hydroAccountNumber}`);
+        if (data.extracted.hydroCustomerName) parts.push(data.extracted.hydroCustomerName);
+        toast({ title: "Hydro bill uploaded & scanned", description: `Extracted: ${parts.join(', ')}` });
+      } else {
+        toast({ title: "Hydro bill uploaded to Asana", description: "Could not auto-extract fields — you can enter them manually." });
+      }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
     onError: (err: any) => {
@@ -114,7 +122,7 @@ function HydroInfoSection({ project }: { project: any }) {
             <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => fileInputRef.current?.click()}
               disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
               {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-              Upload Bill
+              {uploadMutation.isPending ? 'Scanning...' : 'Upload & Scan Bill'}
             </Button>
             <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => {
               setHydroCompany(utilityFromAsana || '');
@@ -180,7 +188,7 @@ function HydroInfoSection({ project }: { project: any }) {
               <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5 gap-1" onClick={() => fileInputRef.current?.click()}
                 disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
                 {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                Upload Bill
+                {uploadMutation.isPending ? 'Scanning...' : 'Upload & Scan'}
               </Button>
             </>
           )}
