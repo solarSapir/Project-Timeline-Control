@@ -4,6 +4,8 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: Replaced "Contracts & Payments" with "Payment Method" view (tracks "How will the customer pay" Asana field, 7-day deadline from project creation) and "Payment Collection" with "Rebates" view (tracks "GRANTS STATUS." Asana field). Both sync bidirectionally with Asana.
+- 2026-02-24: Added due date calculations from project creation date (UC +21d, contract +35d, site visit +42d, AHJ +56d, install +70d, close-off +84d) with overdue badges
 - 2026-02-24: Added two-way Asana sync — status changes in the app now push back to Asana via REST API. All dropdowns dynamically load enum options from Asana custom fields. Asana is the single source of truth.
 - 2026-02-24: Initial build with Asana integration, all work views, and deadline tracking
 
@@ -24,11 +26,11 @@ A solar installation project management application that connects to Asana to sy
 ### Pages / Views
 - `/` - Dashboard with stats, charts, and project overview
 - `/uc` - UC Application view for managing utility connection stages
-- `/contracts` - Contracts & Payment view (rebates, payment method, contract signing, permit fees)
+- `/contracts` - Payment Method view (tracks "How will the customer pay" from Asana, 7-day deadline from creation)
 - `/site-visits` - Site Visit booking and tracking
 - `/ahj` - AHJ/Permitting view for building permit workflow
 - `/installs` - Installation Coordination (scheduling, installer management)
-- `/payments` - Payment Collection (milestone + final balance)
+- `/payments` - Rebates view (tracks "GRANTS STATUS." from Asana)
 - `/close-off` - Project close-off (final docs, permits, photos, marketing notification)
 - `/sync` - Asana Sync settings
 

@@ -108,7 +108,7 @@ export async function registerRoutes(
     }
   });
 
-  const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus'];
+  const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'rebateStatus'];
 
   app.patch("/api/projects/:id", async (req, res) => {
     try {

@@ -2,14 +2,13 @@ import { useLocation, Link } from "wouter";
 import {
   LayoutDashboard,
   Zap,
-  FileText,
+  CreditCard,
   MapPin,
   Building2,
   Wrench,
-  DollarSign,
+  Gift,
   CheckCircle2,
   RefreshCw,
-  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,11 +33,11 @@ const mainNav = [
 
 const viewNav = [
   { title: "UC Applications", url: "/uc", icon: Zap },
-  { title: "Contracts & Payments", url: "/contracts", icon: FileText },
+  { title: "Payment Method", url: "/contracts", icon: CreditCard },
   { title: "Site Visits", url: "/site-visits", icon: MapPin },
   { title: "AHJ / Permitting", url: "/ahj", icon: Building2 },
   { title: "Install Coordination", url: "/installs", icon: Wrench },
-  { title: "Payment Collection", url: "/payments", icon: DollarSign },
+  { title: "Rebates", url: "/payments", icon: Gift },
   { title: "Close-off", url: "/close-off", icon: CheckCircle2 },
 ];
 
