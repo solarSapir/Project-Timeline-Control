@@ -92,7 +92,7 @@ export default function InstallCalendar() {
   const calendarProjects = useMemo(() => {
     if (!projects) return [];
 
-    const excludedPmStatuses = ['complete', 'project paused', 'project lost'];
+    const excludedPmStatuses = ['complete', 'project paused', 'project lost', 'close-off'];
     const installProjects = projects.filter((p) =>
       p.installType?.toLowerCase() === 'install' &&
       (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
