@@ -64,7 +64,7 @@ function computeExpectedDates(project: Project, taskActions: any[]) {
   stages.contract_signing = {
     target: project.contractDueDate,
     expected: project.contractDueDate,
-    status: getStageStatus(project.contractStatus, ["signed", "complete", "sent"]),
+    status: getStageStatus(project.installTeamStage, ["signed", "complete", "sent", "active", "pending site"]),
   };
 
   const svCompletionDate = getExpectedDateFromActions(taskActions, "site_visits", "completed", 0);
@@ -551,7 +551,7 @@ export default function ProjectProfile() {
         </StageSection>
 
         <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status}>
-          <InfoRow label="Contract Status" value={<StatusBadge status={project.contractStatus} />} testId="text-contract-status" />
+          <InfoRow label="Contract Status" value={<StatusBadge status={project.installTeamStage} />} testId="text-contract-status" />
           <InfoRow label="Target Due" value={formatDate(project.contractDueDate)} testId="text-contract-target" />
           <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.contractDueDate} />} />
           <InfoRow

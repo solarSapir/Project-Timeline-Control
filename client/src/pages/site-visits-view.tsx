@@ -349,7 +349,7 @@ export default function SiteVisitsView() {
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
                         <span className="text-xs text-muted-foreground">UC: {p.ucStatus || 'N/A'}</span>
-                        <span className="text-xs text-muted-foreground">Contract: {p.contractStatus || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">Contract: {p.installTeamStage || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {dueDate && (
