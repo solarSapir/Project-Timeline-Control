@@ -1,11 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createRequire } from "module";
 import { storage } from "./storage";
 import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions, createSubtaskForTask, fetchTaskAttachments, completeAsanaTask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
 import OpenAI from "openai";
+
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -613,9 +617,7 @@ export async function registerRoutes(
               max_tokens: 500,
             });
           } else {
-            const pdfParseModule = await import("pdf-parse");
-            const pdfParseFunc = pdfParseModule.default || pdfParseModule;
-            const pdfData = await pdfParseFunc(req.file.buffer);
+            const pdfData = await pdfParse(req.file.buffer);
             const pdfText = pdfData.text?.trim();
             console.log(`[Hydro Bill] PDF text extracted, length: ${pdfText?.length || 0} chars, first 500: "${pdfText?.substring(0, 500)}"`);
 
