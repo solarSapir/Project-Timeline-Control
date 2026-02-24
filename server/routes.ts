@@ -91,7 +91,7 @@ export async function registerRoutes(
       }
 
       const isUcComplete = mapped.ucStatus && ['approved', 'complete', 'not required'].some(s => mapped.ucStatus!.toLowerCase().includes(s));
-      const stageNeedsCorrection = mapped.installTeamStage && ['new cx pending other teams', 'pending site visit'].some(s => mapped.installTeamStage!.toLowerCase().includes(s));
+      const stageNeedsCorrection = mapped.installTeamStage && mapped.installTeamStage.toLowerCase().includes('new cx pending other teams');
 
       if (isUcComplete && stageNeedsCorrection && task.gid) {
         try {
@@ -100,6 +100,18 @@ export async function registerRoutes(
           console.log(`Auto-corrected Install Team Stage to "Need contract" for ${task.name}`);
         } catch (err: any) {
           console.log(`Could not auto-correct Install Team Stage for ${task.name}: ${err.message}`);
+        }
+      }
+
+      const isPendingSiteVisit = mapped.installTeamStage && mapped.installTeamStage.toLowerCase().includes('pending site visit');
+      const siteVisitDone = mapped.siteVisitStatus && (mapped.siteVisitStatus.toLowerCase().includes('visit complete') || mapped.siteVisitStatus.toLowerCase().includes('visit booked'));
+      if (isPendingSiteVisit && siteVisitDone && task.gid) {
+        try {
+          await updateAsanaTaskField(task.gid, mapped.asanaCustomFields as any[], 'installTeamStage', 'Active Install');
+          mapped.installTeamStage = 'Active Install';
+          console.log(`Auto-advanced Install Team Stage to "Active Install" for ${task.name} (site visit done)`);
+        } catch (err: any) {
+          console.log(`Could not auto-advance stage for ${task.name}: ${err.message}`);
         }
       }
 
@@ -272,6 +284,19 @@ export async function registerRoutes(
               return res.status(400).json({ message: `Failed to update Asana: ${asanaErr.message}` });
             }
           }
+        }
+      }
+
+      const currentStage = (req.body.installTeamStage || (project as any).installTeamStage || '').toLowerCase();
+      const newSiteVisit = (req.body.siteVisitStatus || '').toLowerCase();
+      if (newSiteVisit && (newSiteVisit.includes('visit complete') || newSiteVisit.includes('visit booked')) && currentStage.includes('pending site visit')) {
+        req.body.installTeamStage = 'Active Install';
+        try {
+          const asanaFields = project.asanaCustomFields as any[];
+          await updateAsanaTaskField(project.asanaGid!, asanaFields, 'installTeamStage', 'Active Install');
+          console.log(`Auto-advanced Install Team Stage to "Active Install" for ${project.name} (site visit done)`);
+        } catch (err: any) {
+          console.log(`Could not auto-advance stage for ${project.name}: ${err.message}`);
         }
       }
 

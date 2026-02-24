@@ -73,7 +73,7 @@ function isContractSigned(stage: string | null) {
 function isDepositCollected(stage: string | null) {
   if (!stage) return false;
   const s = stage.toLowerCase();
-  return s.includes('deposit collected') || s.includes('active install') || s.includes('complete');
+  return s.includes('pending site visit') || s.includes('deposit collected') || s.includes('active install') || s.includes('complete');
 }
 
 function getStageLabel(stage: string | null) {
@@ -86,6 +86,7 @@ function getStageBadgeClass(stage: string | null) {
   const s = stage.toLowerCase();
   if (s.includes('active install') || s.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
   if (s.includes('deposit collected')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  if (s.includes('pending site visit')) return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
   if (s.includes('pending deposit')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
   if (s.includes('pending contract')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
   if (s.includes('need contract')) return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
@@ -157,10 +158,23 @@ export default function ContractCreationView() {
   const handleDepositCollected = async (project: any, checked: boolean) => {
     setUpdating(project.id + '-deposit');
     try {
-      const newStage = checked ? 'Active Install' : 'Pending Deposit (from customer)';
+      let newStage: string;
+      if (checked) {
+        const sv = (project.siteVisitStatus || '').toLowerCase();
+        const siteVisitDone = sv.includes('visit complete') || sv.includes('visit booked');
+        newStage = siteVisitDone ? 'Active Install' : 'Pending site visit';
+      } else {
+        newStage = 'Pending Deposit (from customer)';
+      }
       await apiRequest("PATCH", `/api/projects/${project.id}`, { installTeamStage: newStage });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: checked ? "Deposit collected — project is Active Install" : "Deposit uncollected" });
+      if (checked && newStage === 'Pending site visit') {
+        toast({ title: "Deposit collected — pending site visit", description: "Project moved to Site Visits tab" });
+      } else if (checked) {
+        toast({ title: "Deposit collected — project is Active Install" });
+      } else {
+        toast({ title: "Deposit uncollected" });
+      }
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
