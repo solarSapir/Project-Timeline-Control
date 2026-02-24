@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import type { Project } from "@shared/schema";
 
@@ -50,7 +51,11 @@ interface CalendarProject {
   status: InstallStatus;
   province: string | null;
   ahjStatus: string | null;
+  installTeamStage: string | null;
+  siteVisitStatus: string | null;
+  ucStatus: string | null;
   daysLate: number | null;
+  reason: string;
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -68,10 +73,24 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function getStageLabel(reason: string): string {
+  switch (reason) {
+    case "scheduled": return "Scheduled";
+    case "ahj-complete": return "AHJ Done → Install";
+    case "sv-complete": return "Site Visit Done → AHJ";
+    case "contract-done": return "Contract Done → SV";
+    case "contract-sent": return "Contract Sent";
+    case "uc-complete": return "UC Done → Contract";
+    case "uc-pending": return "UC Pending";
+    default: return reason;
+  }
+}
+
 export default function InstallCalendar() {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
@@ -111,8 +130,37 @@ export default function InstallCalendar() {
 
     const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
     const toDateStr = (d: Date) => d.toISOString().split('T')[0];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const ahjActionMap: Record<string, string> = {};
+    const svActionMap: Record<string, string> = {};
+    const ucActionMap: Record<string, string> = {};
+
+    (taskActions || []).forEach((a: any) => {
+      if (a.completedAt && a.projectId) {
+        const existing = ahjActionMap[a.projectId];
+        if (!existing || new Date(a.completedAt) > new Date(existing)) {
+          ahjActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
+        }
+      }
+    });
+    (siteVisitActions || []).forEach((a: any) => {
+      if (a.completedAt && a.projectId) {
+        const existing = svActionMap[a.projectId];
+        if (!existing || new Date(a.completedAt) > new Date(existing)) {
+          svActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
+        }
+      }
+    });
+    (ucActions || []).forEach((a: any) => {
+      if (a.completedAt && a.projectId) {
+        const existing = ucActionMap[a.projectId];
+        if (!existing || new Date(a.completedAt) > new Date(existing)) {
+          ucActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
+        }
+      }
+    });
 
     const result: CalendarProject[] = [];
 
@@ -124,31 +172,79 @@ export default function InstallCalendar() {
           const diff = Math.round((new Date(p.installStartDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
           if (diff > 0) daysLate = diff;
         }
-        result.push({ id: p.id, name: p.name, expectedDate: p.installStartDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, daysLate });
+        result.push({ id: p.id, name: p.name, expectedDate: p.installStartDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, installTeamStage: p.installTeamStage, siteVisitStatus: p.siteVisitStatus, ucStatus: p.ucStatus, daysLate, reason: "scheduled" });
         continue;
       }
 
       let expectedDate: string;
+      let reason: string;
       const ahjDone = isAhjComplete(p.ahjStatus);
       const ucDone = isUcDone(p.ucStatus);
       const contractDone = isContractDone(p.installTeamStage);
       const svDone = isSvDone(p.siteVisitStatus);
 
       if (ahjDone) {
-        expectedDate = toDateStr(addDays(today, 7));
+        const ahjCompletionDate = ahjActionMap[p.id];
+        if (ahjCompletionDate) {
+          expectedDate = toDateStr(addDays(new Date(ahjCompletionDate), 7));
+        } else if (p.ahjDueDate) {
+          const ahjDue = new Date(p.ahjDueDate);
+          expectedDate = toDateStr(addDays(ahjDue < now ? now : ahjDue, 7));
+        } else {
+          expectedDate = toDateStr(addDays(now, 7));
+        }
+        reason = "ahj-complete";
       } else if (svDone) {
-        expectedDate = toDateStr(addDays(today, 21 + 7));
+        const svCompletionDate = svActionMap[p.id];
+        if (svCompletionDate) {
+          expectedDate = toDateStr(addDays(new Date(svCompletionDate), 21 + 7));
+        } else if (p.siteVisitDueDate) {
+          const svDue = new Date(p.siteVisitDueDate);
+          expectedDate = toDateStr(addDays(svDue < now ? now : svDue, 21 + 7));
+        } else {
+          expectedDate = toDateStr(addDays(now, 21 + 7));
+        }
+        reason = "sv-complete";
       } else if (contractDone) {
-        expectedDate = toDateStr(addDays(today, 7 + 21 + 7));
+        if (p.siteVisitDueDate) {
+          const svDue = new Date(p.siteVisitDueDate);
+          expectedDate = toDateStr(addDays(svDue < now ? now : svDue, 7 + 21 + 7));
+        } else if (p.contractDueDate) {
+          expectedDate = toDateStr(addDays(new Date(p.contractDueDate), 7 + 21 + 7));
+        } else {
+          expectedDate = toDateStr(addDays(now, 7 + 21 + 7));
+        }
+        reason = "contract-done";
       } else if (isContractSent(p.installTeamStage)) {
-        expectedDate = toDateStr(addDays(today, 7 + 7 + 21 + 7));
+        if (p.contractDueDate) {
+          const cDue = new Date(p.contractDueDate);
+          expectedDate = toDateStr(addDays(cDue < now ? now : cDue, 7 + 7 + 21 + 7));
+        } else {
+          expectedDate = toDateStr(addDays(now, 7 + 7 + 21 + 7));
+        }
+        reason = "contract-sent";
       } else if (ucDone) {
-        expectedDate = toDateStr(addDays(today, 7 + 7 + 21 + 7));
+        const ucCompletionDate = ucActionMap[p.id];
+        if (ucCompletionDate) {
+          expectedDate = toDateStr(addDays(new Date(ucCompletionDate), 7 + 7 + 21 + 7));
+        } else if (p.contractDueDate) {
+          const cDue = new Date(p.contractDueDate);
+          expectedDate = toDateStr(addDays(cDue < now ? now : cDue, 7 + 21 + 7));
+        } else {
+          expectedDate = p.installDueDate || toDateStr(addDays(now, 42));
+        }
+        reason = "uc-complete";
       } else {
         const ucDue = p.ucDueDate ? new Date(p.ucDueDate) : null;
-        const ucPastDue = ucDue && ucDue < today;
-        const ucBase = ucPastDue ? today : (ucDue || today);
-        expectedDate = toDateStr(addDays(ucBase, 7 + 7 + 21 + 7));
+        if (p.installDueDate) {
+          const installDue = new Date(p.installDueDate);
+          expectedDate = toDateStr(installDue < now ? addDays(now, 42) : installDue);
+        } else if (ucDue) {
+          expectedDate = toDateStr(addDays(ucDue < now ? now : ucDue, 42));
+        } else {
+          expectedDate = toDateStr(addDays(now, 56));
+        }
+        reason = "uc-pending";
       }
 
       const status = getInstallStatus(expectedDate, p.installDueDate);
@@ -157,7 +253,7 @@ export default function InstallCalendar() {
         const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
         if (diff > 0) daysLate = diff;
       }
-      result.push({ id: p.id, name: p.name, expectedDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, daysLate });
+      result.push({ id: p.id, name: p.name, expectedDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, installTeamStage: p.installTeamStage, siteVisitStatus: p.siteVisitStatus, ucStatus: p.ucStatus, daysLate, reason });
     }
 
     return result;
@@ -212,6 +308,8 @@ export default function InstallCalendar() {
 
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+  const selectedDayProjects = selectedDate ? (projectsByDate[selectedDate] || []) : [];
+
   if (projectsLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -237,27 +335,36 @@ export default function InstallCalendar() {
     calendarCells.push(
       <div
         key={day}
-        className={`min-h-[100px] border-r border-b border-border/50 p-1 ${
+        className={`min-h-[100px] border-r border-b border-border/50 p-1 cursor-pointer hover:bg-accent/30 transition-colors ${
           isToday ? "bg-primary/5" : isWeekend ? "bg-muted/30" : ""
         }`}
         data-testid={`cell-day-${dateStr}`}
+        onClick={() => dayProjects.length > 0 && setSelectedDate(dateStr)}
       >
-        <div className={`text-xs font-medium mb-1 ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}>
-          {day}
+        <div className="flex items-center justify-between mb-1">
+          <span className={`text-xs font-medium ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}>
+            {day}
+          </span>
+          {dayProjects.length > 0 && (
+            <span className="text-[9px] font-medium text-muted-foreground bg-muted rounded-full px-1.5">
+              {dayProjects.length}
+            </span>
+          )}
         </div>
         <div className="space-y-0.5">
           {dayProjects.slice(0, 3).map((p) => (
             <Tooltip key={p.id}>
               <TooltipTrigger asChild>
-                <Link href={`/project/${p.id}`}>
-                  <div
-                    className={`text-[10px] leading-tight px-1 py-0.5 rounded-sm truncate cursor-pointer hover:opacity-80 ${STATUS_STYLES[p.status]}`}
-                    data-testid={`event-project-${p.id}`}
-                  >
-                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${STATUS_DOT[p.status]}`} />
-                    {p.name}
-                  </div>
-                </Link>
+                <div
+                  className={`text-[10px] leading-tight px-1 py-0.5 rounded-sm truncate cursor-pointer hover:opacity-80 ${STATUS_STYLES[p.status]}`}
+                  data-testid={`event-project-${p.id}`}
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <Link href={`/project/${p.id}`} className="flex items-center">
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 flex-shrink-0 ${STATUS_DOT[p.status]}`} />
+                    <span className="truncate">{p.name}</span>
+                  </Link>
+                </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[280px]">
                 <div className="space-y-1">
@@ -270,6 +377,7 @@ export default function InstallCalendar() {
                   {p.daysLate && p.daysLate > 0 && (
                     <p className="text-xs text-red-600 dark:text-red-400 font-medium">{p.daysLate} days behind target</p>
                   )}
+                  <p className="text-xs">Stage: {getStageLabel(p.reason)}</p>
                   <p className="text-xs">AHJ: {p.ahjStatus || 'N/A'}</p>
                   <Badge className={`text-[10px] ${STATUS_STYLES[p.status]}`}>
                     {p.status === "on-track" ? "On Track" : p.status === "late" ? "Running Late" : "Overdue"}
@@ -279,9 +387,13 @@ export default function InstallCalendar() {
             </Tooltip>
           ))}
           {dayProjects.length > 3 && (
-            <div className="text-[10px] text-muted-foreground px-1">
+            <button
+              className="text-[10px] text-primary hover:underline px-1 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setSelectedDate(dateStr); }}
+              data-testid={`button-more-${dateStr}`}
+            >
               +{dayProjects.length - 3} more
-            </div>
+            </button>
           )}
         </div>
       </div>
@@ -329,7 +441,7 @@ export default function InstallCalendar() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Shows expected install dates based on actual stage completions. Projects are placed where they're realistically expected, not on their original target. Red = overdue, amber = behind target but upcoming.
+        Shows expected install dates based on actual stage completions and due dates. Projects are placed where they're realistically expected based on their current progress. Click any day to see the full list.
       </p>
 
       <Card>
@@ -381,6 +493,84 @@ export default function InstallCalendar() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
+        <DialogContent className="max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle data-testid="text-day-detail-title">
+              {selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({selectedDayProjects.length} project{selectedDayProjects.length !== 1 ? 's' : ''})
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 -mx-6 px-6 space-y-2">
+            {selectedDayProjects
+              .sort((a, b) => {
+                const order: Record<InstallStatus, number> = { "overdue": 0, "late": 1, "on-track": 2 };
+                return order[a.status] - order[b.status];
+              })
+              .map((p) => (
+              <div
+                key={p.id}
+                className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${
+                  p.status === 'overdue' ? 'border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/30' :
+                  p.status === 'late' ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30' :
+                  'border-border'
+                }`}
+                data-testid={`day-detail-project-${p.id}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[p.status]}`} />
+                    <Link href={`/project/${p.id}`}>
+                      <span className="text-sm font-medium hover:underline cursor-pointer truncate" data-testid={`link-day-project-${p.id}`}>
+                        {p.name}
+                      </span>
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 ml-4 flex-wrap">
+                    {p.province && (
+                      <span className="text-xs text-muted-foreground">{p.province}</span>
+                    )}
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      {getStageLabel(p.reason)}
+                    </Badge>
+                    {p.ahjStatus && (
+                      <span className="text-xs text-muted-foreground">AHJ: {p.ahjStatus}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 ml-4 flex-wrap">
+                    {p.ucStatus && (
+                      <span className="text-xs text-muted-foreground">UC: {p.ucStatus}</span>
+                    )}
+                    {p.installTeamStage && (
+                      <span className="text-xs text-muted-foreground">Contract: {p.installTeamStage}</span>
+                    )}
+                    {p.siteVisitStatus && (
+                      <span className="text-xs text-muted-foreground">SV: {p.siteVisitStatus}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <Badge className={`text-[10px] ${STATUS_STYLES[p.status]}`}>
+                    {p.status === "on-track" ? "On Track" : p.status === "late" ? "Late" : "Overdue"}
+                  </Badge>
+                  {p.daysLate && p.daysLate > 0 && (
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">{p.daysLate}d behind</span>
+                  )}
+                  {p.targetDate && (
+                    <span className="text-[10px] text-muted-foreground">Target: {new Date(p.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  )}
+                  <Link href={`/project/${p.id}`}>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
