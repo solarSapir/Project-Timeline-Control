@@ -25,11 +25,10 @@ export default function SiteVisitsView() {
   });
 
   const { data: siteVisitOptions } = useQuery<{ gid: string; name: string }[]>({
-    queryKey: ['/api/asana/field-options', 'siteVisitStatus'],
-    queryFn: () => fetch('/api/asana/field-options/siteVisitStatus').then(r => r.json()),
+    queryKey: ['/api/asana/field-options/siteVisitStatus'],
   });
 
-  const statusOptions = (siteVisitOptions || []).map(o => o.name);
+  const statusOptions = Array.isArray(siteVisitOptions) ? siteVisitOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'

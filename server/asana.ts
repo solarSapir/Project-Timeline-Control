@@ -73,7 +73,7 @@ export async function fetchAsanaTasksFromProject(projectGid: string) {
 
   do {
     const opts: any = {
-      opt_fields: 'name,gid,due_on,completed,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks',
+      opt_fields: 'name,gid,due_on,completed,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks',
       limit: 100,
     };
     if (offset) opts.offset = offset;
@@ -199,6 +199,7 @@ export function mapAsanaTaskToProject(task: any) {
     rebateStatus: extractCustomFieldValue(task, 'rebate'),
     contractStatus: extractCustomFieldValue(task, 'contract'),
     siteVisitStatus: extractCustomFieldValue(task, 'site visit'),
+    projectCreatedDate: task.created_at ? task.created_at.split('T')[0] : null,
     asanaCustomFields: task.custom_fields || [],
   };
 }

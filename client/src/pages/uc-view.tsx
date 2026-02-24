@@ -9,7 +9,46 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Clock, Search } from "lucide-react";
+import { AlertTriangle, Clock, Search, CalendarClock } from "lucide-react";
+
+function getDaysUntilDue(dueDate: string | null) {
+  if (!dueDate) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  const diff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function DueDateBadge({ dueDate, projectCreatedDate }: { dueDate: string | null; projectCreatedDate: string | null }) {
+  const daysLeft = getDaysUntilDue(dueDate);
+  if (daysLeft === null || !dueDate) return null;
+
+  const formattedDate = new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (daysLeft < 0) {
+    return (
+      <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid="badge-overdue">
+        <CalendarClock className="h-3 w-3" />
+        {Math.abs(daysLeft)}d overdue ({formattedDate})
+      </Badge>
+    );
+  }
+  if (daysLeft <= 5) {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs flex items-center gap-1" data-testid="badge-due-soon">
+        <CalendarClock className="h-3 w-3" />
+        Due in {daysLeft}d ({formattedDate})
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-xs flex items-center gap-1" data-testid="badge-due-date">
+      <CalendarClock className="h-3 w-3" />
+      Due {formattedDate}
+    </Badge>
+  );
+}
 
 export default function UCView() {
   const [filter, setFilter] = useState("all");
@@ -21,11 +60,10 @@ export default function UCView() {
   });
 
   const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({
-    queryKey: ['/api/asana/field-options', 'ucStatus'],
-    queryFn: () => fetch('/api/asana/field-options/ucStatus').then(r => r.json()),
+    queryKey: ['/api/asana/field-options/ucStatus'],
   });
 
-  const statusOptions = (ucOptions || []).map(o => o.name);
+  const statusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
@@ -57,21 +95,31 @@ export default function UCView() {
   }
 
   const completedStatuses = statusOptions.filter(s =>
-    s.toLowerCase().includes('approved') || s.toLowerCase().includes('complete') || s.toLowerCase().includes('not required')
+    s.toLowerCase().includes('approved') || s.toLowerCase().includes('complete') || s.toLowerCase().includes('not required') || s.toLowerCase().includes('closed')
   );
 
   const actionNeeded = filtered.filter(p =>
-    !completedStatuses.includes(p.ucStatus || '') && p.ucStatus !== 'Closed'
+    !completedStatuses.includes(p.ucStatus || '')
   );
   const completed = filtered.filter(p =>
-    completedStatuses.includes(p.ucStatus || '') || p.ucStatus === 'Closed'
+    completedStatuses.includes(p.ucStatus || '')
   );
+
+  const overdueCount = actionNeeded.filter(p => {
+    const days = getDaysUntilDue(p.ucDueDate);
+    return days !== null && days < 0;
+  }).length;
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-semibold" data-testid="text-uc-title">UC Applications</h1>
-        <Badge variant="outline" data-testid="badge-action-count">{actionNeeded.length} need action</Badge>
+        <div className="flex gap-2">
+          {overdueCount > 0 && (
+            <Badge variant="destructive" data-testid="badge-overdue-count">{overdueCount} overdue</Badge>
+          )}
+          <Badge variant="outline" data-testid="badge-action-count">{actionNeeded.length} need action</Badge>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -103,13 +151,27 @@ export default function UCView() {
           <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
             <AlertTriangle className="h-4 w-4" /> Action Required ({actionNeeded.length})
           </h2>
-          {actionNeeded.map((p: any) => (
-            <Card key={p.id} data-testid={`card-project-${p.id}`}>
+          {actionNeeded
+            .sort((a: any, b: any) => {
+              const aDays = getDaysUntilDue(a.ucDueDate);
+              const bDays = getDaysUntilDue(b.ucDueDate);
+              if (aDays === null) return 1;
+              if (bDays === null) return -1;
+              return aDays - bDays;
+            })
+            .map((p: any) => (
+            <Card key={p.id} className={getDaysUntilDue(p.ucDueDate) !== null && getDaysUntilDue(p.ucDueDate)! < 0 ? "border-red-300 dark:border-red-800" : ""} data-testid={`card-project-${p.id}`}>
               <CardContent className="py-3 px-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-[200px]">
                     <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{p.province || 'No province'} - {p.asanaDueDate || 'No due date'}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
+                      {p.projectCreatedDate && (
+                        <span className="text-xs text-muted-foreground">Created: {new Date(p.projectCreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      )}
+                      <DueDateBadge dueDate={p.ucDueDate} projectCreatedDate={p.projectCreatedDate} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />

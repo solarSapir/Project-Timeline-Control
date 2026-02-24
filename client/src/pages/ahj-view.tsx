@@ -22,11 +22,10 @@ export default function AHJView() {
   });
 
   const { data: ahjOptions } = useQuery<{ gid: string; name: string }[]>({
-    queryKey: ['/api/asana/field-options', 'ahjStatus'],
-    queryFn: () => fetch('/api/asana/field-options/ahjStatus').then(r => r.json()),
+    queryKey: ['/api/asana/field-options/ahjStatus'],
   });
 
-  const statusOptions = (ahjOptions || []).map(o => o.name);
+  const statusOptions = Array.isArray(ahjOptions) ? ahjOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'

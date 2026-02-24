@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions } from "./asana";
-import { addWeeks, format } from "date-fns";
+import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 
 export async function registerRoutes(
@@ -35,12 +35,23 @@ export async function registerRoutes(
 
       for (const task of tasks) {
         if (!task.name || task.name.trim() === '') continue;
-        const mapped = mapAsanaTaskToProject(task);
+        const mapped: any = mapAsanaTaskToProject(task);
+
+        if (mapped.projectCreatedDate) {
+          const createdDate = new Date(mapped.projectCreatedDate);
+          mapped.ucDueDate = format(addDays(createdDate, 21), 'yyyy-MM-dd');
+          mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
+          mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
+          mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
+          mapped.installDueDate = format(addDays(createdDate, 70), 'yyyy-MM-dd');
+          mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
+        }
+
         const project = await storage.upsertProject(mapped);
 
         const existingDeadlines = await storage.getProjectDeadlines(project.id);
         if (existingDeadlines.length === 0) {
-          const baseDate = new Date();
+          const baseDate = mapped.projectCreatedDate ? new Date(mapped.projectCreatedDate) : new Date();
           for (const stage of PROJECT_STAGES) {
             const config = DEFAULT_DEADLINES_WEEKS[stage];
             if (config) {

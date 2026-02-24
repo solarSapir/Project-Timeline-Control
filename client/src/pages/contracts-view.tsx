@@ -22,11 +22,10 @@ export default function ContractsView() {
   });
 
   const { data: contractorOptions } = useQuery<{ gid: string; name: string }[]>({
-    queryKey: ['/api/asana/field-options', 'contractStatus'],
-    queryFn: () => fetch('/api/asana/field-options/contractStatus').then(r => r.json()),
+    queryKey: ['/api/asana/field-options/contractStatus'],
   });
 
-  const contractOptions = (contractorOptions || []).map(o => o.name);
+  const contractOptions = Array.isArray(contractorOptions) ? contractorOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
