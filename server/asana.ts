@@ -322,7 +322,7 @@ export async function uploadAttachmentToTask(taskGid: string, fileBuffer: Buffer
   const footerBuffer = Buffer.from(footer, 'utf-8');
   const body = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
 
-  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments`, {
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments?opt_fields=name,gid,download_url,view_url,permanent_url,host`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,

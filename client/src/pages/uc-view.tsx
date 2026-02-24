@@ -181,17 +181,13 @@ function HydroInfoSection({ project }: { project: any }) {
           <Zap className="h-3 w-3" /> Hydro Bill Info
         </p>
         <div className="flex items-center gap-1">
-          {!hasFile && (
-            <>
-              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} data-testid={`input-hydro-upload-${project.id}`} />
-              <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5 gap-1" onClick={() => fileInputRef.current?.click()}
-                disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
-                {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {uploadMutation.isPending ? 'Scanning...' : 'Upload & Scan'}
-              </Button>
-            </>
-          )}
+          <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} data-testid={`input-hydro-upload-${project.id}`} />
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5 gap-1" onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
+            {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+            {uploadMutation.isPending ? 'Scanning...' : hasFile ? 'Re-upload' : 'Upload & Scan'}
+          </Button>
           <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5" onClick={() => {
             setHydroCompany(project.hydroCompanyName || utilityFromAsana || '');
             setHydroAccount(project.hydroAccountNumber || '');
@@ -202,7 +198,7 @@ function HydroInfoSection({ project }: { project: any }) {
           </Button>
         </div>
       </div>
-      <div className="flex items-center gap-3 mt-1 text-[11px]">
+      <div className="flex flex-wrap items-center gap-3 mt-1 text-[11px]">
         {project.hydroCompanyName && (
           <span className="flex items-center gap-1"><Building2 className="h-3 w-3 text-muted-foreground" /> {project.hydroCompanyName}</span>
         )}
@@ -212,9 +208,16 @@ function HydroInfoSection({ project }: { project: any }) {
         {project.hydroCustomerName && (
           <span className="flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" /> {project.hydroCustomerName}</span>
         )}
-        {hasFile && (
+        {hasFile && project.hydroBillUrl !== 'uploaded' && (
+          <a href={project.hydroBillUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-green-600 dark:text-green-400 hover:underline cursor-pointer"
+            data-testid={`link-hydro-view-${project.id}`}>
+            <FileText className="h-3 w-3" /> View Bill
+          </a>
+        )}
+        {hasFile && project.hydroBillUrl === 'uploaded' && (
           <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-            <FileText className="h-3 w-3" /> Bill uploaded
+            <FileText className="h-3 w-3" /> Bill on Asana
           </span>
         )}
       </div>
@@ -630,7 +633,7 @@ function ExpandedProjectView({ project, statusOptions, onStatusChange }: {
               </div>
             )}
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 pt-1">
               {isSubmitted && <FollowUpDialog project={project} />}
               <Link href={`/project/${project.id}`}>
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-profile-${project.id}`}>

@@ -585,24 +585,22 @@ export async function registerRoutes(
 
           const base64 = req.file.buffer.toString('base64');
           const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+          console.log(`Starting AI extraction for ${project.name}, image size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
 
           const aiResponse = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
               {
-                role: "system",
-                content: "You are an expert at reading utility/hydro bills. Extract the following fields from the bill image. Return ONLY a JSON object with these exact keys: hydroCompanyName (the utility/hydro company name), hydroAccountNumber (the customer account number), hydroCustomerName (the full customer name exactly as it appears on the bill). If you cannot find a field, set its value to null. Do not include any explanation, just the JSON."
-              },
-              {
                 role: "user",
                 content: [
-                  { type: "text", text: "Extract the hydro company name, account number, and customer name from this utility bill." },
-                  { type: "image_url", image_url: { url: dataUrl } }
+                  { type: "text", text: "You are an expert at reading utility/hydro bills. Look at this bill image carefully and extract these three fields:\n1. The utility/hydro company name (e.g. Toronto Hydro, Alectra, Hydro One)\n2. The customer account number\n3. The full customer name exactly as it appears on the bill\n\nReturn ONLY a JSON object with these exact keys: hydroCompanyName, hydroAccountNumber, hydroCustomerName. If you cannot find a field, set its value to null. No explanation, just the JSON." },
+                  { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
                 ]
               }
             ],
             max_tokens: 500,
           });
+          console.log(`AI response for ${project.name}:`, aiResponse.choices[0]?.message?.content);
 
           const content = aiResponse.choices[0]?.message?.content || '';
           const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -616,12 +614,18 @@ export async function registerRoutes(
             console.log(`AI extracted hydro bill info for ${project.name}:`, extracted);
           }
         } catch (aiErr: any) {
-          console.error("AI extraction failed (non-blocking):", aiErr.message);
+          console.error("AI extraction failed (non-blocking):", aiErr.message, aiErr.status, aiErr.code);
+          if (aiErr.response) {
+            console.error("AI error response:", JSON.stringify(aiErr.response?.data || aiErr.response));
+          }
         }
       }
 
+      const attachmentData = result.data || result;
+      const viewUrl = attachmentData.view_url || attachmentData.download_url || attachmentData.permanent_url || 'uploaded';
+
       const updated = await storage.updateProject(req.params.id, {
-        hydroBillUrl: result.view_url || result.download_url || 'uploaded',
+        hydroBillUrl: viewUrl,
         ...extracted,
       });
 
