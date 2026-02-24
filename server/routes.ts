@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions, createSubtaskForTask } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions, createSubtaskForTask, fetchTaskAttachments, completeAsanaTask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
@@ -301,6 +301,24 @@ export async function registerRoutes(
         }
       }
 
+      const newUcStatus = (req.body.ucStatus || '').toLowerCase();
+      const oldUcStatus = ((project as any).ucStatus || '').toLowerCase();
+      const ucClosedStatuses = ['closed', 'close off'];
+      if (newUcStatus && ucClosedStatuses.some(s => newUcStatus.includes(s)) && !ucClosedStatuses.some(s => oldUcStatus.includes(s))) {
+        try {
+          const allSubtasks = await fetchSubtasksForTask(project.asanaGid!);
+          const ucSubtasks = allSubtasks.filter((st: any) =>
+            st.name?.toLowerCase().includes('tasks for uc team') && !st.completed
+          );
+          for (const st of ucSubtasks) {
+            await completeAsanaTask(st.gid);
+          }
+          console.log(`Auto-completed ${ucSubtasks.length} UC subtasks for ${project.name} (UC status → ${req.body.ucStatus})`);
+        } catch (err: any) {
+          console.log(`Could not auto-complete UC subtasks for ${project.name}: ${err.message}`);
+        }
+      }
+
       const updated = await storage.updateProject(req.params.id, req.body);
       res.json(updated);
     } catch (error: any) {
@@ -407,6 +425,95 @@ export async function registerRoutes(
       if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
       const stories = await fetchTaskStories(project.asanaGid);
       res.json(stories);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/projects/:id/uc-subtasks", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+      const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
+      const ucSubtasks = allSubtasks.filter((st: any) =>
+        st.name?.toLowerCase().includes('tasks for uc team')
+      );
+      ucSubtasks.sort((a: any, b: any) => {
+        const aDate = a.name?.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
+        const bDate = b.name?.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
+        if (aDate && bDate) {
+          return new Date(bDate).getTime() - new Date(aDate).getTime();
+        }
+        return 0;
+      });
+      res.json(ucSubtasks);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/subtasks/:gid/stories", async (req, res) => {
+    try {
+      const stories = await fetchTaskStories(req.params.gid);
+      const comments = stories.filter((s: any) =>
+        s.resource_subtype === 'comment_added' || s.type === 'comment'
+      );
+      comments.sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      res.json(comments);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/subtasks/:gid/attachments", async (req, res) => {
+    try {
+      const attachments = await fetchTaskAttachments(req.params.gid);
+      res.json(attachments);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/subtasks/:gid/comment", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ message: "Comment text is required" });
+      const result = await postCommentToTask(req.params.gid, text);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/subtasks/:gid/attachment", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: "File is required" });
+      const result = await uploadAttachmentToTask(
+        req.params.gid,
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/projects/:id/complete-uc-subtasks", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+      const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
+      const ucSubtasks = allSubtasks.filter((st: any) =>
+        st.name?.toLowerCase().includes('tasks for uc team') && !st.completed
+      );
+      for (const st of ucSubtasks) {
+        await completeAsanaTask(st.gid);
+      }
+      res.json({ message: `Completed ${ucSubtasks.length} UC subtasks` });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

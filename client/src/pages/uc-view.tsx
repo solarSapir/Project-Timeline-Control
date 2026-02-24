@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, CheckCircle2, Clock, Search, CalendarClock, Upload, MessageSquare, User } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Search, CalendarClock, Upload, MessageSquare, User, ChevronDown, ChevronRight, FileText, Paperclip, Send, ExternalLink, Loader2, X } from "lucide-react";
 import { Link } from "wouter";
 
 function getDaysUntilDue(dueDate: string | null) {
@@ -227,9 +227,240 @@ function FollowUpDialog({ project }: { project: any }) {
   );
 }
 
+function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid: string; subtaskName: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const [commentText, setCommentText] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: stories = [], isLoading: storiesLoading, refetch: refetchStories } = useQuery<any[]>({
+    queryKey: ['/api/subtasks', subtaskGid, 'stories'],
+  });
+
+  const { data: attachments = [], isLoading: attachmentsLoading, refetch: refetchAttachments } = useQuery<any[]>({
+    queryKey: ['/api/subtasks', subtaskGid, 'attachments'],
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const res = await apiRequest("POST", `/api/subtasks/${subtaskGid}/comment`, { text });
+      return res.json();
+    },
+    onSuccess: () => {
+      setCommentText("");
+      refetchStories();
+      toast({ title: "Comment posted to Asana" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error posting comment", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/subtasks/${subtaskGid}/attachment`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to upload');
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchAttachments();
+      toast({ title: "File uploaded to Asana" });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    onError: (err: any) => {
+      toast({ title: "Error uploading file", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const handleComment = () => {
+    if (!commentText.trim()) return;
+    commentMutation.mutate(commentText.trim());
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadMutation.mutate(file);
+  };
+
+  return (
+    <div className="border rounded-lg bg-card mt-2" data-testid={`subtask-detail-${subtaskGid}`}>
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/50">
+        <h4 className="text-sm font-medium truncate flex-1">{subtaskName}</h4>
+        <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-subtask">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+        <div>
+          <h5 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+            <Paperclip className="h-3 w-3" /> Attachments ({attachments.length})
+          </h5>
+          {attachmentsLoading ? (
+            <Skeleton className="h-8" />
+          ) : attachments.length > 0 ? (
+            <div className="space-y-1">
+              {attachments.map((att: any) => (
+                <a
+                  key={att.gid}
+                  href={att.view_url || att.download_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs p-2 rounded hover:bg-muted transition-colors group"
+                  data-testid={`attachment-${att.gid}`}
+                >
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 truncate text-primary group-hover:underline">{att.name}</span>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No attachments</p>
+          )}
+          <div className="mt-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileUpload}
+              data-testid="input-upload-file"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs h-7"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending}
+              data-testid="button-upload-file"
+            >
+              {uploadMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+              Upload File
+            </Button>
+          </div>
+        </div>
+
+        <div className="border-t pt-3">
+          <h5 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" /> Comments ({stories.length})
+          </h5>
+
+          <div className="flex gap-2 mb-3">
+            <Textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Leave a note..."
+              className="text-xs min-h-[60px]"
+              data-testid="input-comment"
+            />
+            <Button
+              size="sm"
+              className="self-end h-8"
+              onClick={handleComment}
+              disabled={commentMutation.isPending || !commentText.trim()}
+              data-testid="button-send-comment"
+            >
+              {commentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            </Button>
+          </div>
+
+          {storiesLoading ? (
+            <div className="space-y-2">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}
+            </div>
+          ) : stories.length > 0 ? (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {stories.map((story: any) => (
+                <div key={story.gid} className="p-2 rounded bg-muted/30 border text-xs" data-testid={`comment-${story.gid}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium">{story.created_by?.name || 'Unknown'}</span>
+                    <span className="text-muted-foreground">
+                      {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-foreground/80">{story.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No comments yet</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubtaskPanel({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [openSubtaskGid, setOpenSubtaskGid] = useState<string | null>(null);
+
+  const { data: subtasks = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/projects', projectId, 'uc-subtasks'],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mt-3 pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-2">
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8" />
+      </div>
+    );
+  }
+
+  if (subtasks.length === 0) {
+    return (
+      <div className="mt-3 pl-4 border-l-2 border-blue-200 dark:border-blue-800">
+        <p className="text-xs text-muted-foreground py-2">No UC subtasks found for this project.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-1" data-testid={`subtask-panel-${projectId}`}>
+      <p className="text-xs font-medium text-muted-foreground mb-1">UC Subtasks ({subtasks.length})</p>
+      {subtasks.map((st: any) => (
+        <div key={st.gid}>
+          <button
+            onClick={() => setOpenSubtaskGid(openSubtaskGid === st.gid ? null : st.gid)}
+            className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded text-xs hover:bg-muted/50 transition-colors ${
+              st.completed ? 'opacity-50' : ''
+            } ${openSubtaskGid === st.gid ? 'bg-muted' : ''}`}
+            data-testid={`button-subtask-${st.gid}`}
+          >
+            {openSubtaskGid === st.gid ? (
+              <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+            )}
+            {st.completed ? (
+              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+            ) : (
+              <Clock className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+            )}
+            <span className="flex-1 truncate font-medium">{st.name}</span>
+            {st.completed && <Badge variant="outline" className="text-[10px] bg-green-50 dark:bg-green-950">Complete</Badge>}
+          </button>
+          {openSubtaskGid === st.gid && (
+            <SubtaskDetail
+              subtaskGid={st.gid}
+              subtaskName={st.name}
+              onClose={() => setOpenSubtaskGid(null)}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function UCView() {
   const [filter, setFilter] = useState("needs_action");
   const [search, setSearch] = useState("");
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
@@ -271,6 +502,10 @@ export default function UCView() {
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+
+  const toggleExpanded = (projectId: string) => {
+    setExpandedProjectId(expandedProjectId === projectId ? null : projectId);
   };
 
   if (isLoading) {
@@ -378,6 +613,7 @@ export default function UCView() {
               const isSubmitted = p.ucStatus?.toLowerCase() === 'submitted';
               const submittedDays = daysSince(p.ucSubmittedDate);
               const needsFollowUp = isSubmitted && submittedDays !== null && submittedDays >= 7;
+              const isExpanded = expandedProjectId === p.id;
               return (
                 <Card
                   key={p.id}
@@ -388,7 +624,17 @@ export default function UCView() {
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex-1 min-w-[200px]">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
+                          <button
+                            onClick={() => toggleExpanded(p.id)}
+                            className="flex items-center gap-1 font-medium hover:underline cursor-pointer text-primary text-left"
+                            data-testid={`button-expand-${p.id}`}
+                          >
+                            {isExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                            {p.name}
+                          </button>
+                          <Link href={`/project/${p.id}`} className="text-xs text-muted-foreground hover:text-primary hover:underline" data-testid={`link-profile-${p.id}`}>
+                            Profile →
+                          </Link>
                           <UcTeamBadge ucTeam={p.ucTeam} />
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -413,9 +659,12 @@ export default function UCView() {
                           </SelectContent>
                         </Select>
                         {isSubmitted && <FollowUpDialog project={p} />}
-                        {!completed && <TaskActionDialog projectId={p.id} projectName={p.name} viewType="uc" />}
                       </div>
                     </div>
+
+                    {isExpanded && (
+                      <SubtaskPanel projectId={p.id} projectName={p.name} />
+                    )}
                   </CardContent>
                 </Card>
               );

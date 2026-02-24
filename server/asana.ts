@@ -381,6 +381,32 @@ export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; s
   return { gid: hrsp.gid, name: hrsp.name, status };
 }
 
+export async function fetchTaskAttachments(taskGid: string): Promise<any[]> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments?opt_fields=name,gid,download_url,view_url,host,created_at,size,resource_type`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data?.data || [];
+}
+
+export async function completeAsanaTask(taskGid: string): Promise<void> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: { completed: true } }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to complete task: ${res.status} ${errBody}`);
+  }
+}
+
 function extractUcTeamValue(task: any): string | null {
   if (!task.custom_fields) return null;
   const field = task.custom_fields.find((f: any) => {
