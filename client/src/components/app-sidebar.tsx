@@ -15,6 +15,8 @@ import {
   Clock,
   CalendarDays,
   List,
+  Settings,
+  PanelLeftClose,
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,6 +29,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -52,13 +55,14 @@ const viewNav = [
 ];
 
 const settingsNav = [
-  { title: "Asana Sync", url: "/sync", icon: RefreshCw },
+  { title: "Settings", url: "/sync", icon: Settings },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
+  const { toggleSidebar } = useSidebar();
 
   const { data: syncStatus } = useQuery<{ lastSyncTime: string | null }>({
     queryKey: ['/api/asana/sync-status'],
@@ -91,16 +95,27 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2.5">
-          <img
-            src={logoIcon}
-            alt="Solar Power Store"
-            className="h-8 w-8 flex-shrink-0"
-          />
-          <div>
-            <h2 className="text-sm font-bold text-sidebar-accent-foreground" data-testid="text-app-title">Solar PM</h2>
-            <p className="text-[10px] text-sidebar-foreground/60">Project Tracker</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <img
+              src={logoIcon}
+              alt="Solar Power Store"
+              className="h-8 w-8 flex-shrink-0"
+            />
+            <div>
+              <h2 className="text-sm font-bold text-sidebar-accent-foreground" data-testid="text-app-title">Solar PM</h2>
+              <p className="text-[10px] text-sidebar-foreground/60">Project Tracker</p>
+            </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            onClick={toggleSidebar}
+            data-testid="button-collapse-sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
         </div>
       </SidebarHeader>
       <SidebarContent>
