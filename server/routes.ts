@@ -450,6 +450,87 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/projects/:id/contract-documents", upload.fields([
+    { name: 'contract', maxCount: 1 },
+    { name: 'proposal', maxCount: 1 },
+    { name: 'sitePlan', maxCount: 1 },
+  ]), async (req, res) => {
+    try {
+      const projectId = req.params.id as string;
+      const project = await storage.getProject(projectId);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+      const { uploadedBy, notes } = req.body;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const results: { type: string; fileName: string }[] = [];
+
+      if (files?.contract?.[0]) {
+        const file = files.contract[0];
+        await uploadAttachmentToTask(project.asanaGid, file.buffer, `CONTRACT - ${file.originalname}`, file.mimetype);
+        results.push({ type: 'Contract', fileName: file.originalname });
+      }
+      if (files?.proposal?.[0]) {
+        const file = files.proposal[0];
+        await uploadAttachmentToTask(project.asanaGid, file.buffer, `PROPOSAL - ${file.originalname}`, file.mimetype);
+        results.push({ type: 'Proposal', fileName: file.originalname });
+      }
+      if (files?.sitePlan?.[0]) {
+        const file = files.sitePlan[0];
+        await uploadAttachmentToTask(project.asanaGid, file.buffer, `SITE PLAN - ${file.originalname}`, file.mimetype);
+        results.push({ type: 'Site Plan', fileName: file.originalname });
+      }
+
+      const commentParts = [`Contract documents uploaded by ${uploadedBy || 'Team'}:`];
+      for (const r of results) {
+        commentParts.push(`- ${r.type}: ${r.fileName}`);
+      }
+      if (notes) commentParts.push(`\nNotes: ${notes}`);
+      commentParts.push('\nStatus: PENDING REVIEW');
+
+      await postCommentToTask(project.asanaGid, commentParts.join('\n'));
+
+      const action = await storage.createTaskAction({
+        projectId: projectId,
+        viewType: 'contracts',
+        actionType: 'document_upload',
+        completedBy: uploadedBy || null,
+        notes: `Uploaded: ${results.map(r => r.type).join(', ')}${notes ? ` | Notes: ${notes}` : ''}`,
+        followUpDate: null,
+      });
+
+      res.json({ success: true, action, uploaded: results, message: `${results.length} document(s) uploaded to Asana` });
+    } catch (error: any) {
+      console.error("Contract documents upload error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/projects/:id/contract-approve", async (req, res) => {
+    try {
+      const projectId = req.params.id as string;
+      const project = await storage.getProject(projectId);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+      const { approvedBy, notes } = req.body;
+      const commentText = `CONTRACT APPROVED by ${approvedBy || 'Manager'}\n${notes ? `Notes: ${notes}` : 'Ready to send via DocuSign.'}`;
+      await postCommentToTask(project.asanaGid, commentText);
+
+      const action = await storage.createTaskAction({
+        projectId: projectId,
+        viewType: 'contracts',
+        actionType: 'contract_approved',
+        completedBy: approvedBy || null,
+        notes: notes || 'Contract approved for sending',
+        followUpDate: null,
+      });
+
+      res.json({ success: true, action, message: "Contract approved and posted to Asana" });
+    } catch (error: any) {
+      console.error("Contract approve error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/projects/:id/site-visit-photos", upload.array('photos', 10), async (req, res) => {
     try {
       const projectId = req.params.id as string;

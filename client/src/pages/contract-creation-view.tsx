@@ -12,7 +12,7 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, FileText, CalendarClock, CheckCircle2, Clock, AlertTriangle, DollarSign, MessageSquare, Upload, Send } from "lucide-react";
+import { Search, FileText, FileCheck, Map, CalendarClock, CheckCircle2, Clock, AlertTriangle, DollarSign, MessageSquare, Upload, Send, ShieldCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function getDaysUntilDue(dueDate: string | null) {
@@ -278,6 +278,260 @@ function ContractFollowUpDialog({ project, lastFollowUp }: { project: any; lastF
   );
 }
 
+function ContractDocumentsDialog({ project, hasDocUpload }: { project: any; hasDocUpload: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [uploadedBy, setUploadedBy] = useState("");
+  const [notes, setNotes] = useState("");
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [proposalFile, setProposalFile] = useState<File | null>(null);
+  const [sitePlanFile, setSitePlanFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async () => {
+    if (!uploadedBy.trim()) {
+      toast({ title: "Please enter your name", variant: "destructive" });
+      return;
+    }
+    if (!contractFile && !proposalFile && !sitePlanFile) {
+      toast({ title: "Please select at least one document to upload", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('uploadedBy', uploadedBy);
+      formData.append('notes', notes);
+      if (contractFile) formData.append('contract', contractFile);
+      if (proposalFile) formData.append('proposal', proposalFile);
+      if (sitePlanFile) formData.append('sitePlan', sitePlanFile);
+
+      const res = await fetch(`/api/projects/${project.id}/contract-documents`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to upload documents');
+      }
+
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
+      toast({ title: `${result.uploaded.length} document(s) uploaded`, description: 'Documents added to Asana — pending review' });
+      setOpen(false);
+      setUploadedBy("");
+      setNotes("");
+      setContractFile(null);
+      setProposalFile(null);
+      setSitePlanFile(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant={hasDocUpload ? "outline" : "default"} className="h-8 text-xs w-full" data-testid={`button-upload-docs-${project.id}`}>
+          <Upload className="h-3 w-3 mr-1" />
+          {hasDocUpload ? "Re-upload Documents" : "Upload Contract Documents"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Upload Contract Documents - {project.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Upload the contract, proposal, and site plan for review. All files will be attached to the Asana task with clear labels. Once uploaded, the contract will be reviewed and approved before sending via DocuSign.
+          </p>
+          <div>
+            <Label htmlFor="docUploadedBy">Your Name</Label>
+            <Input
+              id="docUploadedBy"
+              value={uploadedBy}
+              onChange={(e) => setUploadedBy(e.target.value)}
+              placeholder="Enter your name"
+              data-testid="input-doc-uploaded-by"
+            />
+          </div>
+          <div className="space-y-3 border rounded-md p-3 bg-muted/30">
+            <div>
+              <Label htmlFor="contractFile" className="flex items-center gap-1 text-sm font-medium">
+                <FileText className="h-4 w-4" />
+                Contract (Word document)
+              </Label>
+              <Input
+                id="contractFile"
+                type="file"
+                accept=".doc,.docx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                className="mt-1"
+                data-testid="input-contract-file"
+              />
+              {contractFile && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" /> {contractFile.name} ({(contractFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="proposalFile" className="flex items-center gap-1 text-sm font-medium">
+                <FileCheck className="h-4 w-4" />
+                Proposal Used
+              </Label>
+              <Input
+                id="proposalFile"
+                type="file"
+                accept=".doc,.docx,.pdf,.xls,.xlsx,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+                onChange={(e) => setProposalFile(e.target.files?.[0] || null)}
+                className="mt-1"
+                data-testid="input-proposal-file"
+              />
+              {proposalFile && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" /> {proposalFile.name} ({(proposalFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="sitePlanFile" className="flex items-center gap-1 text-sm font-medium">
+                <Map className="h-4 w-4" />
+                Latest Site Plan
+              </Label>
+              <Input
+                id="sitePlanFile"
+                type="file"
+                accept=".pdf,.dwg,.dxf,image/*,application/pdf"
+                onChange={(e) => setSitePlanFile(e.target.files?.[0] || null)}
+                className="mt-1"
+                data-testid="input-site-plan-file"
+              />
+              {sitePlanFile && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-600" /> {sitePlanFile.name} ({(sitePlanFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="docNotes">Notes (optional)</Label>
+            <Textarea
+              id="docNotes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any notes about the contract, changes made, or things to review..."
+              data-testid="input-doc-notes"
+            />
+          </div>
+          <Button
+            className="w-full"
+            onClick={handleSubmit}
+            disabled={submitting}
+            data-testid="button-submit-docs"
+          >
+            {submitting ? "Uploading to Asana..." : "Upload Documents for Review"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ContractApproveDialog({ project, hasDocUpload, isApproved }: { project: any; hasDocUpload: boolean; isApproved: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [approvedBy, setApprovedBy] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  if (!hasDocUpload || isApproved) return null;
+
+  const handleSubmit = async () => {
+    if (!approvedBy.trim()) {
+      toast({ title: "Please enter your name", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/contract-approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvedBy, notes }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to approve contract');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
+      toast({ title: "Contract approved", description: "Approval posted to Asana — ready to send via DocuSign" });
+      setOpen(false);
+      setApprovedBy("");
+      setNotes("");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="default" className="h-8 text-xs w-full bg-green-600 hover:bg-green-700" data-testid={`button-approve-contract-${project.id}`}>
+          <ShieldCheck className="h-3 w-3 mr-1" />
+          Approve Contract
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Approve Contract - {project.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Confirm you have reviewed the contract, proposal, and site plan. This will post an approval comment to the Asana task.
+          </p>
+          <div>
+            <Label htmlFor="approvedBy">Your Name</Label>
+            <Input
+              id="approvedBy"
+              value={approvedBy}
+              onChange={(e) => setApprovedBy(e.target.value)}
+              placeholder="Enter your name"
+              data-testid="input-approve-name"
+            />
+          </div>
+          <div>
+            <Label htmlFor="approveNotes">Review Notes (optional)</Label>
+            <Textarea
+              id="approveNotes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any notes or conditions for the contract..."
+              data-testid="input-approve-notes"
+            />
+          </div>
+          <Button
+            className="w-full bg-green-600 hover:bg-green-700"
+            onClick={handleSubmit}
+            disabled={submitting}
+            data-testid="button-submit-approve"
+          >
+            {submitting ? "Posting Approval to Asana..." : "Approve & Post to Asana"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ContractCreationView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("needs_contract");
@@ -296,6 +550,32 @@ export default function ContractCreationView() {
     if (!taskActions) return null;
     const actions = taskActions
       .filter((a: any) => a.projectId === projectId && a.viewType === 'contracts' && a.actionType === 'follow_up')
+      .sort((a: any, b: any) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
+    return actions[0] || null;
+  };
+
+  const hasDocUpload = (projectId: string) => {
+    if (!taskActions) return false;
+    return taskActions.some((a: any) => a.projectId === projectId && a.actionType === 'document_upload');
+  };
+
+  const getDocUpload = (projectId: string) => {
+    if (!taskActions) return null;
+    const actions = taskActions
+      .filter((a: any) => a.projectId === projectId && a.actionType === 'document_upload')
+      .sort((a: any, b: any) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
+    return actions[0] || null;
+  };
+
+  const isContractApproved = (projectId: string) => {
+    if (!taskActions) return false;
+    return taskActions.some((a: any) => a.projectId === projectId && a.actionType === 'contract_approved');
+  };
+
+  const getContractApproval = (projectId: string) => {
+    if (!taskActions) return null;
+    const actions = taskActions
+      .filter((a: any) => a.projectId === projectId && a.actionType === 'contract_approved')
       .sort((a: any, b: any) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
     return actions[0] || null;
   };
@@ -523,6 +803,10 @@ export default function ContractCreationView() {
             const isOverdue = !sent && daysLeft !== null && daysLeft < 0;
             const allDone = signed && depositDone;
             const lastFollowUp = getLastContractFollowUp(p.id);
+            const docUploaded = hasDocUpload(p.id);
+            const docUploadAction = getDocUpload(p.id);
+            const approved = isContractApproved(p.id);
+            const approvalAction = getContractApproval(p.id);
 
             return (
               <Card
@@ -583,7 +867,36 @@ export default function ContractCreationView() {
                         <ContractFollowUpDialog project={p} lastFollowUp={lastFollowUp} />
                       </div>
                     </div>
-                    <div className="flex flex-col gap-3 min-w-[220px]">
+                    <div className="flex flex-col gap-3 min-w-[240px]">
+                      <div className="border rounded-md p-2 bg-muted/20 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          <Upload className="h-3 w-3" /> Documents for Review
+                        </p>
+                        {docUploaded && docUploadAction && (
+                          <div className="text-xs space-y-1">
+                            <Badge className={`text-xs ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`} data-testid={`badge-doc-status-${p.id}`}>
+                              {approved ? (
+                                <><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>
+                              ) : (
+                                <><Clock className="h-3 w-3 mr-1" /> Pending Review</>
+                              )}
+                            </Badge>
+                            <p className="text-muted-foreground">
+                              Uploaded by {docUploadAction.completedBy || 'Unknown'} on {new Date(docUploadAction.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                            {docUploadAction.notes && (
+                              <p className="text-muted-foreground truncate max-w-[220px]">{docUploadAction.notes}</p>
+                            )}
+                            {approvalAction && (
+                              <p className="text-green-700 dark:text-green-400 font-medium">
+                                Approved by {approvalAction.completedBy || 'Manager'} on {new Date(approvalAction.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <ContractDocumentsDialog project={p} hasDocUpload={docUploaded} />
+                        <ContractApproveDialog project={p} hasDocUpload={docUploaded} isApproved={approved} />
+                      </div>
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id={`contract-sent-${p.id}`}
