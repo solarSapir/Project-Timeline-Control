@@ -90,6 +90,19 @@ export async function registerRoutes(
         }
       }
 
+      const isUcComplete = mapped.ucStatus && ['approved', 'complete', 'not required'].some(s => mapped.ucStatus!.toLowerCase().includes(s));
+      const stageNeedsCorrection = mapped.installTeamStage && ['new cx pending other teams', 'pending site visit'].some(s => mapped.installTeamStage!.toLowerCase().includes(s));
+
+      if (isUcComplete && stageNeedsCorrection && task.gid) {
+        try {
+          await updateAsanaTaskField(task.gid, mapped.asanaCustomFields as any[], 'installTeamStage', 'Need contract');
+          mapped.installTeamStage = 'Need contract';
+          console.log(`Auto-corrected Install Team Stage to "Need contract" for ${task.name}`);
+        } catch (err: any) {
+          console.log(`Could not auto-correct Install Team Stage for ${task.name}: ${err.message}`);
+        }
+      }
+
       const project = await storage.upsertProject(mapped);
 
       const existingDeadlines = await storage.getProjectDeadlines(project.id);
@@ -241,7 +254,7 @@ export async function registerRoutes(
     }
   });
 
-  const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'rebateStatus'];
+  const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'rebateStatus', 'installTeamStage'];
 
   app.patch("/api/projects/:id", async (req, res) => {
     try {

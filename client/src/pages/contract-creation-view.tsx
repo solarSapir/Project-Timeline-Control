@@ -3,10 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, FileText, CalendarClock, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Search, FileText, CalendarClock, CheckCircle2, Clock, AlertTriangle, DollarSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function getDaysUntilDue(dueDate: string | null) {
@@ -62,6 +64,34 @@ function getContractFollowUpDate(project: any) {
   return field?.display_value ? field.display_value.split('T')[0] : null;
 }
 
+function isContractSigned(stage: string | null) {
+  if (!stage) return false;
+  const s = stage.toLowerCase();
+  return s.includes('pending deposit') || s.includes('deposit collected') || s.includes('active install') || s.includes('complete');
+}
+
+function isDepositCollected(stage: string | null) {
+  if (!stage) return false;
+  const s = stage.toLowerCase();
+  return s.includes('deposit collected') || s.includes('active install') || s.includes('complete');
+}
+
+function getStageLabel(stage: string | null) {
+  if (!stage) return 'Unknown';
+  return stage;
+}
+
+function getStageBadgeClass(stage: string | null) {
+  if (!stage) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+  const s = stage.toLowerCase();
+  if (s.includes('active install') || s.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  if (s.includes('deposit collected')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  if (s.includes('pending deposit')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+  if (s.includes('pending contract')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+  if (s.includes('need contract')) return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
+  return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+}
+
 function ContractDueBadge({ project }: { project: any }) {
   const dueDate = getContractDueDate(project);
   const daysLeft = getDaysUntilDue(dueDate);
@@ -96,6 +126,7 @@ function ContractDueBadge({ project }: { project: any }) {
 export default function ContractCreationView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("needs_contract");
+  const [updating, setUpdating] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
@@ -109,24 +140,54 @@ export default function ContractCreationView() {
 
   const ucReadyProjects = installProjects.filter((p: any) => isUcComplete(p.ucStatus));
 
+  const handleContractSigned = async (project: any, checked: boolean) => {
+    setUpdating(project.id + '-contract');
+    try {
+      const newStage = checked ? 'Pending Deposit (from customer)' : 'Pending Contract to be signed';
+      await apiRequest("PATCH", `/api/projects/${project.id}`, { installTeamStage: newStage });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: checked ? "Contract marked as signed — awaiting deposit" : "Contract marked as unsigned" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleDepositCollected = async (project: any, checked: boolean) => {
+    setUpdating(project.id + '-deposit');
+    try {
+      const newStage = checked ? 'Active Install' : 'Pending Deposit (from customer)';
+      await apiRequest("PATCH", `/api/projects/${project.id}`, { installTeamStage: newStage });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: checked ? "Deposit collected — project is Active Install" : "Deposit uncollected" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const filtered = ucReadyProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    const contractSent = getContractSentDate(p);
-    if (filter === "needs_contract") return !contractSent;
-    if (filter === "contract_sent") return !!contractSent;
+    const contractSigned = isContractSigned(p.installTeamStage);
+    const depositDone = isDepositCollected(p.installTeamStage);
+    if (filter === "needs_contract") return !contractSigned;
+    if (filter === "pending_deposit") return contractSigned && !depositDone;
+    if (filter === "complete") return contractSigned && depositDone;
     if (filter === "overdue") {
       const dueDate = getContractDueDate(p);
       const daysLeft = getDaysUntilDue(dueDate);
-      return !contractSent && daysLeft !== null && daysLeft < 0;
+      return !contractSigned && daysLeft !== null && daysLeft < 0;
     }
     return true;
   });
 
   const sortedFiltered = [...filtered].sort((a: any, b: any) => {
-    const aSent = getContractSentDate(a);
-    const bSent = getContractSentDate(b);
-    if (!aSent && bSent) return -1;
-    if (aSent && !bSent) return 1;
+    const aDone = isDepositCollected(a.installTeamStage);
+    const bDone = isDepositCollected(b.installTeamStage);
+    if (aDone && !bDone) return 1;
+    if (!aDone && bDone) return -1;
     const aDue = getContractDueDate(a);
     const bDue = getContractDueDate(b);
     const aDays = getDaysUntilDue(aDue);
@@ -136,10 +197,11 @@ export default function ContractCreationView() {
     return aDays - bDays;
   });
 
-  const needsContractCount = ucReadyProjects.filter((p: any) => !getContractSentDate(p)).length;
+  const needsContractCount = ucReadyProjects.filter((p: any) => !isContractSigned(p.installTeamStage)).length;
+  const pendingDepositCount = ucReadyProjects.filter((p: any) => isContractSigned(p.installTeamStage) && !isDepositCollected(p.installTeamStage)).length;
+  const completeCount = ucReadyProjects.filter((p: any) => isContractSigned(p.installTeamStage) && isDepositCollected(p.installTeamStage)).length;
   const overdueCount = ucReadyProjects.filter((p: any) => {
-    const contractSent = getContractSentDate(p);
-    if (contractSent) return false;
+    if (isContractSigned(p.installTeamStage)) return false;
     const dueDate = getContractDueDate(p);
     const daysLeft = getDaysUntilDue(dueDate);
     return daysLeft !== null && daysLeft < 0;
@@ -167,6 +229,12 @@ export default function ContractCreationView() {
             <FileText className="h-3 w-3 mr-1" />
             Needs Contract: {needsContractCount}
           </Badge>
+          {pendingDepositCount > 0 && (
+            <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300" data-testid="badge-pending-deposit-count">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Pending Deposit: {pendingDepositCount}
+            </Badge>
+          )}
           {overdueCount > 0 && (
             <Badge variant="destructive" data-testid="badge-overdue-count">
               <AlertTriangle className="h-3 w-3 mr-1" />
@@ -177,7 +245,7 @@ export default function ContractCreationView() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Projects appear here once UC is Approved, Complete, or Not Required. Contract due within 7 days of UC completion.
+        Projects appear once UC is Approved/Complete/Not Required. Contract due within 7 days of UC completion. Check the boxes to track contract signing and $1,500 permit deposit.
       </p>
 
       <div className="flex gap-3 flex-wrap">
@@ -192,13 +260,14 @@ export default function ContractCreationView() {
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[200px]" data-testid="select-filter">
+          <SelectTrigger className="w-[220px]" data-testid="select-filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All UC-Ready ({ucReadyProjects.length})</SelectItem>
             <SelectItem value="needs_contract">Needs Contract ({needsContractCount})</SelectItem>
-            <SelectItem value="contract_sent">Contract Sent</SelectItem>
+            <SelectItem value="pending_deposit">Pending Deposit ({pendingDepositCount})</SelectItem>
+            <SelectItem value="complete">Contract Complete ({completeCount})</SelectItem>
             <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>
           </SelectContent>
         </Select>
@@ -215,16 +284,19 @@ export default function ContractCreationView() {
             const followUp = getContractFollowUpDate(p);
             const dueDate = getContractDueDate(p);
             const daysLeft = getDaysUntilDue(dueDate);
-            const isOverdue = !contractSent && daysLeft !== null && daysLeft < 0;
+            const contractSigned = isContractSigned(p.installTeamStage);
+            const depositDone = isDepositCollected(p.installTeamStage);
+            const isOverdue = !contractSigned && daysLeft !== null && daysLeft < 0;
+            const allDone = contractSigned && depositDone;
 
             return (
               <Card
                 key={p.id}
-                className={isOverdue ? "border-red-300 dark:border-red-800" : ""}
+                className={isOverdue ? "border-red-300 dark:border-red-800" : allDone ? "border-green-300 dark:border-green-800" : ""}
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-[200px]">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
@@ -241,6 +313,9 @@ export default function ContractCreationView() {
                         >
                           UC: {p.ucStatus}
                         </Badge>
+                        <Badge className={`text-xs ${getStageBadgeClass(p.installTeamStage)}`} data-testid={`badge-stage-${p.id}`}>
+                          {getStageLabel(p.installTeamStage)}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
@@ -254,7 +329,7 @@ export default function ContractCreationView() {
                         {contractSent && (
                           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs flex items-center gap-1" data-testid={`badge-contract-sent-${p.id}`}>
                             <CheckCircle2 className="h-3 w-3" />
-                            Contract sent {new Date(contractSent).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            Sent {new Date(contractSent).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </Badge>
                         )}
                         {followUp && (
@@ -263,15 +338,41 @@ export default function ContractCreationView() {
                             Follow-up {new Date(followUp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </Badge>
                         )}
-                        {!contractSent && (
-                          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1" data-testid={`badge-awaiting-contract-${p.id}`}>
-                            <FileText className="h-3 w-3" />
-                            Awaiting contract
-                          </Badge>
-                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-col gap-3 min-w-[220px]">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`contract-signed-${p.id}`}
+                          checked={contractSigned}
+                          disabled={updating === p.id + '-contract'}
+                          onCheckedChange={(checked) => handleContractSigned(p, !!checked)}
+                          data-testid={`checkbox-contract-signed-${p.id}`}
+                        />
+                        <label
+                          htmlFor={`contract-signed-${p.id}`}
+                          className={`text-sm cursor-pointer ${contractSigned ? 'text-green-700 dark:text-green-400 font-medium' : 'text-muted-foreground'}`}
+                        >
+                          Contract Signed
+                        </label>
+                        {contractSigned && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`deposit-collected-${p.id}`}
+                          checked={depositDone}
+                          disabled={!contractSigned || updating === p.id + '-deposit'}
+                          onCheckedChange={(checked) => handleDepositCollected(p, !!checked)}
+                          data-testid={`checkbox-deposit-collected-${p.id}`}
+                        />
+                        <label
+                          htmlFor={`deposit-collected-${p.id}`}
+                          className={`text-sm cursor-pointer ${depositDone ? 'text-green-700 dark:text-green-400 font-medium' : !contractSigned ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}
+                        >
+                          $1,500 Permit Deposit
+                        </label>
+                        {depositDone && <DollarSign className="h-4 w-4 text-green-600" />}
+                      </div>
                       <TaskActionDialog projectId={p.id} projectName={p.name} viewType="contracts" />
                     </div>
                   </div>

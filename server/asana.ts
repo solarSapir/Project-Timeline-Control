@@ -111,6 +111,7 @@ const FIELD_NAME_MAP: Record<string, string[]> = {
   installType: ['Install Type.', 'Install Type'],
   paymentMethod: ['How will the customer pay'],
   rebateStatus: ['GRANTS STATUS.', 'GRANTS STATUS'],
+  installTeamStage: ['Install Team Stage'],
 };
 
 function findCustomFieldGid(asanaCustomFields: any[], localFieldName: string): string | null {
@@ -377,6 +378,7 @@ export function mapAsanaTaskToProject(task: any) {
     contractStatus: extractCustomFieldValue(task, 'contract'),
     siteVisitStatus: extractCustomFieldValue(task, 'site visit'),
     ucTeam: extractUcTeamValue(task),
+    installTeamStage: extractCustomFieldValue(task, 'install team stage'),
     propertySector: extractCustomFieldValue(task, 'property sector'),
     projectCreatedDate: task.created_at ? task.created_at.split('T')[0] : null,
     asanaCustomFields: task.custom_fields || [],

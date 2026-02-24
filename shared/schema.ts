@@ -48,6 +48,7 @@ export const projects = pgTable("projects", {
   hrspDueDate: date("hrsp_due_date"),
   hrspSubtaskGid: text("hrsp_subtask_gid"),
   hrspMissing: boolean("hrsp_missing").default(false),
+  installTeamStage: text("install_team_stage"),
   propertySector: text("property_sector"),
   customerNotes: text("customer_notes"),
   asanaCustomFields: jsonb("asana_custom_fields"),
