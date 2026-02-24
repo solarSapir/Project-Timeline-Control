@@ -196,7 +196,6 @@ function GanttChart({
 
   for (const key of PROJECT_STAGES) {
     const s = stages[key];
-    if (s?.target) allDates.push(parseISO(s.target));
     if (s?.expected) allDates.push(parseISO(s.expected));
   }
   allDates.push(new Date());
@@ -206,6 +205,7 @@ function GanttChart({
   const rangeMs = maxDate.getTime() - minDate.getTime() || 1;
   const paddedRange = rangeMs * 1.1;
   const chartStart = new Date(minDate.getTime() - rangeMs * 0.05);
+  const startPct = ((startDate.getTime() - chartStart.getTime()) / paddedRange) * 100;
 
   const toPercent = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -244,7 +244,6 @@ function GanttChart({
       {PROJECT_STAGES.map((stageKey) => {
         const stage = stages[stageKey];
         if (!stage) return null;
-        const targetPct = toPercent(stage.target);
         const expectedPct = toPercent(stage.expected);
         const Icon = stageIcons[stageKey] || Clock;
         const isCompleted = stage.status === "completed";
@@ -252,6 +251,10 @@ function GanttChart({
           stage.target && stage.expected
             ? new Date(stage.expected) > new Date(stage.target)
             : false;
+
+        const barLeft = Math.max(0, Math.min(100, startPct));
+        const barRight = expectedPct !== null ? Math.max(0, Math.min(100, expectedPct)) : barLeft;
+        const barWidth = Math.max(0.5, barRight - barLeft);
 
         return (
           <div key={stageKey} className="flex items-center gap-2" data-testid={`gantt-row-${stageKey}`}>
@@ -261,20 +264,25 @@ function GanttChart({
             </div>
             <div className="flex-1 relative h-6 rounded-md bg-muted/40">
               <div
-                className="absolute top-0 bottom-0 w-px bg-blue-400 z-10"
+                className="absolute top-0 bottom-0 w-px bg-blue-400/70 z-10"
                 style={{ left: `${Math.max(0, Math.min(100, todayPercent))}%` }}
                 title="Today"
               />
 
-              {targetPct !== null && (
+              {expectedPct !== null && (
                 <div
-                  className={`absolute top-1 h-4 w-1.5 rounded-sm ${
+                  className={`absolute top-1.5 h-3 rounded-full ${
                     isCompleted
-                      ? "bg-green-500"
-                      : "bg-muted-foreground/40"
+                      ? "bg-green-500/80"
+                      : isLate
+                        ? "bg-red-400/80"
+                        : "bg-blue-500/70"
                   }`}
-                  style={{ left: `${Math.max(0, Math.min(99, targetPct))}%` }}
-                  title={`Target: ${stage.target}`}
+                  style={{
+                    left: `${barLeft}%`,
+                    width: `${barWidth}%`,
+                  }}
+                  title={`Expected: ${stage.expected}`}
                 />
               )}
 
@@ -282,29 +290,13 @@ function GanttChart({
                 <div
                   className={`absolute top-1 h-4 w-1.5 rounded-sm ${
                     isCompleted
-                      ? "bg-green-500"
+                      ? "bg-green-600"
                       : isLate
                         ? "bg-red-500"
-                        : "bg-blue-500"
+                        : "bg-blue-600"
                   }`}
-                  style={{ left: `${Math.max(0, Math.min(99, expectedPct))}%` }}
+                  style={{ left: `${Math.max(0, Math.min(98.5, barRight - 0.5))}%` }}
                   title={`Expected: ${stage.expected}`}
-                />
-              )}
-
-              {targetPct !== null && expectedPct !== null && targetPct !== expectedPct && (
-                <div
-                  className={`absolute top-[10px] h-1 rounded-full ${
-                    isCompleted
-                      ? "bg-green-300 dark:bg-green-700"
-                      : isLate
-                        ? "bg-red-300 dark:bg-red-700"
-                        : "bg-blue-300 dark:bg-blue-700"
-                  }`}
-                  style={{
-                    left: `${Math.max(0, Math.min(99, Math.min(targetPct, expectedPct)))}%`,
-                    width: `${Math.max(0.5, Math.abs(expectedPct - targetPct))}%`,
-                  }}
                 />
               )}
             </div>
@@ -319,8 +311,8 @@ function GanttChart({
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-[10px] px-1.5">
-                  {stage.target
-                    ? `${differenceInDays(parseISO(stage.target), new Date())}d`
+                  {stage.expected
+                    ? `${differenceInDays(parseISO(stage.expected), new Date())}d`
                     : "--"}
                 </Badge>
               )}
@@ -331,19 +323,15 @@ function GanttChart({
 
       <div className="flex items-center gap-4 mt-3 pt-2 border-t text-[10px] text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-2 h-3 rounded-sm bg-muted-foreground/40" />
-          <span>Target</span>
+          <div className="w-4 h-3 rounded-full bg-blue-500/70" />
+          <span>On Track</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-3 rounded-sm bg-blue-500" />
-          <span>Expected</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-3 rounded-sm bg-red-500" />
+          <div className="w-4 h-3 rounded-full bg-red-400/80" />
           <span>Late</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-3 rounded-sm bg-green-500" />
+          <div className="w-4 h-3 rounded-full bg-green-500/80" />
           <span>Complete</span>
         </div>
         <div className="flex items-center gap-1">
