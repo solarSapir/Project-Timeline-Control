@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Loader2,
   Clock,
+  CalendarDays,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +44,7 @@ const viewNav = [
   { title: "Site Visits", url: "/site-visits", icon: MapPin },
   { title: "AHJ / Permitting", url: "/ahj", icon: Building2 },
   { title: "Install Coordination", url: "/installs", icon: Wrench },
+  { title: "Install Calendar", url: "/install-calendar", icon: CalendarDays },
   { title: "Close-off", url: "/close-off", icon: CheckCircle2 },
 ];
 

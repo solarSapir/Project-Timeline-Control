@@ -14,6 +14,7 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, CheckCircle2, Clock, Search, CalendarClock, Upload, MessageSquare, User } from "lucide-react";
+import { Link } from "wouter";
 
 function getDaysUntilDue(dueDate: string | null) {
   if (!dueDate) return null;
@@ -386,7 +387,7 @@ export default function UCView() {
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex-1 min-w-[200px]">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                          <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
                           <UcTeamBadge ucTeam={p.ucTeam} />
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">

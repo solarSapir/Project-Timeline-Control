@@ -12,6 +12,7 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Wrench, Calendar as CalendarIcon, Plus, Truck, Zap as ZapIcon, ClipboardCheck, Clock, AlertTriangle, CheckCircle2, Shield } from "lucide-react";
+import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -334,7 +335,7 @@ export default function InstallsView() {
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-[200px]">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                        <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
                         <StatusBadge status={p.ahjStatus} />
                         {p.installTeamStage && (
                           <Badge variant="outline" className="text-xs">{p.installTeamStage}</Badge>

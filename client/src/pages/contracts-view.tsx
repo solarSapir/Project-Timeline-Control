@@ -9,6 +9,7 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, CreditCard, AlertTriangle, CalendarClock } from "lucide-react";
+import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function getDaysUntilDue(dueDate: string | null) {
@@ -169,7 +170,7 @@ export default function ContractsView() {
                 <CardContent className="py-3 px-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-[200px]">
-                      <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                      <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
                         {p.projectCreatedDate && (

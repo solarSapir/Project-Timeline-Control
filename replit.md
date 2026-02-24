@@ -4,6 +4,8 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: Project Profile page — click any project name across all views to see full profile with all stage values, Gantt chart (target vs expected dates), recent activity, and customer notes. Route: /project/:id.
+- 2026-02-24: Install Calendar page — monthly calendar view showing when projects are expected to start installation. Color-coded by status (on track/late/overdue). Tooltips with project details. Route: /install-calendar.
 - 2026-02-24: Installation Coordination rebuilt — projects enter when AHJ Status = "Permit Issued". Target due = AHJ due + 7 days. Expected due = AHJ completion date + 7 days (from task_actions). Shows Running Late when expected > target. Filters: Permit Issued, Waiting AHJ, Late, Overdue, Scheduled. Schedule dialog for equipment, install, disconnect, inspection tasks.
 - 2026-02-24: AHJ view rebuilt — depends on site visit completion. Target due date stays fixed (from project gantt). Expected due date = site visit completion + 21 days (based on task_actions completedAt). Shows "Running Late" when expected > target. Filters: Action Needed (site visit done), Waiting Site Visit, Late, Overdue, Complete. P.eng fee is part of the $1,500 deposit (not separate).
 - 2026-02-24: Site Visits view rebuilt — only shows projects where Install Team Stage = "Pending site visit". Due date = contract due + 7 days. When "Site visit Request" = "Visit Complete", user uploads photos + installer notes via dialog → creates "Site visit Photos" subtask in Asana with attachments and comments. Filters: Pending, Booked, Complete, Overdue.
@@ -43,6 +45,8 @@ A solar installation project management application that connects to Asana to sy
 - `/installs` - Installation Coordination (scheduling, installer management)
 - `/payments` - Rebates view (tracks "GRANTS STATUS." from Asana)
 - `/close-off` - Project close-off (final docs, permits, photos, marketing notification)
+- `/install-calendar` - Monthly calendar view of expected install start dates
+- `/project/:id` - Project profile with all stage details, Gantt chart, recent activity
 - `/sync` - Asana Sync settings
 
 ### Key Files

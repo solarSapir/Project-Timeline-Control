@@ -16,6 +16,8 @@ import InstallsView from "@/pages/installs-view";
 import PaymentsView from "@/pages/payments-view";
 import CloseOffView from "@/pages/close-off-view";
 import SyncView from "@/pages/sync-view";
+import ProjectProfile from "@/pages/project-profile";
+import InstallCalendar from "@/pages/install-calendar";
 
 function Router() {
   return (
@@ -29,6 +31,8 @@ function Router() {
       <Route path="/installs" component={InstallsView} />
       <Route path="/payments" component={PaymentsView} />
       <Route path="/close-off" component={CloseOffView} />
+      <Route path="/install-calendar" component={InstallCalendar} />
+      <Route path="/project/:id" component={ProjectProfile} />
       <Route path="/sync" component={SyncView} />
       <Route component={NotFound} />
     </Switch>

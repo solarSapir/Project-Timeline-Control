@@ -9,6 +9,7 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, CheckCircle2, Mail, Camera, FileText } from "lucide-react";
+import { Link } from "wouter";
 import { StatusBadge } from "@/components/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -98,7 +99,7 @@ export default function CloseOffView() {
               <CardContent className="py-4 px-4 space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-[200px]">
-                    <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                    <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
                     <p className="text-xs text-muted-foreground mt-0.5">{p.province || ''}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
