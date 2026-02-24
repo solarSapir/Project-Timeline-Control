@@ -215,32 +215,48 @@ export default function PaymentsView() {
                         <span className="text-xs text-muted-foreground">UC Team: {p.ucTeam || 'N/A'}</span>
                         <span className="text-xs text-muted-foreground">PM: {p.pmStatus || 'N/A'}</span>
                       </div>
-                      {isLdOn && (
+                      {isLdOn && p.rebateStatus && (
+                        <div className="mt-2">
+                          <HrspBadge project={p} />
+                        </div>
+                      )}
+                      {isLdOn && !p.rebateStatus && p.hrspMissing && (
                         <div className="mt-2">
                           <HrspBadge project={p} />
                         </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {p.rebateStatus ? (
-                        <Badge
-                          className={
-                            p.rebateStatus.toLowerCase().includes('not required')
-                              ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                              : p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          }
-                          data-testid={`badge-rebate-status-${p.id}`}
-                        >
-                          <Gift className="h-3 w-3 mr-1" />
-                          {p.rebateStatus}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs" data-testid={`badge-no-rebate-${p.id}`}>
-                          No rebate status
-                        </Badge>
-                      )}
+                      {(() => {
+                        const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
+                        if (displayStatus) {
+                          const isHrspFallback = !p.rebateStatus && isLdOn && p.hrspStatus;
+                          return (
+                            <Badge
+                              className={
+                                displayStatus.toLowerCase().includes('not required')
+                                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                  : displayStatus.toLowerCase().includes('new') || displayStatus.toLowerCase().includes('check')
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                    : displayStatus.toLowerCase().includes('complete')
+                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                      : displayStatus.toLowerCase().includes('in-progress') || displayStatus.toLowerCase().includes('submitted')
+                                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              }
+                              data-testid={`badge-rebate-status-${p.id}`}
+                            >
+                              <Gift className="h-3 w-3 mr-1" />
+                              {isHrspFallback ? `HRSP: ${displayStatus}` : displayStatus}
+                            </Badge>
+                          );
+                        }
+                        return (
+                          <Badge variant="outline" className="text-xs" data-testid={`badge-no-rebate-${p.id}`}>
+                            No rebate status
+                          </Badge>
+                        );
+                      })()}
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
                         <SelectTrigger className="w-[200px] h-8 text-xs" data-testid={`select-rebate-status-${p.id}`}>
                           <SelectValue placeholder="Set rebate status" />
