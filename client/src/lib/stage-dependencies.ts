@@ -87,7 +87,7 @@ export const STAGE_COMPLETION_CRITERIA: Record<string, {
 export interface WorkflowConfig {
   stage: string;
   targetDays: number;
-  dependsOn: string[];
+  dependsOn: string[] | null;
   gapRelativeTo: string | null;
   completionCriteria?: string[] | null;
 }

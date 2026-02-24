@@ -1,0 +1,61 @@
+## Code Philosophy
+Write code that is clean, simple, and easy to read. Prioritize clarity over 
+cleverness. If something is complex, add a comment explaining why — not what.
+
+## Component Rules
+- Keep components under 150 lines. If a component grows beyond this, split it.
+- One component per file. Name the file identically to the component.
+- Components should only handle UI and user interaction. Business logic belongs 
+  in custom hooks or services.
+- Always destructure props at the top of the component.
+- Define prop types using a TypeScript interface named `[ComponentName]Props` 
+  directly above the component.
+
+## Hooks
+- Extract all reusable or complex stateful logic into custom hooks in /hooks.
+- Name hooks with the `use` prefix.
+- Each hook should have one clear responsibility.
+- Add a JSDoc comment to every hook.
+
+## TypeScript
+- Never use `any`. Use `unknown` if the type is truly uncertain and narrow it.
+- Define shared types and interfaces in /types.
+- Explicitly type all function parameters and return values.
+- Use type inference only when the type is completely obvious from context.
+
+## File Structure
+src/
+  components/        # Shared/global UI components
+    ui/              # Primitives (Button, Input, Modal, etc.)
+  features/          # Feature-based folders, each containing its own 
+                     # components, hooks, and types
+  hooks/             # Global custom hooks
+  services/          # API calls and external integrations
+  types/             # Shared TypeScript types and interfaces
+  constants/         # App-wide constants and config values
+  utils/             # Pure utility/helper functions
+  pages/             # Top-level route components only
+
+## Naming Conventions
+- Components: PascalCase (UserCard, OrderSummary)
+- Functions & variables: camelCase (fetchUserData, isLoading)
+- Constants: UPPER_SNAKE_CASE (MAX_RETRY_COUNT, API_BASE_URL)
+- Files: match the primary export (UserCard.tsx, useAuthSession.ts)
+- Boolean variables: prefix with is/has/can/should (isLoading, hasError)
+
+## API & Services
+- All API calls live in /services. Never call fetch/axios directly in a component.
+- Every API function must handle errors explicitly and return a typed response.
+- Use consistent patterns — if one service uses try/catch, all should.
+
+## Comments & Documentation
+- Add JSDoc comments to every exported component, hook, function, and type.
+- Inline comments should explain WHY, not WHAT.
+- Avoid commenting obvious code. Clear naming is better than a comment.
+
+## General Rules
+- No magic numbers or hardcoded strings — use named constants.
+- No console.logs left in production code.
+- Keep functions small and single-purpose. If a function does two things, split it.
+- Avoid deeply nested logic — use early returns to keep code flat and readable.
+- Prefer explicit over implicit. Code should be understandable without context.

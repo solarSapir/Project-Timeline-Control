@@ -1,444 +1,36 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch,
-  ArrowRight, ArrowDown, Save, RotateCcw, Info
-} from "lucide-react";
-import {
-  PROJECT_STAGES, STAGE_LABELS, DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS
-} from "@shared/schema";
-import type { WorkflowConfig } from "@shared/schema";
-import { STAGE_COMPLETION_CRITERIA, DEFAULT_COMPLETION_CRITERIA, STAGE_FIELD_MAP, STAGE_TAB_MAP } from "@/lib/stage-dependencies";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch } from "lucide-react";
+import WorkflowEditor from "@/components/settings/WorkflowEditor";
 
-const STAGE_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  uc_application: { bg: "bg-blue-50 dark:bg-blue-950/40", border: "border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-300", dot: "bg-blue-500" },
-  rebates_payment: { bg: "bg-purple-50 dark:bg-purple-950/40", border: "border-purple-200 dark:border-purple-800", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-500" },
-  contract_signing: { bg: "bg-amber-50 dark:bg-amber-950/40", border: "border-amber-200 dark:border-amber-800", text: "text-amber-700 dark:text-amber-300", dot: "bg-amber-500" },
-  site_visit: { bg: "bg-emerald-50 dark:bg-emerald-950/40", border: "border-emerald-200 dark:border-emerald-800", text: "text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" },
-  ahj_permitting: { bg: "bg-orange-50 dark:bg-orange-950/40", border: "border-orange-200 dark:border-orange-800", text: "text-orange-700 dark:text-orange-300", dot: "bg-orange-500" },
-  install_booking: { bg: "bg-cyan-50 dark:bg-cyan-950/40", border: "border-cyan-200 dark:border-cyan-800", text: "text-cyan-700 dark:text-cyan-300", dot: "bg-cyan-500" },
-  installation: { bg: "bg-indigo-50 dark:bg-indigo-950/40", border: "border-indigo-200 dark:border-indigo-800", text: "text-indigo-700 dark:text-indigo-300", dot: "bg-indigo-500" },
-  close_off: { bg: "bg-rose-50 dark:bg-rose-950/40", border: "border-rose-200 dark:border-rose-800", text: "text-rose-700 dark:text-rose-300", dot: "bg-rose-500" },
-};
+interface SyncStatus {
+  lastSyncTime: string | null;
+  cachedProjectGid: string | null;
+}
 
-type StageConfig = {
-  stage: string;
-  targetDays: number;
-  dependsOn: string[];
-  gapRelativeTo: string | null;
-  completionCriteria: string[];
-};
+interface SyncResult {
+  synced: number;
+}
 
-function defaultConfigs(): StageConfig[] {
-  return PROJECT_STAGES.map(stage => {
-    const gap = DEFAULT_STAGE_GAPS[stage];
-    return {
-      stage,
-      targetDays: gap ? gap.gapDays : (DEFAULT_DEADLINES_WEEKS[stage]?.max ?? 4) * 7,
-      dependsOn: gap ? gap.dependsOn : (DEFAULT_DEADLINES_WEEKS[stage]?.dependsOn || []),
-      gapRelativeTo: gap ? gap.gapRelativeTo : null,
-      completionCriteria: DEFAULT_COMPLETION_CRITERIA[stage] || [],
-    };
+function formatSyncTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
   });
 }
 
-function mergeWithDefaults(saved: WorkflowConfig[]): StageConfig[] {
-  const savedMap = new Map(saved.map(s => [s.stage, s]));
-  return PROJECT_STAGES.map(stage => {
-    const s = savedMap.get(stage);
-    const gap = DEFAULT_STAGE_GAPS[stage];
-    if (s) return {
-      stage: s.stage,
-      targetDays: s.targetDays,
-      dependsOn: s.dependsOn || gap?.dependsOn || [],
-      gapRelativeTo: s.gapRelativeTo ?? gap?.gapRelativeTo ?? null,
-      completionCriteria: (s as any).completionCriteria ?? DEFAULT_COMPLETION_CRITERIA[stage] ?? [],
-    };
-    return {
-      stage,
-      targetDays: gap?.gapDays ?? 7,
-      dependsOn: gap?.dependsOn || [],
-      gapRelativeTo: gap?.gapRelativeTo ?? null,
-      completionCriteria: DEFAULT_COMPLETION_CRITERIA[stage] || [],
-    };
-  });
-}
-
-function WorkflowEditor() {
-  const { toast } = useToast();
-  const { data: savedConfigs, isLoading } = useQuery<WorkflowConfig[]>({
-    queryKey: ['/api/workflow-config'],
-  });
-
-  const [configs, setConfigs] = useState<StageConfig[]>(defaultConfigs());
-  const [hasChanges, setHasChanges] = useState(false);
-
-  useEffect(() => {
-    if (savedConfigs) {
-      setConfigs(mergeWithDefaults(savedConfigs));
-      setHasChanges(false);
-    }
-  }, [savedConfigs]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (data: StageConfig[]) => {
-      const res = await apiRequest("PUT", "/api/workflow-config", data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workflow-config'] });
-      setHasChanges(false);
-      toast({ title: "Workflow configuration saved" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Failed to save", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const updateDays = useCallback((stage: string, days: number) => {
-    setConfigs(prev => prev.map(c => c.stage === stage ? { ...c, targetDays: days } : c));
-    setHasChanges(true);
-  }, []);
-
-  const updateGapRelativeTo = useCallback((stage: string, relativeTo: string) => {
-    setConfigs(prev => prev.map(c => {
-      if (c.stage !== stage) return c;
-      const newDeps = c.dependsOn.includes(relativeTo) ? c.dependsOn : [...c.dependsOn, relativeTo];
-      return { ...c, gapRelativeTo: relativeTo, dependsOn: newDeps };
-    }));
-    setHasChanges(true);
-  }, []);
-
-  const toggleDependency = useCallback((stage: string, dep: string) => {
-    setConfigs(prev => prev.map(c => {
-      if (c.stage !== stage) return c;
-      const hasDep = c.dependsOn.includes(dep);
-      let newDeps: string[];
-      let newGapRelativeTo = c.gapRelativeTo;
-      if (hasDep) {
-        newDeps = c.dependsOn.filter(d => d !== dep);
-        if (c.gapRelativeTo === dep) {
-          newGapRelativeTo = newDeps.length > 0 ? newDeps[newDeps.length - 1] : null;
-        }
-      } else {
-        newDeps = [...c.dependsOn, dep];
-      }
-      return { ...c, dependsOn: newDeps, gapRelativeTo: newGapRelativeTo };
-    }));
-    setHasChanges(true);
-  }, []);
-
-  const updateCompletionCriteria = useCallback((stage: string, criteria: string[]) => {
-    setConfigs(prev => prev.map(c => c.stage === stage ? { ...c, completionCriteria: criteria } : c));
-    setHasChanges(true);
-  }, []);
-
-  const resetToDefaults = useCallback(() => {
-    setConfigs(defaultConfigs());
-    setHasChanges(true);
-  }, []);
-
-  const parallelGroups = useMemo(() => {
-    const groups: StageConfig[][] = [];
-    const placed = new Set<string>();
-
-    while (placed.size < configs.length) {
-      const group: StageConfig[] = [];
-      for (const c of configs) {
-        if (placed.has(c.stage)) continue;
-        const depsmet = c.dependsOn.every(d => placed.has(d));
-        if (depsmet) group.push(c);
-      }
-      if (group.length === 0) break;
-      groups.push(group);
-      group.forEach(g => placed.add(g.stage));
-    }
-    return groups;
-  }, [configs]);
-
-  const cumulativeDays = useMemo(() => {
-    const cumMap: Record<string, number> = {};
-    const configMap = new Map(configs.map(c => [c.stage, c]));
-    const resolve = (stage: string): number => {
-      if (cumMap[stage] !== undefined) return cumMap[stage];
-      const c = configMap.get(stage);
-      if (!c || c.dependsOn.length === 0) {
-        cumMap[stage] = c?.targetDays ?? 0;
-        return cumMap[stage];
-      }
-      const relTo = c.gapRelativeTo && c.dependsOn.includes(c.gapRelativeTo) ? c.gapRelativeTo : null;
-      const baseDays = relTo ? resolve(relTo) : Math.max(...c.dependsOn.map(d => resolve(d)));
-      cumMap[stage] = baseDays + c.targetDays;
-      return cumMap[stage];
-    };
-    configs.forEach(c => resolve(c.stage));
-    return cumMap;
-  }, [configs]);
-
-  const maxDays = useMemo(() => Math.max(...Object.values(cumulativeDays), 1), [cumulativeDays]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading workflow configuration...
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold" data-testid="text-workflow-title">Stage Dependencies & Timeline</h3>
-          <Tooltip>
-            <TooltipTrigger>
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs text-sm">
-              <p>Each stage's due date is calculated relative to the previous stage. For example, if UC takes 21 days and Contract is 7 days after UC, the contract deadline is 28 days from project start. When AHJ is "Not Required", its due date equals the site visit's.</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetToDefaults}
-            data-testid="button-reset-workflow"
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-            Reset to Defaults
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate(configs)}
-            disabled={!hasChanges || saveMutation.isPending}
-            data-testid="button-save-workflow"
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Save Changes
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {parallelGroups.map((group, groupIdx) => (
-          <div key={groupIdx}>
-            {groupIdx > 0 && (
-              <div className="flex justify-center py-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="h-6 w-px bg-border" />
-                  <ArrowDown className="h-4 w-4" />
-                  <div className="h-6 w-px bg-border" />
-                </div>
-              </div>
-            )}
-
-            <div className={`grid gap-3 ${group.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-xl mx-auto'}`}>
-              {group.map(config => {
-                const colors = STAGE_COLORS[config.stage];
-                const barWidth = Math.max(8, ((cumulativeDays[config.stage] || config.targetDays) / maxDays) * 100);
-
-                return (
-                  <div
-                    key={config.stage}
-                    className={`rounded-lg border-2 p-4 ${colors.bg} ${colors.border} transition-all`}
-                    data-testid={`card-workflow-${config.stage}`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`h-3 w-3 rounded-full ${colors.dot} shrink-0`} />
-                        <span className={`font-medium text-sm ${colors.text}`}>
-                          {STAGE_LABELS[config.stage]}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Badge variant="outline" className="text-xs tabular-nums">
-                          {config.targetDays}d gap
-                        </Badge>
-                        <Badge variant="secondary" className="text-[10px] tabular-nums">
-                          d{cumulativeDays[config.stage] || 0}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-3 flex-wrap">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Gap:</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={365}
-                        value={config.targetDays}
-                        onChange={(e) => updateDays(config.stage, parseInt(e.target.value) || 0)}
-                        className="h-8 w-20 text-sm text-center tabular-nums"
-                        data-testid={`input-days-${config.stage}`}
-                      />
-                      {config.dependsOn.length > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">days after</span>
-                          <Select
-                            value={config.gapRelativeTo || config.dependsOn[0]}
-                            onValueChange={(val) => updateGapRelativeTo(config.stage, val)}
-                          >
-                            <SelectTrigger className="h-8 w-[180px] text-xs" data-testid={`select-gap-relative-${config.stage}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {config.dependsOn.map(dep => (
-                                <SelectItem key={dep} value={dep}>
-                                  {STAGE_LABELS[dep] || dep}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">days from project start</span>
-                      )}
-                    </div>
-
-                    <div className="h-2 bg-white/60 dark:bg-black/20 rounded-full overflow-hidden mb-2">
-                      <div
-                        className={`h-full rounded-full ${colors.dot} transition-all duration-300`}
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dependencies:</span>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        {PROJECT_STAGES.filter(s => s !== config.stage).map(dep => {
-                          const depIdx = PROJECT_STAGES.indexOf(dep);
-                          const stageIdx = PROJECT_STAGES.indexOf(config.stage);
-                          if (depIdx >= stageIdx) return null;
-                          const depColors = STAGE_COLORS[dep];
-                          const isChecked = config.dependsOn.includes(dep);
-                          return (
-                            <label
-                              key={dep}
-                              className="flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={() => toggleDependency(config.stage, dep)}
-                                className="h-3.5 w-3.5"
-                                data-testid={`checkbox-dep-${config.stage}-${dep}`}
-                              />
-                              <span className={`inline-flex items-center gap-1 text-[10px] ${isChecked ? (depColors?.text || 'text-gray-600') : 'text-muted-foreground'}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${depColors?.dot || 'bg-gray-400'}`} />
-                                {STAGE_LABELS[dep] || dep}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {config.dependsOn.length === 0 && (
-                        <span className="text-[10px] text-muted-foreground italic">No dependencies — starts from project creation</span>
-                      )}
-                    </div>
-                    {config.dependsOn.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-dashed border-current/10">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Required to unlock:</span>
-                        <div className="mt-1 space-y-0.5">
-                          {config.dependsOn.map(dep => {
-                            const criteria = STAGE_COMPLETION_CRITERIA[dep];
-                            if (!criteria) return null;
-                            return (
-                              <p key={dep} className="text-[10px] text-muted-foreground flex items-start gap-1.5">
-                                <span className={`h-1.5 w-1.5 rounded-full ${STAGE_COLORS[dep]?.dot || 'bg-gray-400'} shrink-0 mt-1`} />
-                                <span><span className="font-medium">{STAGE_LABELS[dep]}:</span> {criteria.label}</span>
-                              </p>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {group.length > 1 && (
-              <div className="flex justify-center mt-1">
-                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                  These stages run in parallel
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg border bg-card p-4">
-        <h4 className="text-sm font-medium mb-3">Timeline Overview</h4>
-        <div className="space-y-2">
-          {configs.map(config => {
-            const colors = STAGE_COLORS[config.stage];
-            const cumDays = cumulativeDays[config.stage] || 0;
-            const startDay = cumDays - config.targetDays;
-            const barStart = Math.max(0, (startDay / maxDays) * 100);
-            const barWidth = Math.max(4, (config.targetDays / maxDays) * 100);
-            return (
-              <div key={config.stage} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-36 shrink-0 truncate">
-                  {STAGE_LABELS[config.stage]}
-                </span>
-                <div className="flex-1 h-5 bg-muted rounded overflow-hidden relative">
-                  <div
-                    className={`h-full rounded ${colors.dot} opacity-80 transition-all duration-300 absolute flex items-center justify-end pr-1`}
-                    style={{ left: `${barStart}%`, width: `${barWidth}%` }}
-                  >
-                    <span className="text-[9px] font-medium text-white drop-shadow-sm tabular-nums">
-                      {config.targetDays}d
-                    </span>
-                  </div>
-                </div>
-                <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right shrink-0">
-                  d{cumDays}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
-          <span>Day 0 (Project Created)</span>
-          <span>Day {maxDays}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+/** Settings page with Asana sync controls and workflow configuration. */
 export default function SyncView() {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<any>(null);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
-  const { data: syncStatus } = useQuery<{ lastSyncTime: string | null; cachedProjectGid: string | null }>({
+  const { data: syncStatus } = useQuery<SyncStatus>({
     queryKey: ['/api/asana/sync-status'],
     refetchInterval: 30000,
   });
@@ -448,26 +40,18 @@ export default function SyncView() {
     setSyncResult(null);
     try {
       const res = await apiRequest("POST", "/api/asana/sync-all");
-      const data = await res.json();
+      const data: SyncResult = await res.json();
       setSyncResult(data);
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/asana/sync-status'] });
       toast({ title: `Synced ${data.synced} projects from Asana` });
-    } catch (error: any) {
-      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast({ title: "Sync failed", description: message, variant: "destructive" });
     } finally {
       setSyncing(false);
     }
-  };
-
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString('en-US', {
-      month: 'short', day: 'numeric',
-      hour: 'numeric', minute: '2-digit',
-      hour12: true
-    });
   };
 
   return (
@@ -486,33 +70,20 @@ export default function SyncView() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <Button
-              onClick={handleSync}
-              disabled={syncing}
-              size="lg"
-              data-testid="button-sync"
-            >
+            <Button onClick={handleSync} disabled={syncing} size="lg" data-testid="button-sync">
               {syncing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Syncing from Asana...
-                </>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing from Asana...</>
               ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync Now
-                </>
+                <><RefreshCw className="h-4 w-4 mr-2" />Sync Now</>
               )}
             </Button>
-
             {syncStatus?.lastSyncTime && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                Last synced: {formatTime(syncStatus.lastSyncTime)}
+                Last synced: {formatSyncTime(syncStatus.lastSyncTime)}
               </div>
             )}
           </div>
-
           {syncResult && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200">
               <CheckCircle2 className="h-4 w-4" />
