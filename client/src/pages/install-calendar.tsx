@@ -6,15 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Link } from "wouter";
 import type { Project } from "@shared/schema";
-
-function getDaysUntilDue(dueDate: string | null) {
-  if (!dueDate) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate);
-  return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
 
 function isAhjComplete(status: string | null) {
   if (!status) return false;
@@ -22,48 +15,42 @@ function isAhjComplete(status: string | null) {
   return s.includes('permit issued') || s.includes('closed') || s.includes('not required') || s.includes('permit close off');
 }
 
-function getExpectedInstallDate(ahjCompletionDate: string | null): string | null {
-  if (!ahjCompletionDate) return null;
-  const d = new Date(ahjCompletionDate);
-  d.setDate(d.getDate() + 7);
-  return d.toISOString().split('T')[0];
-}
+type InstallStatus = "on-track" | "late" | "overdue";
 
-type InstallStatus = "on-track" | "late" | "overdue" | "no-date";
-
-function getInstallStatus(expectedDate: string | null, targetDate: string | null): InstallStatus {
-  if (!expectedDate && !targetDate) return "no-date";
-  const effectiveDate = expectedDate || targetDate;
-  const days = getDaysUntilDue(effectiveDate);
-  if (days !== null && days < 0) return "overdue";
-  if (expectedDate && targetDate && new Date(expectedDate) > new Date(targetDate)) return "late";
-  return "on-track";
+function getInstallStatus(expectedDate: string, targetDate: string | null): InstallStatus {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const expected = new Date(expectedDate);
+  if (targetDate) {
+    const target = new Date(targetDate);
+    if (expected > target) {
+      return expected < now ? "overdue" : "late";
+    }
+  }
+  return expected < now ? "overdue" : "on-track";
 }
 
 const STATUS_STYLES: Record<InstallStatus, string> = {
   "on-track": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300",
   "late": "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
   "overdue": "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
-  "no-date": "bg-muted text-muted-foreground",
 };
 
 const STATUS_DOT: Record<InstallStatus, string> = {
   "on-track": "bg-emerald-500",
   "late": "bg-amber-500",
   "overdue": "bg-red-500",
-  "no-date": "bg-muted-foreground",
 };
 
 interface CalendarProject {
   id: string;
   name: string;
-  expectedDate: string | null;
+  expectedDate: string;
   targetDate: string | null;
-  displayDate: string;
   status: InstallStatus;
   province: string | null;
   ahjStatus: string | null;
-  installStartDate: string | null;
+  daysLate: number | null;
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -90,8 +77,16 @@ export default function InstallCalendar() {
     queryKey: ['/api/projects'],
   });
 
-  const { data: ahjActions } = useQuery<any[]>({
+  const { data: taskActions } = useQuery<any[]>({
     queryKey: ['/api/task-actions', 'ahj'],
+  });
+
+  const { data: siteVisitActions } = useQuery<any[]>({
+    queryKey: ['/api/task-actions', 'site-visits'],
+  });
+
+  const { data: ucActions } = useQuery<any[]>({
+    queryKey: ['/api/task-actions', 'uc'],
   });
 
   const calendarProjects = useMemo(() => {
@@ -102,45 +97,133 @@ export default function InstallCalendar() {
       (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
     );
 
-    const ahjCompletionDates: Record<string, string> = {};
-    if (ahjActions) {
-      for (const action of ahjActions) {
-        if (action.actionType === 'completed' && action.completedAt) {
-          const existing = ahjCompletionDates[action.projectId];
-          const actionDate = new Date(action.completedAt).toISOString().split('T')[0];
-          if (!existing || actionDate < existing) {
-            ahjCompletionDates[action.projectId] = actionDate;
-          }
+    const getEarliestCompletion = (actions: any[] | undefined, projectId: string): string | null => {
+      if (!actions) return null;
+      let earliest: string | null = null;
+      for (const a of actions) {
+        if (a.projectId === projectId && a.actionType === 'completed' && a.completedAt) {
+          const d = new Date(a.completedAt).toISOString().split('T')[0];
+          if (!earliest || d < earliest) earliest = d;
         }
+      }
+      return earliest;
+    };
+
+    const result: CalendarProject[] = [];
+
+    for (const p of installProjects) {
+      const ahjDone = isAhjComplete(p.ahjStatus);
+
+      if (p.installStartDate) {
+        const status = getInstallStatus(p.installStartDate, p.installDueDate);
+        let daysLate: number | null = null;
+        if (p.installDueDate) {
+          const diff = Math.round((new Date(p.installStartDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (diff > 0) daysLate = diff;
+        }
+        result.push({
+          id: p.id,
+          name: p.name,
+          expectedDate: p.installStartDate,
+          targetDate: p.installDueDate,
+          status,
+          province: p.province,
+          ahjStatus: p.ahjStatus,
+          daysLate,
+        });
+        continue;
+      }
+
+      if (ahjDone) {
+        const ahjCompDate = getEarliestCompletion(taskActions, p.id);
+        if (ahjCompDate) {
+          const d = new Date(ahjCompDate);
+          d.setDate(d.getDate() + 7);
+          const expectedDate = d.toISOString().split('T')[0];
+          const status = getInstallStatus(expectedDate, p.installDueDate);
+          let daysLate: number | null = null;
+          if (p.installDueDate) {
+            const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
+            if (diff > 0) daysLate = diff;
+          }
+          result.push({
+            id: p.id,
+            name: p.name,
+            expectedDate,
+            targetDate: p.installDueDate,
+            status,
+            province: p.province,
+            ahjStatus: p.ahjStatus,
+            daysLate,
+          });
+          continue;
+        }
+      }
+
+      const svCompDate = getEarliestCompletion(siteVisitActions, p.id);
+      if (svCompDate) {
+        const ahjExpected = new Date(svCompDate);
+        ahjExpected.setDate(ahjExpected.getDate() + 21);
+        const installExpected = new Date(ahjExpected);
+        installExpected.setDate(installExpected.getDate() + 7);
+        const expectedDate = installExpected.toISOString().split('T')[0];
+        const status = getInstallStatus(expectedDate, p.installDueDate);
+        let daysLate: number | null = null;
+        if (p.installDueDate) {
+          const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (diff > 0) daysLate = diff;
+        }
+        result.push({
+          id: p.id,
+          name: p.name,
+          expectedDate,
+          targetDate: p.installDueDate,
+          status,
+          province: p.province,
+          ahjStatus: p.ahjStatus,
+          daysLate,
+        });
+        continue;
+      }
+
+      const ucCompDate = getEarliestCompletion(ucActions, p.id);
+      if (ucCompDate) {
+        const contractExp = new Date(ucCompDate);
+        contractExp.setDate(contractExp.getDate() + 7);
+        const svExp = new Date(contractExp);
+        svExp.setDate(svExp.getDate() + 7);
+        const ahjExp = new Date(svExp);
+        ahjExp.setDate(ahjExp.getDate() + 21);
+        const installExp = new Date(ahjExp);
+        installExp.setDate(installExp.getDate() + 7);
+        const expectedDate = installExp.toISOString().split('T')[0];
+        const status = getInstallStatus(expectedDate, p.installDueDate);
+        let daysLate: number | null = null;
+        if (p.installDueDate) {
+          const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
+          if (diff > 0) daysLate = diff;
+        }
+        result.push({
+          id: p.id,
+          name: p.name,
+          expectedDate,
+          targetDate: p.installDueDate,
+          status,
+          province: p.province,
+          ahjStatus: p.ahjStatus,
+          daysLate,
+        });
+        continue;
       }
     }
 
-    return installProjects.map((p): CalendarProject => {
-      const ahjDone = isAhjComplete(p.ahjStatus);
-      const ahjCompDate = ahjCompletionDates[p.id] || null;
-      const expectedDate = ahjDone ? getExpectedInstallDate(ahjCompDate) : null;
-      const displayDate = p.installStartDate || expectedDate || p.installDueDate || null;
-      const status = getInstallStatus(expectedDate, p.installDueDate);
-
-      return {
-        id: p.id,
-        name: p.name,
-        expectedDate,
-        targetDate: p.installDueDate,
-        displayDate: displayDate || "",
-        status,
-        province: p.province,
-        ahjStatus: p.ahjStatus,
-        installStartDate: p.installStartDate,
-      };
-    }).filter((p) => p.displayDate);
-  }, [projects, ahjActions]);
+    return result;
+  }, [projects, taskActions, siteVisitActions, ucActions]);
 
   const projectsByDate = useMemo(() => {
     const map: Record<string, CalendarProject[]> = {};
     for (const p of calendarProjects) {
-      if (!p.displayDate) continue;
-      const dateKey = p.displayDate;
+      const dateKey = p.expectedDate;
       if (!map[dateKey]) map[dateKey] = [];
       map[dateKey].push(p);
     }
@@ -149,8 +232,7 @@ export default function InstallCalendar() {
 
   const monthProjects = useMemo(() => {
     return calendarProjects.filter((p) => {
-      if (!p.displayDate) return false;
-      const d = new Date(p.displayDate);
+      const d = new Date(p.expectedDate);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
   }, [calendarProjects, currentMonth, currentYear]);
@@ -224,30 +306,30 @@ export default function InstallCalendar() {
           {dayProjects.slice(0, 3).map((p) => (
             <Tooltip key={p.id}>
               <TooltipTrigger asChild>
-                <div
-                  className={`text-[10px] leading-tight px-1 py-0.5 rounded-sm truncate cursor-default ${STATUS_STYLES[p.status]}`}
-                  data-testid={`event-project-${p.id}`}
-                >
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${STATUS_DOT[p.status]}`} />
-                  {p.name}
-                </div>
+                <Link href={`/project/${p.id}`}>
+                  <div
+                    className={`text-[10px] leading-tight px-1 py-0.5 rounded-sm truncate cursor-pointer hover:opacity-80 ${STATUS_STYLES[p.status]}`}
+                    data-testid={`event-project-${p.id}`}
+                  >
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${STATUS_DOT[p.status]}`} />
+                    {p.name}
+                  </div>
+                </Link>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[250px]">
+              <TooltipContent side="bottom" className="max-w-[280px]">
                 <div className="space-y-1">
                   <p className="font-medium text-sm">{p.name}</p>
                   {p.province && <p className="text-xs text-muted-foreground">{p.province}</p>}
-                  {p.installStartDate && (
-                    <p className="text-xs">Install Start: {new Date(p.installStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                  )}
-                  {p.expectedDate && (
-                    <p className="text-xs">Expected: {new Date(p.expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                  )}
+                  <p className="text-xs">Expected Install: {new Date(p.expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                   {p.targetDate && (
-                    <p className="text-xs">Target: {new Date(p.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                    <p className="text-xs text-muted-foreground">Original Target: {new Date(p.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                  )}
+                  {p.daysLate && p.daysLate > 0 && (
+                    <p className="text-xs text-red-600 dark:text-red-400 font-medium">{p.daysLate} days behind target</p>
                   )}
                   <p className="text-xs">AHJ: {p.ahjStatus || 'N/A'}</p>
                   <Badge className={`text-[10px] ${STATUS_STYLES[p.status]}`}>
-                    {p.status === "on-track" ? "On Track" : p.status === "late" ? "Late" : p.status === "overdue" ? "Overdue" : "No Date"}
+                    {p.status === "on-track" ? "On Track" : p.status === "late" ? "Running Late" : "Overdue"}
                   </Badge>
                 </div>
               </TooltipContent>
@@ -303,6 +385,10 @@ export default function InstallCalendar() {
         </div>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Shows expected install dates based on actual stage completions. Projects are placed where they're realistically expected, not on their original target. Red = overdue, amber = behind target but upcoming.
+      </p>
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4 mb-4">
@@ -343,7 +429,7 @@ export default function InstallCalendar() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_DOT["late"]}`} />
-              <span className="text-xs text-muted-foreground">Late</span>
+              <span className="text-xs text-muted-foreground">Behind Target</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_DOT["overdue"]}`} />
