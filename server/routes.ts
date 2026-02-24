@@ -580,32 +580,61 @@ export async function registerRoutes(
       let aiError: string | null = null;
 
       const isImage = req.file.mimetype.startsWith('image/');
-      console.log(`[Hydro Bill] isImage=${isImage} for mimetype="${req.file.mimetype}"`);
+      const isPdf = req.file.mimetype === 'application/pdf';
+      console.log(`[Hydro Bill] isImage=${isImage}, isPdf=${isPdf} for mimetype="${req.file.mimetype}"`);
 
-      if (isImage) {
+      if (isImage || isPdf) {
         try {
           const openai = new OpenAI({
             apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
             baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
           });
 
-          const base64 = req.file.buffer.toString('base64');
-          const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
-          console.log(`[Hydro Bill] Starting AI extraction, base64 length: ${base64.length}`);
+          const extractionPrompt = "You are an expert at reading utility/hydro bills. Extract these three fields:\n1. The utility/hydro company name (e.g. Toronto Hydro, Alectra, Hydro One)\n2. The customer account number\n3. The full customer name exactly as it appears on the bill\n\nReturn ONLY a JSON object with these exact keys: hydroCompanyName, hydroAccountNumber, hydroCustomerName. If you cannot find a field, set its value to null. No explanation, just the JSON.";
 
-          const aiResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: "You are an expert at reading utility/hydro bills. Look at this bill image carefully and extract these three fields:\n1. The utility/hydro company name (e.g. Toronto Hydro, Alectra, Hydro One)\n2. The customer account number\n3. The full customer name exactly as it appears on the bill\n\nReturn ONLY a JSON object with these exact keys: hydroCompanyName, hydroAccountNumber, hydroCustomerName. If you cannot find a field, set its value to null. No explanation, just the JSON." },
-                  { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-                ]
-              }
-            ],
-            max_tokens: 500,
-          });
+          let aiResponse;
+
+          if (isImage) {
+            const base64 = req.file.buffer.toString('base64');
+            const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+            console.log(`[Hydro Bill] Starting AI image extraction, base64 length: ${base64.length}`);
+
+            aiResponse = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: extractionPrompt + "\n\nLook at this bill image carefully." },
+                    { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+                  ]
+                }
+              ],
+              max_tokens: 500,
+            });
+          } else {
+            const pdfParseModule = await import("pdf-parse");
+            const pdfParseFunc = pdfParseModule.default || pdfParseModule;
+            const pdfData = await pdfParseFunc(req.file.buffer);
+            const pdfText = pdfData.text?.trim();
+            console.log(`[Hydro Bill] PDF text extracted, length: ${pdfText?.length || 0} chars, first 500: "${pdfText?.substring(0, 500)}"`);
+
+            if (!pdfText || pdfText.length < 10) {
+              throw new Error("PDF appears to be a scanned image with no selectable text. Please upload a JPG/PNG screenshot instead.");
+            }
+
+            aiResponse = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "user",
+                  content: `${extractionPrompt}\n\nHere is the text content extracted from a hydro/utility bill PDF:\n\n---\n${pdfText.substring(0, 4000)}\n---`
+                }
+              ],
+              max_tokens: 500,
+            });
+          }
+
           const rawContent = aiResponse.choices[0]?.message?.content || '';
           console.log(`[Hydro Bill] AI raw response for ${project.name}: "${rawContent}"`);
 
@@ -630,8 +659,8 @@ export async function registerRoutes(
           }
         }
       } else {
-        aiError = `File type "${req.file.mimetype}" is not an image — AI scan only works with image files (JPG, PNG). Upload an image version for auto-extraction.`;
-        console.log(`[Hydro Bill] Skipping AI extraction — not an image: ${req.file.mimetype}`);
+        aiError = `File type "${req.file.mimetype}" is not supported for scanning. Upload a PDF, JPG, or PNG.`;
+        console.log(`[Hydro Bill] Skipping AI extraction — unsupported type: ${req.file.mimetype}`);
       }
 
       const attachmentData = result.data || result;
