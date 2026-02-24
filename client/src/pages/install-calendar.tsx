@@ -215,7 +215,7 @@ export default function InstallCalendar() {
 
       let expectedDate: string;
 
-      if (ahjDone) {
+      if (ahjDone && svDone && contractDone && ucDone) {
         expectedDate = toDateStr(addDays(now, STAGE_GAPS.ahjToInstall));
       } else {
         expectedDate = toDateStr(adjustedInstallTarget);
