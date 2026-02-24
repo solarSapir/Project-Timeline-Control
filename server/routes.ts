@@ -94,6 +94,11 @@ export async function registerRoutes(
         } catch (err: any) {
           console.log(`Could not fetch subtasks for ${task.name}: ${err.message}`);
         }
+      } else {
+        mapped.hrspSubtaskGid = null;
+        mapped.hrspStatus = null;
+        mapped.hrspMissing = false;
+        mapped.hrspDueDate = null;
       }
 
       const isUcComplete = mapped.ucStatus && ['approved', 'complete', 'not required'].some(s => mapped.ucStatus!.toLowerCase().includes(s));

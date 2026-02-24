@@ -98,11 +98,17 @@ export default function PaymentsView() {
 
   const rebateStatusOptions = Array.isArray(rebateOptions) ? rebateOptions.map(o => o.name) : [];
 
-  const installProjects = (projects || []).filter((p: any) =>
+  const allInstallProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
+
+  const isRebateEligible = (p: any) =>
+    p.ucTeam?.toLowerCase().includes('load displacement') &&
+    p.province?.toLowerCase().includes('ontario');
+
+  const installProjects = allInstallProjects.filter((p: any) => isRebateEligible(p));
 
   const firstHrspSubtaskGid = installProjects.find((p: any) => p.hrspSubtaskGid)?.hrspSubtaskGid;
 
