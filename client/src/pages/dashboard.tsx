@@ -60,8 +60,15 @@ export default function Dashboard() {
     value: count,
   })) : [];
 
-  const installProjects = (projects || []).filter((p) => p.installType?.toLowerCase() === 'install' && (!p.propertySector || p.propertySector.toLowerCase() === 'residential'));
-  const recentProjects = installProjects.slice(0, 10);
+  const excludedPmStatuses = ['complete', 'project paused', 'project lost'];
+  const installProjects = (projects || []).filter((p) =>
+    p.installType?.toLowerCase() === 'install' &&
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    !excludedPmStatuses.includes(p.pmStatus?.toLowerCase() || '')
+  );
+  const recentProjects = [...installProjects]
+    .sort((a, b) => new Date(b.lastSyncedAt || b.createdAt || 0).getTime() - new Date(a.lastSyncedAt || a.createdAt || 0).getTime())
+    .slice(0, 10);
 
   const getProjectDeadlines = (projectId: string) => {
     return (deadlines || []).filter(d => d.projectId === projectId);
