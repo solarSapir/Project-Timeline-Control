@@ -326,6 +326,28 @@ export async function uploadAttachmentToTask(taskGid: string, fileBuffer: Buffer
   return await res.json();
 }
 
+export async function createSubtaskForTask(parentTaskGid: string, subtaskName: string): Promise<any> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${parentTaskGid}/subtasks`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: {
+        name: subtaskName,
+      }
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to create subtask: ${res.status} ${errBody}`);
+  }
+  const data = await res.json();
+  return data?.data;
+}
+
 export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
   const accessToken = await getAccessToken();
   const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/subtasks?opt_fields=name,gid,completed,due_on,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name`, {

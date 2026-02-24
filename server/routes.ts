@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions, createSubtaskForTask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
@@ -446,6 +446,56 @@ export async function registerRoutes(
       res.json({ success: true, action, message: `${commentPrefix} posted to Asana timeline` });
     } catch (error: any) {
       console.error("Follow-up error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/projects/:id/site-visit-photos", upload.array('photos', 10), async (req, res) => {
+    try {
+      const projectId = req.params.id as string;
+      const project = await storage.getProject(projectId);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+      const { notes, completedBy } = req.body;
+      const files = req.files as Express.Multer.File[];
+
+      const subtasks = await fetchSubtasksForTask(project.asanaGid);
+      let photosSubtask = subtasks.find((st: any) => st.name?.toLowerCase().includes('site visit photos'));
+
+      if (!photosSubtask) {
+        photosSubtask = await createSubtaskForTask(project.asanaGid, 'Site visit Photos');
+        console.log(`Created "Site visit Photos" subtask for ${project.name}`);
+      }
+
+      if (notes || completedBy) {
+        const commentText = `Site Visit Photos uploaded by ${completedBy || 'Team'}:\n${notes || 'Photos uploaded'}`;
+        await postCommentToTask(photosSubtask.gid, commentText);
+      }
+
+      let uploadedCount = 0;
+      if (files && files.length > 0) {
+        for (const file of files) {
+          try {
+            await uploadAttachmentToTask(photosSubtask.gid, file.buffer, file.originalname, file.mimetype);
+            uploadedCount++;
+          } catch (err: any) {
+            console.error(`Failed to upload ${file.originalname}: ${err.message}`);
+          }
+        }
+      }
+
+      const action = await storage.createTaskAction({
+        projectId: projectId,
+        viewType: 'site_visits',
+        actionType: 'completed',
+        completedBy: completedBy || null,
+        notes: notes || null,
+        followUpDate: null,
+      });
+
+      res.json({ success: true, action, uploadedCount, subtaskGid: photosSubtask.gid, message: `${uploadedCount} photo(s) uploaded to "Site visit Photos" subtask` });
+    } catch (error: any) {
+      console.error("Site visit photos error:", error);
       res.status(500).json({ message: error.message });
     }
   });
