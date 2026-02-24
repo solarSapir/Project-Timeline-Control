@@ -362,14 +362,31 @@ export default function ContractCreationView() {
     }
   };
 
+  const needsFollowUpCheck = (p: any) => {
+    if (!isPendingSignature(p.installTeamStage)) return false;
+    const last = getLastContractFollowUp(p.id);
+    if (!last) return true;
+    const hrs = hoursSince(last.completedAt || last.createdAt);
+    return hrs === null || hrs >= 24;
+  };
+
+  const recentlyFollowedUp = (p: any) => {
+    if (!isPendingSignature(p.installTeamStage)) return false;
+    const last = getLastContractFollowUp(p.id);
+    if (!last) return false;
+    const hrs = hoursSince(last.completedAt || last.createdAt);
+    return hrs !== null && hrs < 24;
+  };
+
   const filtered = ucReadyProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     const sent = isContractSent(p.installTeamStage);
     const signed = isContractSigned(p.installTeamStage);
     const depositDone = isDepositCollected(p.installTeamStage);
-    const pendingSig = isPendingSignature(p.installTeamStage);
     if (filter === "needs_contract") return !sent;
-    if (filter === "pending_signature") return pendingSig;
+    if (filter === "needs_followup") return needsFollowUpCheck(p);
+    if (filter === "followed_up") return recentlyFollowedUp(p);
+    if (filter === "pending_signature") return isPendingSignature(p.installTeamStage);
     if (filter === "pending_deposit") return signed && !depositDone;
     if (filter === "complete") return signed && depositDone;
     if (filter === "overdue") {
@@ -395,6 +412,8 @@ export default function ContractCreationView() {
   });
 
   const needsContractCount = ucReadyProjects.filter((p: any) => !isContractSent(p.installTeamStage)).length;
+  const needsFollowUpCount = ucReadyProjects.filter(needsFollowUpCheck).length;
+  const followedUpCount = ucReadyProjects.filter(recentlyFollowedUp).length;
   const pendingSigCount = ucReadyProjects.filter((p: any) => isPendingSignature(p.installTeamStage)).length;
   const pendingDepositCount = ucReadyProjects.filter((p: any) => isContractSigned(p.installTeamStage) && !isDepositCollected(p.installTeamStage)).length;
   const completeCount = ucReadyProjects.filter((p: any) => isContractSigned(p.installTeamStage) && isDepositCollected(p.installTeamStage)).length;
@@ -427,10 +446,16 @@ export default function ContractCreationView() {
             <FileText className="h-3 w-3 mr-1" />
             Needs Contract: {needsContractCount}
           </Badge>
-          {pendingSigCount > 0 && (
-            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" data-testid="badge-pending-sig-count">
-              <Send className="h-3 w-3 mr-1" />
-              Pending Signature: {pendingSigCount}
+          {needsFollowUpCount > 0 && (
+            <Badge variant="destructive" data-testid="badge-needs-followup-count">
+              <MessageSquare className="h-3 w-3 mr-1" />
+              Needs Follow-up: {needsFollowUpCount}
+            </Badge>
+          )}
+          {followedUpCount > 0 && (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-followed-up-count">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Followed Up: {followedUpCount}
             </Badge>
           )}
           {pendingDepositCount > 0 && (
@@ -470,7 +495,9 @@ export default function ContractCreationView() {
           <SelectContent>
             <SelectItem value="all">All UC-Ready ({ucReadyProjects.length})</SelectItem>
             <SelectItem value="needs_contract">Needs Contract ({needsContractCount})</SelectItem>
-            <SelectItem value="pending_signature">Pending Signature ({pendingSigCount})</SelectItem>
+            <SelectItem value="needs_followup">Needs Follow-up ({needsFollowUpCount})</SelectItem>
+            <SelectItem value="followed_up">Recently Followed Up ({followedUpCount})</SelectItem>
+            <SelectItem value="pending_signature">All Pending Signature ({pendingSigCount})</SelectItem>
             <SelectItem value="pending_deposit">Pending Deposit ({pendingDepositCount})</SelectItem>
             <SelectItem value="complete">Contract Complete ({completeCount})</SelectItem>
             <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>
@@ -480,7 +507,7 @@ export default function ContractCreationView() {
 
       {sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p>No projects match this filter.</p>
+          <p>{filter === "needs_followup" ? "All pending signatures have been followed up today — check back in 24 hours." : filter === "followed_up" ? "No projects have been followed up recently." : "No projects match this filter."}</p>
         </div>
       ) : (
         <div className="space-y-3">
