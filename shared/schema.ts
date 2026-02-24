@@ -195,3 +195,14 @@ export const DEFAULT_DEADLINES_WEEKS: Record<string, { min: number; max: number;
   installation: { min: 9, max: 12, dependsOn: ["install_booking"] },
   close_off: { min: 12, max: 14, dependsOn: ["installation"] },
 };
+
+export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[] }> = {
+  uc_application: { gapDays: 21, dependsOn: [] },
+  rebates_payment: { gapDays: 14, dependsOn: [] },
+  contract_signing: { gapDays: 7, dependsOn: ["uc_application"] },
+  site_visit: { gapDays: 7, dependsOn: ["contract_signing"] },
+  ahj_permitting: { gapDays: 14, dependsOn: ["site_visit"] },
+  install_booking: { gapDays: 7, dependsOn: ["ahj_permitting"] },
+  installation: { gapDays: 7, dependsOn: ["install_booking"] },
+  close_off: { gapDays: 7, dependsOn: ["installation"] },
+};

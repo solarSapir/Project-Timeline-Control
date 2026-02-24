@@ -132,8 +132,9 @@ export default function InstallCalendar() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const STAGE_GAPS = { ucToContract: 14, contractToSv: 7, svToAhj: 14, ahjToInstall: 7 };
+    const STAGE_GAPS = { ucToContract: 7, contractToSv: 7, svToAhj: 14, ahjToInstall: 7 };
     const LATE_PUSH = 7;
+    const AHJ_NOT_REQUIRED = ['not required', 'closed', 'permit close off'];
 
     const result: CalendarProject[] = [];
 
@@ -154,10 +155,13 @@ export default function InstallCalendar() {
       const svDone = isSvDone(p.siteVisitStatus);
       const ahjDone = isAhjComplete(p.ahjStatus);
 
+      const ahjIsNotRequired = p.ahjStatus ? AHJ_NOT_REQUIRED.some(k => p.ahjStatus!.toLowerCase().includes(k)) : false;
+      const effectiveSvToAhj = ahjIsNotRequired ? 0 : STAGE_GAPS.svToAhj;
+
       let adjustedUcTarget = p.ucDueDate ? new Date(p.ucDueDate) : addDays(now, 21);
       let adjustedContractTarget = p.contractDueDate ? new Date(p.contractDueDate) : addDays(adjustedUcTarget, STAGE_GAPS.ucToContract);
       let adjustedSvTarget = p.siteVisitDueDate ? new Date(p.siteVisitDueDate) : addDays(adjustedContractTarget, STAGE_GAPS.contractToSv);
-      let adjustedAhjTarget = p.ahjDueDate ? new Date(p.ahjDueDate) : addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+      let adjustedAhjTarget = p.ahjDueDate ? new Date(p.ahjDueDate) : addDays(adjustedSvTarget, effectiveSvToAhj);
       let adjustedInstallTarget = p.installDueDate ? new Date(p.installDueDate) : addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
 
       let reason: string;
@@ -195,14 +199,14 @@ export default function InstallCalendar() {
         if (reason === "uc-pending") {
           adjustedContractTarget = addDays(cascadeFrom, STAGE_GAPS.ucToContract);
           adjustedSvTarget = addDays(adjustedContractTarget, STAGE_GAPS.contractToSv);
-          adjustedAhjTarget = addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+          adjustedAhjTarget = addDays(adjustedSvTarget, effectiveSvToAhj);
           adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
         } else if (reason === "uc-complete") {
           adjustedSvTarget = addDays(cascadeFrom, STAGE_GAPS.contractToSv);
-          adjustedAhjTarget = addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+          adjustedAhjTarget = addDays(adjustedSvTarget, effectiveSvToAhj);
           adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
         } else if (reason === "contract-done") {
-          adjustedAhjTarget = addDays(cascadeFrom, STAGE_GAPS.svToAhj);
+          adjustedAhjTarget = addDays(cascadeFrom, effectiveSvToAhj);
           adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
         } else if (reason === "sv-complete") {
           adjustedInstallTarget = addDays(cascadeFrom, STAGE_GAPS.ahjToInstall);

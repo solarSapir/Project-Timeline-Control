@@ -4,7 +4,7 @@ import { createRequire } from "module";
 import { storage } from "./storage";
 import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions, createSubtaskForTask, fetchTaskAttachments, completeAsanaTask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
-import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
+import { DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
 import OpenAI from "openai";
 
@@ -47,15 +47,24 @@ export async function registerRoutes(
       if (mapped.projectCreatedDate) {
         const createdDate = new Date(mapped.projectCreatedDate);
         const isOffGrid = mapped.ucTeam?.toLowerCase().includes('off grid') || mapped.ucTeam?.toLowerCase().includes('no/');
-        mapped.ucDueDate = isOffGrid
-          ? format(createdDate, 'yyyy-MM-dd')
-          : format(addDays(createdDate, 21), 'yyyy-MM-dd');
-        mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
-        mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
-        mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
-        const ahjDue = new Date(mapped.ahjDueDate);
-        mapped.installDueDate = format(addDays(ahjDue, 7), 'yyyy-MM-dd');
-        mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
+        const ucDue = isOffGrid ? createdDate : addDays(createdDate, DEFAULT_STAGE_GAPS.uc_application.gapDays);
+        mapped.ucDueDate = format(ucDue, 'yyyy-MM-dd');
+
+        const contractDue = addDays(ucDue, DEFAULT_STAGE_GAPS.contract_signing.gapDays);
+        mapped.contractDueDate = format(contractDue, 'yyyy-MM-dd');
+
+        const svDue = addDays(contractDue, DEFAULT_STAGE_GAPS.site_visit.gapDays);
+        mapped.siteVisitDueDate = format(svDue, 'yyyy-MM-dd');
+
+        const ahjNotRequired = mapped.ahjStatus?.toLowerCase().includes('not required') || mapped.ahjStatus?.toLowerCase().includes('closed');
+        const ahjDue = ahjNotRequired ? svDue : addDays(svDue, DEFAULT_STAGE_GAPS.ahj_permitting.gapDays);
+        mapped.ahjDueDate = format(ahjDue, 'yyyy-MM-dd');
+
+        const installDue = addDays(ahjDue, DEFAULT_STAGE_GAPS.install_booking.gapDays);
+        mapped.installDueDate = format(installDue, 'yyyy-MM-dd');
+
+        const closeOffDue = addDays(installDue, DEFAULT_STAGE_GAPS.close_off.gapDays);
+        mapped.closeOffDueDate = format(closeOffDue, 'yyyy-MM-dd');
       }
 
       if (mapped.ucStatus?.toLowerCase() === 'submitted' && task.gid) {

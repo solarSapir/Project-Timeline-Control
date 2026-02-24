@@ -11,7 +11,7 @@ import {
   ArrowRight, ArrowDown, Save, RotateCcw, Info
 } from "lucide-react";
 import {
-  PROJECT_STAGES, STAGE_LABELS, DEFAULT_DEADLINES_WEEKS
+  PROJECT_STAGES, STAGE_LABELS, DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS
 } from "@shared/schema";
 import type { WorkflowConfig } from "@shared/schema";
 import {
@@ -39,11 +39,11 @@ type StageConfig = {
 
 function defaultConfigs(): StageConfig[] {
   return PROJECT_STAGES.map(stage => {
-    const def = DEFAULT_DEADLINES_WEEKS[stage];
+    const gap = DEFAULT_STAGE_GAPS[stage];
     return {
       stage,
-      targetDays: def.max * 7,
-      dependsOn: def.dependsOn || [],
+      targetDays: gap ? gap.gapDays : (DEFAULT_DEADLINES_WEEKS[stage]?.max ?? 4) * 7,
+      dependsOn: gap ? gap.dependsOn : (DEFAULT_DEADLINES_WEEKS[stage]?.dependsOn || []),
     };
   });
 }
@@ -52,9 +52,9 @@ function mergeWithDefaults(saved: WorkflowConfig[]): StageConfig[] {
   const savedMap = new Map(saved.map(s => [s.stage, s]));
   return PROJECT_STAGES.map(stage => {
     const s = savedMap.get(stage);
-    if (s) return { stage: s.stage, targetDays: s.targetDays, dependsOn: s.dependsOn || DEFAULT_DEADLINES_WEEKS[stage].dependsOn || [] };
-    const def = DEFAULT_DEADLINES_WEEKS[stage];
-    return { stage, targetDays: def.max * 7, dependsOn: def.dependsOn || [] };
+    const gap = DEFAULT_STAGE_GAPS[stage];
+    if (s) return { stage: s.stage, targetDays: s.targetDays, dependsOn: s.dependsOn || gap?.dependsOn || [] };
+    return { stage, targetDays: gap?.gapDays ?? 7, dependsOn: gap?.dependsOn || [] };
   });
 }
 
@@ -117,7 +117,25 @@ function WorkflowEditor() {
     return groups;
   }, [configs]);
 
-  const maxDays = useMemo(() => Math.max(...configs.map(c => c.targetDays), 1), [configs]);
+  const cumulativeDays = useMemo(() => {
+    const cumMap: Record<string, number> = {};
+    const configMap = new Map(configs.map(c => [c.stage, c]));
+    const resolve = (stage: string): number => {
+      if (cumMap[stage] !== undefined) return cumMap[stage];
+      const c = configMap.get(stage);
+      if (!c || c.dependsOn.length === 0) {
+        cumMap[stage] = c?.targetDays ?? 0;
+        return cumMap[stage];
+      }
+      const maxDep = Math.max(...c.dependsOn.map(d => resolve(d)));
+      cumMap[stage] = maxDep + c.targetDays;
+      return cumMap[stage];
+    };
+    configs.forEach(c => resolve(c.stage));
+    return cumMap;
+  }, [configs]);
+
+  const maxDays = useMemo(() => Math.max(...Object.values(cumulativeDays), 1), [cumulativeDays]);
 
   if (isLoading) {
     return (
@@ -138,7 +156,7 @@ function WorkflowEditor() {
               <Info className="h-4 w-4 text-muted-foreground" />
             </TooltipTrigger>
             <TooltipContent side="right" className="max-w-xs text-sm">
-              <p>This shows how project stages depend on each other. Target days = days from project creation date to stage deadline. Adjust these values to change how deadlines are calculated for new projects.</p>
+              <p>Each stage's due date is calculated relative to the previous stage. For example, if UC takes 21 days and Contract is 7 days after UC, the contract deadline is 28 days from project start. When AHJ is "Not Required", its due date equals the site visit's.</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -184,8 +202,7 @@ function WorkflowEditor() {
             <div className={`grid gap-3 ${group.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 max-w-xl mx-auto'}`}>
               {group.map(config => {
                 const colors = STAGE_COLORS[config.stage];
-                const weeks = Math.round(config.targetDays / 7 * 10) / 10;
-                const barWidth = Math.max(8, (config.targetDays / maxDays) * 100);
+                const barWidth = Math.max(8, ((cumulativeDays[config.stage] || config.targetDays) / maxDays) * 100);
 
                 return (
                   <div
@@ -200,13 +217,18 @@ function WorkflowEditor() {
                           {STAGE_LABELS[config.stage]}
                         </span>
                       </div>
-                      <Badge variant="outline" className="text-xs shrink-0 tabular-nums">
-                        {weeks}w
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className="text-xs tabular-nums">
+                          {config.targetDays}d gap
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] tabular-nums">
+                          d{cumulativeDays[config.stage] || 0}
+                        </Badge>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap w-16">Target:</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap w-16">Gap:</span>
                       <Input
                         type="number"
                         min={0}
@@ -216,7 +238,11 @@ function WorkflowEditor() {
                         className="h-8 w-20 text-sm text-center tabular-nums"
                         data-testid={`input-days-${config.stage}`}
                       />
-                      <span className="text-xs text-muted-foreground">days from start</span>
+                      <span className="text-xs text-muted-foreground">
+                        {config.dependsOn.length > 0
+                          ? `days after ${STAGE_LABELS[config.dependsOn[config.dependsOn.length - 1]] || config.dependsOn[config.dependsOn.length - 1]}`
+                          : 'days from start'}
+                      </span>
                     </div>
 
                     <div className="h-2 bg-white/60 dark:bg-black/20 rounded-full overflow-hidden mb-2">
@@ -270,6 +296,9 @@ function WorkflowEditor() {
         <div className="space-y-2">
           {configs.map(config => {
             const colors = STAGE_COLORS[config.stage];
+            const cumDays = cumulativeDays[config.stage] || 0;
+            const startDay = cumDays - config.targetDays;
+            const barStart = Math.max(0, (startDay / maxDays) * 100);
             const barWidth = Math.max(4, (config.targetDays / maxDays) * 100);
             return (
               <div key={config.stage} className="flex items-center gap-3">
@@ -278,14 +307,17 @@ function WorkflowEditor() {
                 </span>
                 <div className="flex-1 h-5 bg-muted rounded overflow-hidden relative">
                   <div
-                    className={`h-full rounded ${colors.dot} opacity-80 transition-all duration-300 flex items-center justify-end pr-1`}
-                    style={{ width: `${barWidth}%` }}
+                    className={`h-full rounded ${colors.dot} opacity-80 transition-all duration-300 absolute flex items-center justify-end pr-1`}
+                    style={{ left: `${barStart}%`, width: `${barWidth}%` }}
                   >
                     <span className="text-[9px] font-medium text-white drop-shadow-sm tabular-nums">
                       {config.targetDays}d
                     </span>
                   </div>
                 </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right shrink-0">
+                  d{cumDays}
+                </span>
               </div>
             );
           })}
