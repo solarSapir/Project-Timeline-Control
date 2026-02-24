@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { STAGE_LABELS, PROJECT_STAGES } from "@shared/schema";
 import { differenceInDays, parseISO, format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Calendar,
@@ -394,6 +397,7 @@ function DaysLeftBadge({ dateStr }: { dateStr: string | null | undefined }) {
 export default function ProjectProfile() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
+  const { toast } = useToast();
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
@@ -405,6 +409,25 @@ export default function ProjectProfile() {
 
   const { data: schedules = [] } = useQuery<any[]>({
     queryKey: ["/api/projects", projectId, "install-schedules"],
+  });
+
+  const { data: pmOptions = [] } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options/pmStatus'],
+  });
+
+  const pmStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      const res = await apiRequest("PATCH", `/api/projects/${projectId}`, { pmStatus: newStatus });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "PM Status updated", description: "Change synced to Asana" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error updating PM Status", description: err.message, variant: "destructive" });
+    }
   });
 
   if (projectLoading || actionsLoading) {
@@ -466,22 +489,33 @@ export default function ProjectProfile() {
               {project.installTeamStage}
             </Badge>
           )}
-          <Badge
-            className={`text-xs ${
-              project.pmStatus?.toLowerCase().includes('complete')
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                : project.pmStatus?.toLowerCase().includes('install')
-                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                  : project.pmStatus?.toLowerCase().includes('paused')
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                    : project.pmStatus?.toLowerCase().includes('lost')
-                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-            }`}
-            data-testid="text-pm-status"
-          >
-            PM Status: {project.pmStatus || "Not set"}
-          </Badge>
+          <div className="flex items-center gap-1.5" data-testid="pm-status-select">
+            <span className="text-xs text-muted-foreground">PM Status:</span>
+            <Select
+              value={project.pmStatus || ''}
+              onValueChange={(v) => pmStatusMutation.mutate(v)}
+              disabled={pmStatusMutation.isPending}
+            >
+              <SelectTrigger className={`h-6 w-auto min-w-[120px] text-xs border px-2 py-0 ${
+                project.pmStatus?.toLowerCase().includes('complete')
+                  ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700"
+                  : project.pmStatus?.toLowerCase().includes('install')
+                    ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700"
+                    : project.pmStatus?.toLowerCase().includes('paused')
+                      ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700"
+                      : project.pmStatus?.toLowerCase().includes('lost')
+                        ? "bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700"
+                        : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600"
+              }`} data-testid="select-pm-status">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                {pmOptions.map(opt => (
+                  <SelectItem key={opt.gid} value={opt.name}>{opt.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
