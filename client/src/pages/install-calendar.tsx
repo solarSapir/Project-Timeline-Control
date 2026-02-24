@@ -99,23 +99,24 @@ export default function InstallCalendar() {
       !excludedPmStatuses.includes(p.pmStatus?.toLowerCase() || '')
     );
 
-    const getEarliestCompletion = (actions: any[] | undefined, projectId: string): string | null => {
-      if (!actions) return null;
-      let earliest: string | null = null;
-      for (const a of actions) {
-        if (a.projectId === projectId && a.actionType === 'completed' && a.completedAt) {
-          const d = new Date(a.completedAt).toISOString().split('T')[0];
-          if (!earliest || d < earliest) earliest = d;
-        }
-      }
-      return earliest;
-    };
+    const UC_COMPLETE = ['approved', 'complete', 'not required', 'closed', 'close off'];
+    const isUcDone = (s: string | null) => s ? UC_COMPLETE.some(k => s.toLowerCase().includes(k)) : false;
+
+    const CONTRACT_DONE_STAGES = ['pending deposit', 'deposit collected', 'pending site visit', 'active install', 'complete'];
+    const isContractDone = (s: string | null) => s ? CONTRACT_DONE_STAGES.some(k => s.toLowerCase().includes(k)) : false;
+    const isContractSent = (s: string | null) => s ? s.toLowerCase().includes('pending contract to be signed') || isContractDone(s) : false;
+
+    const SV_DONE = ['visit complete', 'not required', 'visit booked'];
+    const isSvDone = (s: string | null) => s ? SV_DONE.some(k => s.toLowerCase().includes(k)) : false;
+
+    const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+    const toDateStr = (d: Date) => d.toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const result: CalendarProject[] = [];
 
     for (const p of installProjects) {
-      const ahjDone = isAhjComplete(p.ahjStatus);
-
       if (p.installStartDate) {
         const status = getInstallStatus(p.installStartDate, p.installDueDate);
         let daysLate: number | null = null;
@@ -123,114 +124,40 @@ export default function InstallCalendar() {
           const diff = Math.round((new Date(p.installStartDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
           if (diff > 0) daysLate = diff;
         }
-        result.push({
-          id: p.id,
-          name: p.name,
-          expectedDate: p.installStartDate,
-          targetDate: p.installDueDate,
-          status,
-          province: p.province,
-          ahjStatus: p.ahjStatus,
-          daysLate,
-        });
+        result.push({ id: p.id, name: p.name, expectedDate: p.installStartDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, daysLate });
         continue;
       }
+
+      let expectedDate: string;
+      const ahjDone = isAhjComplete(p.ahjStatus);
+      const ucDone = isUcDone(p.ucStatus);
+      const contractDone = isContractDone(p.installTeamStage);
+      const svDone = isSvDone(p.siteVisitStatus);
 
       if (ahjDone) {
-        const ahjCompDate = getEarliestCompletion(taskActions, p.id);
-        if (ahjCompDate) {
-          const d = new Date(ahjCompDate);
-          d.setDate(d.getDate() + 7);
-          const expectedDate = d.toISOString().split('T')[0];
-          const status = getInstallStatus(expectedDate, p.installDueDate);
-          let daysLate: number | null = null;
-          if (p.installDueDate) {
-            const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
-            if (diff > 0) daysLate = diff;
-          }
-          result.push({
-            id: p.id,
-            name: p.name,
-            expectedDate,
-            targetDate: p.installDueDate,
-            status,
-            province: p.province,
-            ahjStatus: p.ahjStatus,
-            daysLate,
-          });
-          continue;
-        }
+        expectedDate = toDateStr(addDays(today, 7));
+      } else if (svDone) {
+        expectedDate = toDateStr(addDays(today, 21 + 7));
+      } else if (contractDone) {
+        expectedDate = toDateStr(addDays(today, 7 + 21 + 7));
+      } else if (isContractSent(p.installTeamStage)) {
+        expectedDate = toDateStr(addDays(today, 7 + 7 + 21 + 7));
+      } else if (ucDone) {
+        expectedDate = toDateStr(addDays(today, 7 + 7 + 21 + 7));
+      } else {
+        const ucDue = p.ucDueDate ? new Date(p.ucDueDate) : null;
+        const ucPastDue = ucDue && ucDue < today;
+        const ucBase = ucPastDue ? today : (ucDue || today);
+        expectedDate = toDateStr(addDays(ucBase, 7 + 7 + 21 + 7));
       }
 
-      const svCompDate = getEarliestCompletion(siteVisitActions, p.id);
-      if (svCompDate) {
-        const ahjExpected = new Date(svCompDate);
-        ahjExpected.setDate(ahjExpected.getDate() + 21);
-        const installExpected = new Date(ahjExpected);
-        installExpected.setDate(installExpected.getDate() + 7);
-        const expectedDate = installExpected.toISOString().split('T')[0];
-        const status = getInstallStatus(expectedDate, p.installDueDate);
-        let daysLate: number | null = null;
-        if (p.installDueDate) {
-          const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
-          if (diff > 0) daysLate = diff;
-        }
-        result.push({
-          id: p.id,
-          name: p.name,
-          expectedDate,
-          targetDate: p.installDueDate,
-          status,
-          province: p.province,
-          ahjStatus: p.ahjStatus,
-          daysLate,
-        });
-        continue;
-      }
-
-      const ucCompDate = getEarliestCompletion(ucActions, p.id);
-      if (ucCompDate) {
-        const contractExp = new Date(ucCompDate);
-        contractExp.setDate(contractExp.getDate() + 7);
-        const svExp = new Date(contractExp);
-        svExp.setDate(svExp.getDate() + 7);
-        const ahjExp = new Date(svExp);
-        ahjExp.setDate(ahjExp.getDate() + 21);
-        const installExp = new Date(ahjExp);
-        installExp.setDate(installExp.getDate() + 7);
-        const expectedDate = installExp.toISOString().split('T')[0];
-        const status = getInstallStatus(expectedDate, p.installDueDate);
-        let daysLate: number | null = null;
-        if (p.installDueDate) {
-          const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
-          if (diff > 0) daysLate = diff;
-        }
-        result.push({
-          id: p.id,
-          name: p.name,
-          expectedDate,
-          targetDate: p.installDueDate,
-          status,
-          province: p.province,
-          ahjStatus: p.ahjStatus,
-          daysLate,
-        });
-        continue;
-      }
-
+      const status = getInstallStatus(expectedDate, p.installDueDate);
+      let daysLate: number | null = null;
       if (p.installDueDate) {
-        const status = getInstallStatus(p.installDueDate, p.installDueDate);
-        result.push({
-          id: p.id,
-          name: p.name,
-          expectedDate: p.installDueDate,
-          targetDate: p.installDueDate,
-          status,
-          province: p.province,
-          ahjStatus: p.ahjStatus,
-          daysLate: null,
-        });
+        const diff = Math.round((new Date(expectedDate).getTime() - new Date(p.installDueDate).getTime()) / (1000 * 60 * 60 * 24));
+        if (diff > 0) daysLate = diff;
       }
+      result.push({ id: p.id, name: p.name, expectedDate, targetDate: p.installDueDate, status, province: p.province, ahjStatus: p.ahjStatus, daysLate });
     }
 
     return result;
