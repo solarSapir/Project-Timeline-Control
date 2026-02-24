@@ -96,7 +96,8 @@ function HydroInfoSection({ project }: { project: any }) {
         if (data.extracted.hydroCustomerName) parts.push(data.extracted.hydroCustomerName);
         toast({ title: "Hydro bill uploaded & scanned", description: `Extracted: ${parts.join(', ')}` });
       } else {
-        toast({ title: "Hydro bill uploaded to Asana", description: "Could not auto-extract fields — you can enter them manually." });
+        const reason = data.aiError || "Could not auto-extract fields";
+        toast({ title: "Hydro bill uploaded to Asana", description: `${reason} — you can enter them manually.` });
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },

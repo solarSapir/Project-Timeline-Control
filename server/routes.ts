@@ -566,16 +566,22 @@ export async function registerRoutes(
 
       if (!req.file) return res.status(400).json({ message: "File is required" });
 
+      console.log(`[Hydro Bill] Upload started for ${project.name}: file="${req.file.originalname}", mimetype="${req.file.mimetype}", size=${req.file.buffer.length} bytes`);
+
       const result = await uploadAttachmentToTask(
         project.asanaGid,
         req.file.buffer,
         `HYDRO BILL - ${req.file.originalname}`,
         req.file.mimetype
       );
+      console.log(`[Hydro Bill] Asana upload success for ${project.name}`);
 
       let extracted: { hydroCompanyName?: string; hydroAccountNumber?: string; hydroCustomerName?: string } = {};
+      let aiError: string | null = null;
 
       const isImage = req.file.mimetype.startsWith('image/');
+      console.log(`[Hydro Bill] isImage=${isImage} for mimetype="${req.file.mimetype}"`);
+
       if (isImage) {
         try {
           const openai = new OpenAI({
@@ -585,7 +591,7 @@ export async function registerRoutes(
 
           const base64 = req.file.buffer.toString('base64');
           const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
-          console.log(`Starting AI extraction for ${project.name}, image size: ${req.file.buffer.length} bytes, type: ${req.file.mimetype}`);
+          console.log(`[Hydro Bill] Starting AI extraction, base64 length: ${base64.length}`);
 
           const aiResponse = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -600,10 +606,10 @@ export async function registerRoutes(
             ],
             max_tokens: 500,
           });
-          console.log(`AI response for ${project.name}:`, aiResponse.choices[0]?.message?.content);
+          const rawContent = aiResponse.choices[0]?.message?.content || '';
+          console.log(`[Hydro Bill] AI raw response for ${project.name}: "${rawContent}"`);
 
-          const content = aiResponse.choices[0]?.message?.content || '';
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             extracted = {
@@ -611,14 +617,21 @@ export async function registerRoutes(
               hydroAccountNumber: parsed.hydroAccountNumber || undefined,
               hydroCustomerName: parsed.hydroCustomerName || undefined,
             };
-            console.log(`AI extracted hydro bill info for ${project.name}:`, extracted);
+            console.log(`[Hydro Bill] Extracted for ${project.name}:`, extracted);
+          } else {
+            console.warn(`[Hydro Bill] AI response didn't contain JSON for ${project.name}`);
+            aiError = "AI response didn't contain valid JSON";
           }
         } catch (aiErr: any) {
-          console.error("AI extraction failed (non-blocking):", aiErr.message, aiErr.status, aiErr.code);
-          if (aiErr.response) {
-            console.error("AI error response:", JSON.stringify(aiErr.response?.data || aiErr.response));
+          aiError = aiErr.message || 'Unknown AI error';
+          console.error(`[Hydro Bill] AI extraction failed for ${project.name}:`, aiErr.message, aiErr.status, aiErr.code);
+          if (aiErr.error) {
+            console.error(`[Hydro Bill] AI error detail:`, JSON.stringify(aiErr.error));
           }
         }
+      } else {
+        aiError = `File type "${req.file.mimetype}" is not an image — AI scan only works with image files (JPG, PNG). Upload an image version for auto-extraction.`;
+        console.log(`[Hydro Bill] Skipping AI extraction — not an image: ${req.file.mimetype}`);
       }
 
       const attachmentData = result.data || result;
@@ -629,9 +642,10 @@ export async function registerRoutes(
         ...extracted,
       });
 
-      res.json({ attachment: result, project: updated, extracted });
+      console.log(`[Hydro Bill] Complete for ${project.name}. URL=${viewUrl}, extracted=${JSON.stringify(extracted)}, aiError=${aiError}`);
+      res.json({ attachment: result, project: updated, extracted, aiError });
     } catch (error: any) {
-      console.error("Hydro bill upload error:", error);
+      console.error("[Hydro Bill] Upload error:", error.message, error.stack);
       res.status(500).json({ message: error.message });
     }
   });
