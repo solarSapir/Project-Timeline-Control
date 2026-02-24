@@ -183,6 +183,17 @@ const stageIcons: Record<string, any> = {
   close_off: CheckCircle2,
 };
 
+const STAGE_COLORS: Record<string, { bar: string; text: string }> = {
+  uc_application: { bar: "bg-blue-500", text: "text-white" },
+  rebates_payment: { bar: "bg-amber-500", text: "text-white" },
+  contract_signing: { bar: "bg-orange-400", text: "text-white" },
+  site_visit: { bar: "bg-emerald-500", text: "text-white" },
+  ahj_permitting: { bar: "bg-orange-500", text: "text-white" },
+  install_booking: { bar: "bg-cyan-500", text: "text-white" },
+  installation: { bar: "bg-violet-500", text: "text-white" },
+  close_off: { bar: "bg-rose-400", text: "text-white" },
+};
+
 function GanttChart({
   stages,
   projectCreatedDate,
@@ -190,152 +201,90 @@ function GanttChart({
   stages: Record<string, { target: string | null; expected: string | null; status: string }>;
   projectCreatedDate: string | null;
 }) {
-  const allDates: Date[] = [];
-  const startDate = projectCreatedDate ? parseISO(projectCreatedDate) : new Date();
-  allDates.push(startDate);
+  const createdDate = projectCreatedDate ? parseISO(projectCreatedDate) : new Date();
 
-  for (const key of PROJECT_STAGES) {
-    const s = stages[key];
-    if (s?.expected) allDates.push(parseISO(s.expected));
-  }
-  allDates.push(new Date());
+  const stageData = PROJECT_STAGES.map((key, idx) => {
+    const stage = stages[key];
+    if (!stage) return null;
+    const expectedDate = stage.expected ? parseISO(stage.expected) : null;
+    const endDay = expectedDate ? differenceInDays(expectedDate, createdDate) : 0;
 
-  const minDate = new Date(Math.min(...allDates.map((d) => d.getTime())));
-  const maxDate = new Date(Math.max(...allDates.map((d) => d.getTime())));
-  const rangeMs = maxDate.getTime() - minDate.getTime() || 1;
-  const paddedRange = rangeMs * 1.1;
-  const chartStart = new Date(minDate.getTime() - rangeMs * 0.05);
-  const startPct = ((startDate.getTime() - chartStart.getTime()) / paddedRange) * 100;
-
-  const toPercent = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const d = parseISO(dateStr);
-    return ((d.getTime() - chartStart.getTime()) / paddedRange) * 100;
-  };
-
-  const todayPercent = ((new Date().getTime() - chartStart.getTime()) / paddedRange) * 100;
-
-  const months: { label: string; percent: number }[] = [];
-  const monthStart = new Date(chartStart.getFullYear(), chartStart.getMonth(), 1);
-  const chartEnd = new Date(chartStart.getTime() + paddedRange);
-  let current = new Date(monthStart);
-  while (current <= chartEnd) {
-    const pct = ((current.getTime() - chartStart.getTime()) / paddedRange) * 100;
-    if (pct >= 0 && pct <= 100) {
-      months.push({ label: format(current, "MMM yyyy"), percent: pct });
+    let startDay = 0;
+    if (idx > 0) {
+      const prevKey = PROJECT_STAGES[idx - 1];
+      const prevStage = stages[prevKey];
+      const prevExpected = prevStage?.expected ? parseISO(prevStage.expected) : null;
+      startDay = prevExpected ? differenceInDays(prevExpected, createdDate) : 0;
     }
-    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-  }
+
+    if (key === 'rebates_payment') startDay = 0;
+
+    const duration = Math.max(1, endDay - startDay);
+    const isLate = stage.target && stage.expected && new Date(stage.expected) > new Date(stage.target);
+
+    return { key, startDay, endDay, duration, stage, isLate };
+  }).filter(Boolean) as { key: string; startDay: number; endDay: number; duration: number; stage: { target: string | null; expected: string | null; status: string }; isLate: boolean }[];
+
+  const maxDay = Math.max(...stageData.map(s => s.endDay), 1);
+  const todayDay = differenceInDays(new Date(), createdDate);
 
   return (
-    <div className="space-y-1" data-testid="gantt-chart">
-      <div className="relative h-6 mb-2">
-        {months.map((m) => (
-          <div
-            key={m.label}
-            className="absolute text-[10px] text-muted-foreground"
-            style={{ left: `${Math.max(0, Math.min(95, m.percent))}%` }}
-          >
-            {m.label}
-          </div>
-        ))}
-      </div>
-
-      {PROJECT_STAGES.map((stageKey) => {
-        const stage = stages[stageKey];
-        if (!stage) return null;
-        const expectedPct = toPercent(stage.expected);
-        const Icon = stageIcons[stageKey] || Clock;
+    <div className="space-y-1.5" data-testid="gantt-chart">
+      {stageData.map(({ key, startDay, duration, endDay, stage, isLate }) => {
+        const Icon = stageIcons[key] || Clock;
         const isCompleted = stage.status === "completed";
-        const isLate =
-          stage.target && stage.expected
-            ? new Date(stage.expected) > new Date(stage.target)
-            : false;
-
-        const barLeft = Math.max(0, Math.min(100, startPct));
-        const barRight = expectedPct !== null ? Math.max(0, Math.min(100, expectedPct)) : barLeft;
-        const barWidth = Math.max(0.5, barRight - barLeft);
+        const leftPct = (startDay / maxDay) * 100;
+        const widthPct = Math.max(2, (duration / maxDay) * 100);
+        const colors = STAGE_COLORS[key] || { bar: "bg-gray-400", text: "text-white" };
+        const barClass = isCompleted ? "bg-green-500" : isLate ? "bg-red-400" : colors.bar;
 
         return (
-          <div key={stageKey} className="flex items-center gap-2" data-testid={`gantt-row-${stageKey}`}>
+          <div key={key} className="flex items-center gap-2" data-testid={`gantt-row-${key}`}>
             <div className="w-[140px] flex items-center gap-1.5 flex-shrink-0">
               <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="text-xs truncate">{STAGE_LABELS[stageKey] || stageKey}</span>
+              <span className="text-xs truncate">{STAGE_LABELS[key] || key}</span>
             </div>
-            <div className="flex-1 relative h-6 rounded-md bg-muted/40">
+            <div className="flex-1 relative h-7 rounded bg-muted/30">
+              {todayDay >= 0 && todayDay <= maxDay && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-blue-400/60 z-10"
+                  style={{ left: `${(todayDay / maxDay) * 100}%` }}
+                  title="Today"
+                />
+              )}
               <div
-                className="absolute top-0 bottom-0 w-px bg-blue-400/70 z-10"
-                style={{ left: `${Math.max(0, Math.min(100, todayPercent))}%` }}
-                title="Today"
-              />
-
-              {expectedPct !== null && (
-                <div
-                  className={`absolute top-1.5 h-3 rounded-full ${
-                    isCompleted
-                      ? "bg-green-500/80"
-                      : isLate
-                        ? "bg-red-400/80"
-                        : "bg-blue-500/70"
-                  }`}
-                  style={{
-                    left: `${barLeft}%`,
-                    width: `${barWidth}%`,
-                  }}
-                  title={`Expected: ${stage.expected}`}
-                />
-              )}
-
-              {expectedPct !== null && (
-                <div
-                  className={`absolute top-1 h-4 w-1.5 rounded-sm ${
-                    isCompleted
-                      ? "bg-green-600"
-                      : isLate
-                        ? "bg-red-500"
-                        : "bg-blue-600"
-                  }`}
-                  style={{ left: `${Math.max(0, Math.min(98.5, barRight - 0.5))}%` }}
-                  title={`Expected: ${stage.expected}`}
-                />
-              )}
+                className={`absolute top-1 h-5 rounded ${barClass} flex items-center justify-center transition-all`}
+                style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                title={`${STAGE_LABELS[key]}: Day ${startDay} → Day ${endDay} (${duration}d)`}
+              >
+                <span className={`text-[10px] font-medium ${colors.text} drop-shadow-sm`}>
+                  {duration}d
+                </span>
+              </div>
             </div>
-            <div className="w-[60px] flex-shrink-0">
-              {isCompleted ? (
-                <Badge className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5">
-                  Done
-                </Badge>
-              ) : isLate ? (
-                <Badge className="text-[10px] bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5">
-                  Late
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-[10px] px-1.5">
-                  {stage.expected
-                    ? `${differenceInDays(parseISO(stage.expected), new Date())}d`
-                    : "--"}
-                </Badge>
-              )}
+            <div className="w-[40px] flex-shrink-0 text-right">
+              <span className="text-[11px] text-muted-foreground font-medium">d{endDay}</span>
             </div>
           </div>
         );
       })}
 
-      <div className="flex items-center gap-4 mt-3 pt-2 border-t text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-between mt-1 pt-1.5 border-t text-[10px] text-muted-foreground">
+        <span>Day 0 (Project Created)</span>
+        <span>Day {maxDay}</span>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-3 rounded-full bg-blue-500/70" />
-          <span>On Track</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-3 rounded-full bg-red-400/80" />
-          <span>Late</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-3 rounded-full bg-green-500/80" />
+          <div className="w-3 h-3 rounded bg-green-500" />
           <span>Complete</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-px h-4 bg-blue-400" />
+          <div className="w-3 h-3 rounded bg-red-400" />
+          <span>Late</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-px h-4 bg-blue-400/60" />
           <span>Today</span>
         </div>
       </div>
