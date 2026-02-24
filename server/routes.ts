@@ -48,7 +48,8 @@ export async function registerRoutes(
         mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
         mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
         mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
-        mapped.installDueDate = format(addDays(createdDate, 70), 'yyyy-MM-dd');
+        const ahjDue = new Date(mapped.ahjDueDate);
+        mapped.installDueDate = format(addDays(ahjDue, 7), 'yyyy-MM-dd');
         mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
       }
 

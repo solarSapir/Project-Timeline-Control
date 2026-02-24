@@ -144,16 +144,6 @@ export default function AHJView() {
     }
   };
 
-  const handleEngFee = async (projectId: string, collected: boolean) => {
-    try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { engineeringFeeCollected: collected });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: collected ? "Engineering fee marked as collected" : "Engineering fee unmarked" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="p-6 space-y-4">
@@ -327,15 +317,7 @@ export default function AHJView() {
                         disabled
                         data-testid={`checkbox-permit-payment-${p.id}`}
                       />
-                      <span className="text-xs text-muted-foreground">$1,500 permit fee</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={!!p.engineeringFeeCollected}
-                        onCheckedChange={(checked) => handleEngFee(p.id, !!checked)}
-                        data-testid={`checkbox-eng-fee-${p.id}`}
-                      />
-                      <span className="text-xs">P.eng fee collected</span>
+                      <span className="text-xs text-muted-foreground">$1,500 deposit collected (includes P.eng fee)</span>
                     </div>
                   </div>
                 </CardContent>
