@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
@@ -62,6 +62,31 @@ export async function registerRoutes(
           }
         } catch (err: any) {
           console.log(`Could not fetch stories for ${task.name}: ${err.message}`);
+        }
+      }
+
+      const isLoadDisplacementOntario =
+        mapped.ucTeam?.toLowerCase().includes('load displacement') &&
+        mapped.province?.toLowerCase().includes('ontario');
+
+      if (isLoadDisplacementOntario && task.gid) {
+        try {
+          const subtasks = await fetchSubtasksForTask(task.gid);
+          const hrsp = findHrspSubtask(subtasks);
+          if (hrsp) {
+            mapped.hrspSubtaskGid = hrsp.gid;
+            mapped.hrspStatus = hrsp.status;
+            mapped.hrspMissing = false;
+          } else {
+            mapped.hrspSubtaskGid = null;
+            mapped.hrspStatus = null;
+            mapped.hrspMissing = true;
+          }
+          if (mapped.projectCreatedDate) {
+            mapped.hrspDueDate = format(addDays(new Date(mapped.projectCreatedDate), 14), 'yyyy-MM-dd');
+          }
+        } catch (err: any) {
+          console.log(`Could not fetch subtasks for ${task.name}: ${err.message}`);
         }
       }
 

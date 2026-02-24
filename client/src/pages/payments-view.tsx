@@ -8,8 +8,62 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Gift, AlertTriangle } from "lucide-react";
+import { Search, Gift, AlertTriangle, CalendarClock, AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function getDaysUntilDue(dueDate: string | null) {
+  if (!dueDate) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function HrspBadge({ project }: { project: any }) {
+  const isLoadDisplacementOntario =
+    project.ucTeam?.toLowerCase().includes('load displacement') &&
+    project.province?.toLowerCase().includes('ontario');
+
+  if (!isLoadDisplacementOntario) return null;
+
+  if (project.hrspMissing) {
+    return (
+      <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid={`badge-hrsp-missing-${project.id}`}>
+        <AlertCircle className="h-3 w-3" />
+        HRSP subtask missing — needs review
+      </Badge>
+    );
+  }
+
+  if (!project.hrspStatus) return null;
+
+  const isComplete = project.hrspStatus.toLowerCase().includes('complete') || project.hrspStatus.toLowerCase().includes('not required');
+  const daysLeft = getDaysUntilDue(project.hrspDueDate);
+  const isLate = !isComplete && daysLeft !== null && daysLeft < 0;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <Badge
+        className={
+          isComplete
+            ? "text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+            : isLate
+              ? "text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+              : "text-xs bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+        }
+        data-testid={`badge-hrsp-status-${project.id}`}
+      >
+        HRSP: {project.hrspStatus}
+      </Badge>
+      {isLate && (
+        <Badge variant="destructive" className="text-xs flex items-center gap-1">
+          <CalendarClock className="h-3 w-3" />
+          HRSP {Math.abs(daysLeft!)}d overdue
+        </Badge>
+      )}
+    </div>
+  );
+}
 
 export default function PaymentsView() {
   const [search, setSearch] = useState("");
@@ -36,6 +90,14 @@ export default function PaymentsView() {
       return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
     }
     if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
+    if (filter === "hrsp_issues") {
+      const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
+      if (!isLdOn) return false;
+      if (p.hrspMissing) return true;
+      const isComplete = p.hrspStatus?.toLowerCase().includes('complete') || p.hrspStatus?.toLowerCase().includes('not required');
+      if (!isComplete && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0) return true;
+      return false;
+    }
     if (filter !== "all" && p.rebateStatus !== filter) return false;
     return true;
   });
@@ -43,6 +105,15 @@ export default function PaymentsView() {
   const needsAttention = installProjects.filter((p: any) =>
     !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
   ).length;
+
+  const hrspIssueCount = installProjects.filter((p: any) => {
+    const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
+    if (!isLdOn) return false;
+    if (p.hrspMissing) return true;
+    const isComplete = p.hrspStatus?.toLowerCase().includes('complete') || p.hrspStatus?.toLowerCase().includes('not required');
+    if (!isComplete && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0) return true;
+    return false;
+  }).length;
 
   const handleRebateStatus = async (projectId: string, status: string) => {
     try {
@@ -67,7 +138,13 @@ export default function PaymentsView() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-semibold" data-testid="text-rebates-title">Rebates</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {hrspIssueCount > 0 && (
+            <Badge variant="destructive" data-testid="badge-hrsp-issues-count">
+              <AlertCircle className="h-3 w-3 mr-1" />
+              {hrspIssueCount} HRSP issue{hrspIssueCount > 1 ? 's' : ''}
+            </Badge>
+          )}
           {needsAttention > 0 && (
             <Badge variant="outline" data-testid="badge-needs-attention-count">
               <AlertTriangle className="h-3 w-3 mr-1" />
@@ -84,12 +161,13 @@ export default function PaymentsView() {
           <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-rebates" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[220px]" data-testid="select-rebates-filter">
+          <SelectTrigger className="w-[260px]" data-testid="select-rebates-filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Projects</SelectItem>
             <SelectItem value="needs_attention">Needs Attention</SelectItem>
+            <SelectItem value="hrsp_issues">HRSP Issues (ON Load Displacement)</SelectItem>
             <SelectItem value="not_required">Not Required</SelectItem>
             {rebateStatusOptions.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -104,53 +182,82 @@ export default function PaymentsView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((p: any) => (
-            <Card key={p.id} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
-                      <span className="text-xs text-muted-foreground">PM: {p.pmStatus || 'N/A'}</span>
+          {[...filtered]
+            .sort((a: any, b: any) => {
+              const aHrspIssue = a.hrspMissing || (!a.hrspStatus?.toLowerCase().includes('complete') && !a.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(a.hrspDueDate) !== null && getDaysUntilDue(a.hrspDueDate)! < 0);
+              const bHrspIssue = b.hrspMissing || (!b.hrspStatus?.toLowerCase().includes('complete') && !b.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(b.hrspDueDate) !== null && getDaysUntilDue(b.hrspDueDate)! < 0);
+              if (aHrspIssue && !bHrspIssue) return -1;
+              if (!aHrspIssue && bHrspIssue) return 1;
+              return 0;
+            })
+            .map((p: any) => {
+            const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
+            const hasHrspIssue = isLdOn && (p.hrspMissing || (!p.hrspStatus?.toLowerCase().includes('complete') && !p.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0));
+            return (
+              <Card
+                key={p.id}
+                className={hasHrspIssue ? "border-red-300 dark:border-red-800" : ""}
+                data-testid={`card-project-${p.id}`}
+              >
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                        {isLdOn && (
+                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-300" data-testid={`badge-ld-on-${p.id}`}>
+                            Load Displacement - ON
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
+                        <span className="text-xs text-muted-foreground">UC Team: {p.ucTeam || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">PM: {p.pmStatus || 'N/A'}</span>
+                      </div>
+                      {isLdOn && (
+                        <div className="mt-2">
+                          <HrspBadge project={p} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {p.rebateStatus ? (
+                        <Badge
+                          className={
+                            p.rebateStatus.toLowerCase().includes('not required')
+                              ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                              : p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          }
+                          data-testid={`badge-rebate-status-${p.id}`}
+                        >
+                          <Gift className="h-3 w-3 mr-1" />
+                          {p.rebateStatus}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs" data-testid={`badge-no-rebate-${p.id}`}>
+                          No rebate status
+                        </Badge>
+                      )}
+                      <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
+                        <SelectTrigger className="w-[200px] h-8 text-xs" data-testid={`select-rebate-status-${p.id}`}>
+                          <SelectValue placeholder="Set rebate status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rebateStatusOptions.map(s => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <TaskActionDialog projectId={p.id} projectName={p.name} viewType="payments" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {p.rebateStatus ? (
-                      <Badge
-                        className={
-                          p.rebateStatus.toLowerCase().includes('not required')
-                            ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                            : p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        }
-                        data-testid={`badge-rebate-status-${p.id}`}
-                      >
-                        <Gift className="h-3 w-3 mr-1" />
-                        {p.rebateStatus}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs" data-testid={`badge-no-rebate-${p.id}`}>
-                        No rebate status
-                      </Badge>
-                    )}
-                    <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
-                      <SelectTrigger className="w-[200px] h-8 text-xs" data-testid={`select-rebate-status-${p.id}`}>
-                        <SelectValue placeholder="Set rebate status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rebateStatusOptions.map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <TaskActionDialog projectId={p.id} projectName={p.name} viewType="payments" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

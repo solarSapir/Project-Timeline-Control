@@ -36,11 +36,11 @@ const mainNav = [
 
 const viewNav = [
   { title: "UC Applications", url: "/uc", icon: Zap },
+  { title: "Rebates", url: "/payments", icon: Gift },
   { title: "Payment Method", url: "/contracts", icon: CreditCard },
   { title: "Site Visits", url: "/site-visits", icon: MapPin },
   { title: "AHJ / Permitting", url: "/ahj", icon: Building2 },
   { title: "Install Coordination", url: "/installs", icon: Wrench },
-  { title: "Rebates", url: "/payments", icon: Gift },
   { title: "Close-off", url: "/close-off", icon: CheckCircle2 },
 ];
 

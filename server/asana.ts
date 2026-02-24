@@ -258,6 +258,28 @@ export async function uploadAttachmentToTask(taskGid: string, fileBuffer: Buffer
   return await res.json();
 }
 
+export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/subtasks?opt_fields=name,gid,completed,due_on,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data?.data || [];
+}
+
+export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null } | null {
+  const hrsp = subtasks.find((st: any) =>
+    st.name?.toLowerCase().includes('home renovation savings program')
+  );
+  if (!hrsp) return null;
+  const grantsField = hrsp.custom_fields?.find((f: any) =>
+    f.name?.toLowerCase().includes('grants status')
+  );
+  const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
+  return { gid: hrsp.gid, name: hrsp.name, status };
+}
+
 function extractUcTeamValue(task: any): string | null {
   if (!task.custom_fields) return null;
   const field = task.custom_fields.find((f: any) => {
