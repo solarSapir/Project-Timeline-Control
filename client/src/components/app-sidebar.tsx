@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import logoIcon from "@assets/Untitled_design_(4)_1771966965058.png";
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -90,13 +91,15 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Zap className="h-4 w-4" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img
+            src={logoIcon}
+            alt="Solar Power Store"
+            className="h-8 w-8 flex-shrink-0"
+          />
           <div>
-            <h2 className="text-sm font-semibold" data-testid="text-app-title">Solar PM</h2>
-            <p className="text-xs text-muted-foreground">Project Tracker</p>
+            <h2 className="text-sm font-bold text-sidebar-accent-foreground" data-testid="text-app-title">Solar PM</h2>
+            <p className="text-[10px] text-sidebar-foreground/60">Project Tracker</p>
           </div>
         </div>
       </SidebarHeader>
@@ -155,11 +158,11 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t">
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start"
+          className="w-full justify-start border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           onClick={handleQuickSync}
           disabled={syncing}
           data-testid="button-quick-sync"
@@ -172,7 +175,7 @@ export function AppSidebar() {
           {syncing ? "Syncing..." : "Sync from Asana"}
         </Button>
         {syncStatus?.lastSyncTime && (
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 px-1">
+          <div className="flex items-center gap-1 text-[10px] text-sidebar-foreground/50 mt-1 px-1">
             <Clock className="h-3 w-3" />
             Last: {formatTime(syncStatus.lastSyncTime)}
           </div>
