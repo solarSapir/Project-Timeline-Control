@@ -100,7 +100,8 @@ export default function PaymentsView() {
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
   const firstHrspSubtaskGid = installProjects.find((p: any) => p.hrspSubtaskGid)?.hrspSubtaskGid;

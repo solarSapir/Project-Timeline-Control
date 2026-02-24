@@ -76,7 +76,8 @@ export default function ContractsView() {
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
   const filtered = installProjects.filter((p: any) => {

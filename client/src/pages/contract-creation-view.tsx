@@ -583,7 +583,8 @@ export default function ContractCreationView() {
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
   const ucReadyProjects = installProjects.filter((p: any) => isUcComplete(p.ucStatus));
