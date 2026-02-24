@@ -588,9 +588,11 @@ export async function registerRoutes(
       const allDeadlines = await storage.getAllDeadlines();
       const today = new Date();
 
+      const excludedPmStatuses = ['complete', 'project paused', 'project lost'];
       const installProjects = allProjects.filter(p =>
         p.installType?.toLowerCase() === 'install' &&
-        (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+        (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+        !excludedPmStatuses.includes(p.pmStatus?.toLowerCase() || '')
       );
 
       const totalProjects = installProjects.length;
