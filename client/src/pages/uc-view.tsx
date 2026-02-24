@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle, CheckCircle2, Clock, Search, Upload, MessageSquare,
   ChevronDown, ChevronRight, FileText, Paperclip, Send, ExternalLink,
-  Loader2, X, ListTodo, FolderOpen
+  Loader2, X, ListTodo, FolderOpen, Maximize2, Zap, User, Hash, Building2, Eye
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -51,6 +51,167 @@ function DueIndicator({ dueDate, completed }: { dueDate: string | null; complete
     return <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Due in {daysLeft}d</span>;
   }
   return <span className="text-[11px] text-muted-foreground">Due {formatShortDate(dueDate)}</span>;
+}
+
+function HydroInfoSection({ project }: { project: any }) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [hydroCompany, setHydroCompany] = useState(project.hydroCompanyName || '');
+  const [hydroAccount, setHydroAccount] = useState(project.hydroAccountNumber || '');
+  const [hydroName, setHydroName] = useState(project.hydroCustomerName || '');
+
+  const hasInfo = project.hydroCompanyName || project.hydroAccountNumber || project.hydroCustomerName;
+  const hasFile = project.hydroBillUrl;
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PATCH", `/api/projects/${project.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "Hydro info saved" });
+      setEditing(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('hydroBill', file);
+      const res = await fetch(`/api/projects/${project.id}/hydro-bill`, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Failed to upload');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "Hydro bill uploaded to Asana" });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    onError: (err: any) => {
+      toast({ title: "Error uploading", description: err.message, variant: "destructive" });
+    }
+  });
+
+  const utilityFromAsana = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'Utility Name'
+  )?.display_value;
+
+  if (!editing && !hasInfo && !hasFile) {
+    return (
+      <div className="mt-2 pt-2 border-t">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Zap className="h-3 w-3" /> Hydro Bill Info
+          </p>
+          <div className="flex items-center gap-1">
+            <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} data-testid={`input-hydro-upload-${project.id}`} />
+            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => fileInputRef.current?.click()}
+              disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
+              {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Upload Bill
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => {
+              setHydroCompany(utilityFromAsana || '');
+              setEditing(true);
+            }} data-testid={`button-add-hydro-${project.id}`}>
+              <Hash className="h-3 w-3" /> Enter Manually
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-2 pt-2 border-t space-y-2" data-testid={`hydro-edit-${project.id}`}>
+        <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+          <Zap className="h-3 w-3" /> Hydro Bill Information
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <Label className="text-[10px]">Hydro Company</Label>
+            <Input className="h-7 text-xs" value={hydroCompany} onChange={(e) => setHydroCompany(e.target.value)}
+              placeholder="e.g. Toronto Hydro" data-testid={`input-hydro-company-${project.id}`} />
+          </div>
+          <div>
+            <Label className="text-[10px]">Account Number</Label>
+            <Input className="h-7 text-xs" value={hydroAccount} onChange={(e) => setHydroAccount(e.target.value)}
+              placeholder="Account #" data-testid={`input-hydro-account-${project.id}`} />
+          </div>
+          <div>
+            <Label className="text-[10px]">Customer Name (on bill)</Label>
+            <Input className="h-7 text-xs" value={hydroName} onChange={(e) => setHydroName(e.target.value)}
+              placeholder="Exact name on bill" data-testid={`input-hydro-name-${project.id}`} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="h-7 text-xs" disabled={saveMutation.isPending}
+            onClick={() => saveMutation.mutate({ hydroCompanyName: hydroCompany, hydroAccountNumber: hydroAccount, hydroCustomerName: hydroName })}
+            data-testid={`button-save-hydro-${project.id}`}>
+            {saveMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)} data-testid={`button-cancel-hydro-${project.id}`}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 pt-2 border-t" data-testid={`hydro-info-${project.id}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+          <Zap className="h-3 w-3" /> Hydro Bill Info
+        </p>
+        <div className="flex items-center gap-1">
+          {!hasFile && (
+            <>
+              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }} data-testid={`input-hydro-upload-${project.id}`} />
+              <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5 gap-1" onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
+                {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                Upload Bill
+              </Button>
+            </>
+          )}
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5" onClick={() => {
+            setHydroCompany(project.hydroCompanyName || utilityFromAsana || '');
+            setHydroAccount(project.hydroAccountNumber || '');
+            setHydroName(project.hydroCustomerName || '');
+            setEditing(true);
+          }} data-testid={`button-edit-hydro-${project.id}`}>
+            Edit
+          </Button>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mt-1 text-[11px]">
+        {project.hydroCompanyName && (
+          <span className="flex items-center gap-1"><Building2 className="h-3 w-3 text-muted-foreground" /> {project.hydroCompanyName}</span>
+        )}
+        {project.hydroAccountNumber && (
+          <span className="flex items-center gap-1"><Hash className="h-3 w-3 text-muted-foreground" /> {project.hydroAccountNumber}</span>
+        )}
+        {project.hydroCustomerName && (
+          <span className="flex items-center gap-1"><User className="h-3 w-3 text-muted-foreground" /> {project.hydroCustomerName}</span>
+        )}
+        {hasFile && (
+          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+            <FileText className="h-3 w-3" /> Bill uploaded
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function FollowUpDialog({ project }: { project: any }) {
@@ -265,7 +426,7 @@ function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid: strin
   );
 }
 
-function SubtaskPanel({ projectId }: { projectId: string }) {
+function SubtaskPanel({ projectId, maxHeight }: { projectId: string; maxHeight?: string }) {
   const [openSubtaskGid, setOpenSubtaskGid] = useState<string | null>(null);
 
   const { data: subtasks = [], isLoading } = useQuery<any[]>({
@@ -274,7 +435,7 @@ function SubtaskPanel({ projectId }: { projectId: string }) {
 
   if (isLoading) {
     return (
-      <div className="mt-3 pt-3 border-t space-y-2">
+      <div className="space-y-2">
         <Skeleton className="h-8" />
         <Skeleton className="h-8" />
       </div>
@@ -283,14 +444,14 @@ function SubtaskPanel({ projectId }: { projectId: string }) {
 
   if (subtasks.length === 0) {
     return (
-      <div className="mt-3 pt-3 border-t">
+      <div>
         <p className="text-xs text-muted-foreground py-1">No UC subtasks found for this project.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-3 pt-3 border-t space-y-1" data-testid={`subtask-panel-${projectId}`}>
+    <div className="space-y-1" style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined} data-testid={`subtask-panel-${projectId}`}>
       <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
         <ListTodo className="h-3 w-3" /> UC Subtasks ({subtasks.length})
       </p>
@@ -325,10 +486,179 @@ function SubtaskPanel({ projectId }: { projectId: string }) {
   );
 }
 
+function ExpandedProjectView({ project, statusOptions, onStatusChange }: {
+  project: any;
+  statusOptions: string[];
+  onStatusChange: (id: string, status: string) => void;
+}) {
+  const completed = project.ucStatus?.toLowerCase() && (
+    project.ucStatus.toLowerCase().includes('approved') ||
+    project.ucStatus.toLowerCase().includes('complete') ||
+    project.ucStatus.toLowerCase().includes('not required') ||
+    project.ucStatus.toLowerCase().includes('closed')
+  );
+  const isSubmitted = project.ucStatus?.toLowerCase() === 'submitted';
+  const submittedDays = daysSince(project.ucSubmittedDate);
+  const needsFollowUp = isSubmitted && submittedDays !== null && submittedDays >= 7;
+  const ucTeam = project.ucTeam;
+  const isOffGrid = ucTeam?.toLowerCase().includes('off grid') || ucTeam?.toLowerCase().includes('no/');
+
+  const utilityFromAsana = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'Utility Name'
+  )?.display_value;
+
+  const sharePointLink = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'Share Point Link'
+  )?.display_value;
+
+  const ucAction = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'UC Action'
+  )?.display_value;
+
+  const ucRep = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'UC REP'
+  )?.display_value;
+
+  const dateUcAction = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'Date UC ACTION'
+  )?.display_value;
+
+  const disconnectRequest = (project.asanaCustomFields as any[])?.find(
+    (f: any) => f.name === 'Disconnect Reqeust'
+  )?.display_value;
+
+  return (
+    <div className="space-y-6" data-testid={`expanded-view-${project.id}`}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">Project Details</h3>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <Select value={project.ucStatus || ''} onValueChange={(v) => onStatusChange(project.id, v)}>
+                  <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-expanded-status-${project.id}`}>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">UC Team</span>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                  isOffGrid ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                  : "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                }`}>{ucTeam || '—'}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Province</span>
+                <span>{project.province || '—'}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Utility</span>
+                <span>{utilityFromAsana || '—'}</span>
+              </div>
+
+              {ucRep && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">UC Rep</span>
+                  <span>{ucRep}</span>
+                </div>
+              )}
+
+              {ucAction && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">UC Action</span>
+                  <span>{ucAction}</span>
+                </div>
+              )}
+
+              {disconnectRequest && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Disconnect Request</span>
+                  <span>{disconnectRequest}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Created</span>
+                <span>{project.projectCreatedDate ? formatShortDate(project.projectCreatedDate) : '—'}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">UC Due Date</span>
+                <span className={(!completed && getDaysUntilDue(project.ucDueDate) !== null && getDaysUntilDue(project.ucDueDate)! < 0) ? 'text-red-600 font-medium' : ''}>
+                  {project.ucDueDate ? formatShortDate(project.ucDueDate) : '—'}
+                </span>
+              </div>
+
+              {isSubmitted && project.ucSubmittedDate && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Submitted</span>
+                  <span>
+                    {formatShortDate(project.ucSubmittedDate)}
+                    {project.ucSubmittedBy && ` by ${project.ucSubmittedBy}`}
+                  </span>
+                </div>
+              )}
+
+              {dateUcAction && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Last UC Action</span>
+                  <span>{new Date(dateUcAction).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                </div>
+              )}
+            </div>
+
+            {needsFollowUp && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded p-2 text-xs text-amber-700 dark:text-amber-400">
+                Follow-up needed — submitted {submittedDays}d ago
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              {isSubmitted && <FollowUpDialog project={project} />}
+              <Link href={`/project/${project.id}`}>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-profile-${project.id}`}>
+                  <Eye className="h-3 w-3" /> Full Profile
+                </Button>
+              </Link>
+              {sharePointLink && (
+                <a href={sharePointLink} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-sharepoint-${project.id}`}>
+                    <ExternalLink className="h-3 w-3" /> SharePoint
+                  </Button>
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-muted/30 rounded-lg p-4 border">
+            <HydroInfoSection project={project} />
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="bg-muted/30 rounded-lg p-4 border">
+            <SubtaskPanel projectId={project.id} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UCView() {
   const [filter, setFilter] = useState("needs_action");
   const [search, setSearch] = useState("");
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [focusProject, setFocusProject] = useState<any | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({ queryKey: ['/api/projects'] });
@@ -423,6 +753,27 @@ export default function UCView() {
         </Select>
       </div>
 
+      <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) setFocusProject(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-expanded-view">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Maximize2 className="h-5 w-5" />
+              {focusProject?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Expanded UC project view — all details, hydro info, and subtasks in one place.
+            </DialogDescription>
+          </DialogHeader>
+          {focusProject && (
+            <ExpandedProjectView
+              project={focusProject}
+              statusOptions={statusOptions}
+              onStatusChange={handleStatusChange}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {filtered.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -505,6 +856,8 @@ export default function UCView() {
                             )}
                           </div>
                         )}
+
+                        <HydroInfoSection project={p} />
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -522,15 +875,29 @@ export default function UCView() {
                           variant={isExpanded ? "secondary" : "ghost"}
                           className="h-7 text-xs gap-1 px-2"
                           onClick={() => setExpandedProjectId(isExpanded ? null : p.id)}
-                          data-testid={`button-expand-${p.id}`}
+                          data-testid={`button-subtasks-${p.id}`}
                         >
                           <FolderOpen className="h-3 w-3" />
                           Subtasks
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 px-2"
+                          onClick={() => setFocusProject(p)}
+                          data-testid={`button-expand-${p.id}`}
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                          Expand
+                        </Button>
                       </div>
                     </div>
 
-                    {isExpanded && <SubtaskPanel projectId={p.id} />}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t">
+                        <SubtaskPanel projectId={p.id} />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

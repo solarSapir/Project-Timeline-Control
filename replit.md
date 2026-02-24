@@ -4,6 +4,8 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: UC Hydro Bill Info — each UC card has a "Hydro Bill Info" section where staff can upload hydro bill (sent to Asana as attachment) or manually enter hydro company name, account number, and customer name on bill. DB fields: hydroBillUrl, hydroCompanyName, hydroAccountNumber, hydroCustomerName. Route: POST /api/projects/:id/hydro-bill.
+- 2026-02-24: UC Expanded Focus View — "Expand" button on each UC card opens a full-screen dialog with project details (status, UC team, province, utility, due dates, SharePoint link), hydro bill info, and all UC subtasks side by side for focused work.
 - 2026-02-24: All Projects view — table of all install/residential projects with color-coded status pills for every stage (UC, Rebates, Contract, Site Visit, AHJ, Install, Close-off). Searchable, filterable by province, sortable columns. Route: /all.
 - 2026-02-24: Fixed Asana sync pagination — switched from SDK client to direct REST API calls to properly paginate all tasks (was only getting first 100, now fetches all ~450).
 - 2026-02-24: Project Profile page — click any project name across all views to see full profile with all stage values, Gantt chart (target vs expected dates), recent activity, and customer notes. Route: /project/:id.

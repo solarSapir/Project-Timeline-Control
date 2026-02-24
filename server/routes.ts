@@ -558,6 +558,31 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/projects/:id/hydro-bill", upload.single('hydroBill'), async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+      if (!req.file) return res.status(400).json({ message: "File is required" });
+
+      const result = await uploadAttachmentToTask(
+        project.asanaGid,
+        req.file.buffer,
+        `HYDRO BILL - ${req.file.originalname}`,
+        req.file.mimetype
+      );
+
+      const updated = await storage.updateProject(req.params.id, {
+        hydroBillUrl: result.view_url || result.download_url || 'uploaded',
+      });
+
+      res.json({ attachment: result, project: updated });
+    } catch (error: any) {
+      console.error("Hydro bill upload error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/projects/:id/contract-documents", upload.fields([
     { name: 'contract', maxCount: 1 },
     { name: 'proposal', maxCount: 1 },
