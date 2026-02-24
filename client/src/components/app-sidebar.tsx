@@ -14,6 +14,7 @@ import {
   Loader2,
   Clock,
   CalendarDays,
+  List,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ import { useState } from "react";
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "All Projects", url: "/all", icon: List },
 ];
 
 const viewNav = [

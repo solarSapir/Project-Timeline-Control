@@ -4,6 +4,8 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: All Projects view — table of all install/residential projects with color-coded status pills for every stage (UC, Rebates, Contract, Site Visit, AHJ, Install, Close-off). Searchable, filterable by province, sortable columns. Route: /all.
+- 2026-02-24: Fixed Asana sync pagination — switched from SDK client to direct REST API calls to properly paginate all tasks (was only getting first 100, now fetches all ~450).
 - 2026-02-24: Project Profile page — click any project name across all views to see full profile with all stage values, Gantt chart (target vs expected dates), recent activity, and customer notes. Route: /project/:id.
 - 2026-02-24: Install Calendar page — monthly calendar view showing when projects are expected to start installation. Color-coded by status (on track/late/overdue). Tooltips with project details. Route: /install-calendar.
 - 2026-02-24: Installation Coordination rebuilt — projects enter when AHJ Status = "Permit Issued". Target due = AHJ due + 7 days. Expected due = AHJ completion date + 7 days (from task_actions). Shows Running Late when expected > target. Filters: Permit Issued, Waiting AHJ, Late, Overdue, Scheduled. Schedule dialog for equipment, install, disconnect, inspection tasks.
@@ -37,6 +39,7 @@ A solar installation project management application that connects to Asana to sy
 
 ### Pages / Views
 - `/` - Dashboard with stats, charts, and project overview
+- `/all` - All Projects table with color-coded stage status pills
 - `/uc` - UC Application view for managing utility connection stages
 - `/contracts` - Payment Method view (tracks "How will the customer pay" from Asana, 7-day deadline from creation)
 - `/contract-creation` - Contracts view (UC-ready projects needing contracts, due UC+7d, reads "Date Contract sent to customer" from Asana)

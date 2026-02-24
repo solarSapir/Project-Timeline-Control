@@ -18,6 +18,7 @@ import CloseOffView from "@/pages/close-off-view";
 import SyncView from "@/pages/sync-view";
 import ProjectProfile from "@/pages/project-profile";
 import InstallCalendar from "@/pages/install-calendar";
+import AllProjectsView from "@/pages/all-projects-view";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/installs" component={InstallsView} />
       <Route path="/payments" component={PaymentsView} />
       <Route path="/close-off" component={CloseOffView} />
+      <Route path="/all" component={AllProjectsView} />
       <Route path="/install-calendar" component={InstallCalendar} />
       <Route path="/project/:id" component={ProjectProfile} />
       <Route path="/sync" component={SyncView} />
