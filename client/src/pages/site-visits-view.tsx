@@ -11,12 +11,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, MapPin, Calendar as CalendarIcon, Camera, Upload, CheckCircle2, Clock, AlertTriangle, ImageIcon } from "lucide-react";
+import { Search, MapPin, Calendar as CalendarIcon, Camera, Upload, CheckCircle2, Clock, AlertTriangle, ImageIcon, Lock } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
+import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA, type WorkflowConfig } from "@/lib/stage-dependencies";
+import { STAGE_LABELS } from "@shared/schema";
 
 function getDaysUntilDue(dueDate: string | null) {
   if (!dueDate) return null;
@@ -181,6 +183,10 @@ export default function SiteVisitsView() {
     queryKey: ['/api/asana/field-options/siteVisitStatus'],
   });
 
+  const { data: workflowConfigs } = useQuery<WorkflowConfig[]>({
+    queryKey: ['/api/workflow-config'],
+  });
+
   const statusOptions = Array.isArray(siteVisitOptions) ? siteVisitOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
@@ -189,7 +195,15 @@ export default function SiteVisitsView() {
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
-  const pendingSiteVisitProjects = installProjects.filter((p: any) =>
+  const depsMetProjects = installProjects.filter((p: any) =>
+    areDependenciesMet(p, "site_visit", workflowConfigs)
+  );
+  const waitingDepsProjects = installProjects.filter((p: any) =>
+    !areDependenciesMet(p, "site_visit", workflowConfigs) &&
+    p.installTeamStage?.toLowerCase().includes('pending site visit')
+  );
+
+  const pendingSiteVisitProjects = depsMetProjects.filter((p: any) =>
     p.installTeamStage?.toLowerCase().includes('pending site visit')
   );
 
@@ -316,11 +330,45 @@ export default function SiteVisitsView() {
             <SelectItem value="booked">Booked ({bookedCount})</SelectItem>
             <SelectItem value="complete">Complete ({completeCount})</SelectItem>
             <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>
+            {waitingDepsProjects.length > 0 && (
+              <SelectItem value="waiting_deps">Waiting on Dependencies ({waitingDepsProjects.length})</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
 
-      {sortedFiltered.length === 0 ? (
+      {filter === "waiting_deps" ? (
+        <div className="space-y-3">
+          {waitingDepsProjects
+            .filter((p: any) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+            .map((p: any) => {
+              const unmet = getUnmetDependencies(p, "site_visit", workflowConfigs);
+              return (
+                <Card key={p.id} className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10" data-testid={`card-waiting-${p.id}`}>
+                  <CardContent className="p-4">
+                    <Link href={`/project/${p.id}`}>
+                      <span className="font-medium text-sm hover:underline cursor-pointer">{p.name}</span>
+                    </Link>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700">
+                        <Lock className="h-3 w-3" /> Waiting on dependencies
+                      </Badge>
+                    </div>
+                    <div className="mt-2 space-y-0.5">
+                      {unmet.map(dep => (
+                        <p key={dep} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="font-medium">{STAGE_LABELS[dep] || dep}:</span>
+                          <span>{STAGE_COMPLETION_CRITERIA[dep]?.label || "Not complete"}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+          })}
+        </div>
+      ) : sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p>{filter === "pending" ? "No pending site visits. All visits are booked or complete." : "No projects match this filter."}</p>
         </div>

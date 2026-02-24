@@ -22,6 +22,7 @@ import {
   PROJECT_STAGES, STAGE_LABELS, DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS
 } from "@shared/schema";
 import type { WorkflowConfig } from "@shared/schema";
+import { STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import {
   Tooltip,
   TooltipContent,
@@ -345,6 +346,23 @@ function WorkflowEditor() {
                         <span className="text-[10px] text-muted-foreground italic">No dependencies — starts from project creation</span>
                       )}
                     </div>
+                    {config.dependsOn.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-dashed border-current/10">
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Required to unlock:</span>
+                        <div className="mt-1 space-y-0.5">
+                          {config.dependsOn.map(dep => {
+                            const criteria = STAGE_COMPLETION_CRITERIA[dep];
+                            if (!criteria) return null;
+                            return (
+                              <p key={dep} className="text-[10px] text-muted-foreground flex items-start gap-1.5">
+                                <span className={`h-1.5 w-1.5 rounded-full ${STAGE_COLORS[dep]?.dot || 'bg-gray-400'} shrink-0 mt-1`} />
+                                <span><span className="font-medium">{STAGE_LABELS[dep]}:</span> {criteria.label}</span>
+                              </p>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

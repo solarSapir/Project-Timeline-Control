@@ -8,10 +8,12 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, CheckCircle2, Mail, Camera, FileText, CalendarClock, AlertTriangle, Clock } from "lucide-react";
+import { Search, CheckCircle2, Mail, Camera, FileText, CalendarClock, AlertTriangle, Clock, Lock } from "lucide-react";
 import { Link } from "wouter";
 import { StatusBadge } from "@/components/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA, type WorkflowConfig } from "@/lib/stage-dependencies";
+import { STAGE_LABELS } from "@shared/schema";
 
 function getDaysUntilDue(dueDate: string | null) {
   if (!dueDate) return null;
@@ -38,10 +40,21 @@ export default function CloseOffView() {
     queryKey: ['/api/projects'],
   });
 
-  const closeOffProjects = (projects || []).filter((p: any) =>
+  const { data: workflowConfigs } = useQuery<WorkflowConfig[]>({
+    queryKey: ['/api/workflow-config'],
+  });
+
+  const allCloseOffProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     p.pmStatus?.toLowerCase() === 'close-off'
+  );
+
+  const closeOffProjects = allCloseOffProjects.filter((p: any) =>
+    areDependenciesMet(p, "close_off", workflowConfigs)
+  );
+  const waitingDepsProjects = allCloseOffProjects.filter((p: any) =>
+    !areDependenciesMet(p, "close_off", workflowConfigs)
   );
 
   const isFullyComplete = (p: any) => {
@@ -151,11 +164,45 @@ export default function CloseOffView() {
             <SelectItem value="pending">Pending ({pendingCount})</SelectItem>
             <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>
             <SelectItem value="completed">Completed ({completedCount})</SelectItem>
+            {waitingDepsProjects.length > 0 && (
+              <SelectItem value="waiting_deps">Waiting on Dependencies ({waitingDepsProjects.length})</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
 
-      {sortedFiltered.length === 0 ? (
+      {filter === "waiting_deps" ? (
+        <div className="space-y-3">
+          {waitingDepsProjects
+            .filter((p: any) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+            .map((p: any) => {
+              const unmet = getUnmetDependencies(p, "close_off", workflowConfigs);
+              return (
+                <Card key={p.id} className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10" data-testid={`card-waiting-${p.id}`}>
+                  <CardContent className="p-4">
+                    <Link href={`/project/${p.id}`}>
+                      <span className="font-medium text-sm hover:underline cursor-pointer">{p.name}</span>
+                    </Link>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <Badge variant="outline" className="text-xs flex items-center gap-1 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700">
+                        <Lock className="h-3 w-3" /> Waiting on dependencies
+                      </Badge>
+                    </div>
+                    <div className="mt-2 space-y-0.5">
+                      {unmet.map(dep => (
+                        <p key={dep} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="font-medium">{STAGE_LABELS[dep] || dep}:</span>
+                          <span>{STAGE_COMPLETION_CRITERIA[dep]?.label || "Not complete"}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+          })}
+        </div>
+      ) : sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <p>{filter === "all" ? "No projects are in Close-Off status yet." : "No projects match this filter."}</p>
         </div>
