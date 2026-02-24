@@ -4,6 +4,7 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: Property Sector filter — all views exclude non-residential projects (Commercial, Industrial, Agricultural, Institutional, Multi-Residential). Blank/null = Residential. Field synced from Asana "Property Sector" custom field.
 - 2026-02-24: Rebates view enhanced — for Load Displacement + Ontario projects, fetches "Home Renovation Savings Program (ON)" subtask GRANTS STATUS from Asana. Flags missing HRSP subtasks. 14-day deadline from project creation. Sidebar reordered: Rebates now right below UC Applications.
 - 2026-02-24: UC view enhanced — shows "UC Team" badge (Net metering/Load displacement/No-Off grid), tracks submission date & user from Asana Stories API, weekly follow-up alerts for submitted projects, follow-up dialog with screenshot upload posts to Asana timeline. Off-grid projects (UC TEAM = "No/ Off grid") get UC due date = creation date.
 - 2026-02-24: Fixed UC field mapping — now reads "UC TEAM STATUS" (not "UC Team" which is a different field). Completed UC apps (Approved/Complete/Not Required) hidden by default with filter options.

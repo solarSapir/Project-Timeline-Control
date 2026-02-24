@@ -387,7 +387,8 @@ export async function registerRoutes(
       const today = new Date();
 
       const installProjects = allProjects.filter(p =>
-        p.installType?.toLowerCase() === 'install'
+        p.installType?.toLowerCase() === 'install' &&
+        (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
       );
 
       const totalProjects = installProjects.length;

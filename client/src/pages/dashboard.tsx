@@ -59,7 +59,7 @@ export default function Dashboard() {
     value: count,
   })) : [];
 
-  const installProjects = (projects || []).filter((p) => p.installType?.toLowerCase() === 'install');
+  const installProjects = (projects || []).filter((p) => p.installType?.toLowerCase() === 'install' && (!p.propertySector || p.propertySector.toLowerCase() === 'residential'));
   const recentProjects = installProjects.slice(0, 10);
 
   const getProjectDeadlines = (projectId: string) => {

@@ -74,7 +74,8 @@ export default function ContractsView() {
   const paymentMethodOptions = Array.isArray(paymentOptions) ? paymentOptions.map(o => o.name) : [];
 
   const installProjects = (projects || []).filter((p: any) =>
-    p.installType?.toLowerCase() === 'install'
+    p.installType?.toLowerCase() === 'install' &&
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
   );
 
   const filtered = installProjects.filter((p: any) => {

@@ -22,7 +22,8 @@ export default function CloseOffView() {
   });
 
   const installProjects = (projects || []).filter((p: any) =>
-    p.installType?.toLowerCase() === 'install'
+    p.installType?.toLowerCase() === 'install' &&
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
   );
 
   const isReadyForCloseOff = (p: any) => {

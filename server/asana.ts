@@ -310,6 +310,7 @@ export function mapAsanaTaskToProject(task: any) {
     contractStatus: extractCustomFieldValue(task, 'contract'),
     siteVisitStatus: extractCustomFieldValue(task, 'site visit'),
     ucTeam: extractUcTeamValue(task),
+    propertySector: extractCustomFieldValue(task, 'property sector'),
     projectCreatedDate: task.created_at ? task.created_at.split('T')[0] : null,
     asanaCustomFields: task.custom_fields || [],
   };
