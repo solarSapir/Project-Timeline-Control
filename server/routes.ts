@@ -9,7 +9,7 @@ import multer from "multer";
 import OpenAI from "openai";
 
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -617,8 +617,10 @@ export async function registerRoutes(
               max_tokens: 500,
             });
           } else {
-            const pdfData = await pdfParse(req.file.buffer);
-            const pdfText = pdfData.text?.trim();
+            const uint8 = new Uint8Array(req.file.buffer);
+            const parser = new PDFParse(uint8);
+            const pdfResult = await parser.getText();
+            const pdfText = (pdfResult.text || pdfResult.pages?.map((p: any) => p.text).join('\n') || '').trim();
             console.log(`[Hydro Bill] PDF text extracted, length: ${pdfText?.length || 0} chars, first 500: "${pdfText?.substring(0, 500)}"`);
 
             if (!pdfText || pdfText.length < 10) {
