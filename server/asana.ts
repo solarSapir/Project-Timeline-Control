@@ -67,24 +67,35 @@ export async function fetchAsanaProjects(workspaceGid: string) {
 }
 
 export async function fetchAsanaTasksFromProject(projectGid: string) {
-  const { tasksApi } = await getAsanaApiInstances();
+  const accessToken = await getAccessToken();
   const allTasks: any[] = [];
   let offset: string | undefined;
+  let pageCount = 0;
+  const optFields = 'name,gid,due_on,completed,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks';
 
   do {
-    const opts: any = {
-      opt_fields: 'name,gid,due_on,completed,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks',
-      limit: 100,
-    };
-    if (offset) opts.offset = offset;
+    const url = new URL(`https://app.asana.com/api/1.0/projects/${projectGid}/tasks`);
+    url.searchParams.set('opt_fields', optFields);
+    url.searchParams.set('limit', '100');
+    if (offset) url.searchParams.set('offset', offset);
 
-    const result = await tasksApi.getTasksForProject(projectGid, opts);
-    if (result?.data) {
-      allTasks.push(...result.data);
+    const response = await fetch(url.toString(), {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Asana API error ${response.status}: ${errText}`);
     }
+
+    const result = await response.json();
+    pageCount++;
+    const pageData = result?.data || [];
+    allTasks.push(...pageData);
     offset = result?.next_page?.offset;
   } while (offset);
 
+  console.log(`[Asana Fetch] ${allTasks.length} tasks fetched in ${pageCount} pages`);
   return allTasks;
 }
 
