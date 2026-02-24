@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import UCView from "@/pages/uc-view";
 import ContractsView from "@/pages/contracts-view";
+import ContractCreationView from "@/pages/contract-creation-view";
 import SiteVisitsView from "@/pages/site-visits-view";
 import AHJView from "@/pages/ahj-view";
 import InstallsView from "@/pages/installs-view";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/uc" component={UCView} />
       <Route path="/contracts" component={ContractsView} />
+      <Route path="/contract-creation" component={ContractCreationView} />
       <Route path="/site-visits" component={SiteVisitsView} />
       <Route path="/ahj" component={AHJView} />
       <Route path="/installs" component={InstallsView} />
