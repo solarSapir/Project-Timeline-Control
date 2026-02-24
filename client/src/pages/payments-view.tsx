@@ -65,6 +65,23 @@ function HrspBadge({ project }: { project: any }) {
   );
 }
 
+function HrspStatusSelect({ project, hrspOptions, onUpdate }: { project: any; hrspOptions: string[]; onUpdate: (projectId: string, status: string) => void }) {
+  if (!project.hrspSubtaskGid) return null;
+
+  return (
+    <Select value={project.hrspStatus || ''} onValueChange={(v) => onUpdate(project.id, v)}>
+      <SelectTrigger className="w-[220px] h-8 text-xs" data-testid={`select-hrsp-status-${project.id}`}>
+        <SelectValue placeholder="Set HRSP status" />
+      </SelectTrigger>
+      <SelectContent>
+        {hrspOptions.map(s => (
+          <SelectItem key={s} value={s}>{s}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export default function PaymentsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -84,6 +101,26 @@ export default function PaymentsView() {
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
   );
+
+  const firstHrspSubtaskGid = installProjects.find((p: any) => p.hrspSubtaskGid)?.hrspSubtaskGid;
+
+  const { data: hrspOptionsData } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/hrsp/field-options', firstHrspSubtaskGid],
+    queryFn: () => fetch(`/api/hrsp/field-options/${firstHrspSubtaskGid}`).then(r => r.json()),
+    enabled: !!firstHrspSubtaskGid,
+  });
+
+  const hrspStatusOptions = Array.isArray(hrspOptionsData) ? hrspOptionsData.map(o => o.name) : [];
+
+  const handleHrspStatus = async (projectId: string, status: string) => {
+    try {
+      await apiRequest("PATCH", `/api/hrsp/${projectId}`, { status });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "HRSP status updated in Asana" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
 
   const filtered = installProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -268,6 +305,9 @@ export default function PaymentsView() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {isLdOn && p.hrspSubtaskGid && (
+                        <HrspStatusSelect project={p} hrspOptions={hrspStatusOptions} onUpdate={handleHrspStatus} />
+                      )}
                       <TaskActionDialog projectId={p.id} projectName={p.name} viewType="payments" />
                     </div>
                   </div>

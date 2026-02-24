@@ -185,6 +185,73 @@ export async function getAsanaEnumOptions(asanaCustomFields: any[], localFieldNa
     .map((opt: any) => ({ gid: opt.gid, name: opt.name }));
 }
 
+export async function updateSubtaskField(subtaskGid: string, fieldName: string, newValue: string) {
+  const accessToken = await getAccessToken();
+  const taskRes = await fetch(`https://app.asana.com/api/1.0/tasks/${subtaskGid}?opt_fields=custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!taskRes.ok) throw new Error(`Failed to fetch subtask ${subtaskGid}`);
+  const taskData = await taskRes.json();
+  const customFields = taskData?.data?.custom_fields || [];
+
+  const field = customFields.find((f: any) =>
+    f.name?.toLowerCase().trim().includes(fieldName.toLowerCase().trim())
+  );
+  if (!field) throw new Error(`Could not find field "${fieldName}" on subtask`);
+
+  const fieldRes = await fetch(`https://app.asana.com/api/1.0/custom_fields/${field.gid}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  const fieldData = await fieldRes.json();
+  const enumOptions = fieldData?.data?.enum_options || [];
+
+  const matchingOption = enumOptions.find((opt: any) =>
+    opt.name?.toLowerCase().trim() === newValue.toLowerCase().trim()
+  );
+  if (!matchingOption) {
+    throw new Error(`Could not find enum option "${newValue}". Available: ${enumOptions.map((o: any) => o.name).join(', ')}`);
+  }
+
+  const updateRes = await fetch(`https://app.asana.com/api/1.0/tasks/${subtaskGid}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: { custom_fields: { [field.gid]: matchingOption.gid } }
+    }),
+  });
+  if (!updateRes.ok) {
+    const errBody = await updateRes.text();
+    throw new Error(`Asana update failed: ${updateRes.status} ${errBody}`);
+  }
+  return await updateRes.json();
+}
+
+export async function getSubtaskFieldOptions(subtaskGid: string, fieldName: string): Promise<{ gid: string; name: string }[]> {
+  const accessToken = await getAccessToken();
+  const taskRes = await fetch(`https://app.asana.com/api/1.0/tasks/${subtaskGid}?opt_fields=custom_fields,custom_fields.name`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!taskRes.ok) return [];
+  const taskData = await taskRes.json();
+  const customFields = taskData?.data?.custom_fields || [];
+
+  const field = customFields.find((f: any) =>
+    f.name?.toLowerCase().trim().includes(fieldName.toLowerCase().trim())
+  );
+  if (!field) return [];
+
+  const fieldRes = await fetch(`https://app.asana.com/api/1.0/custom_fields/${field.gid}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  const fieldData = await fieldRes.json();
+  return (fieldData?.data?.enum_options || [])
+    .filter((opt: any) => opt.enabled !== false)
+    .map((opt: any) => ({ gid: opt.gid, name: opt.name }));
+}
+
 export async function fetchTaskStories(taskGid: string): Promise<any[]> {
   const accessToken = await getAccessToken();
   const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories?opt_fields=created_at,created_by,created_by.name,resource_subtype,text,type`, {

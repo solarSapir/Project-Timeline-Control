@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask, fetchSubtasksForTask, findHrspSubtask, updateSubtaskField, getSubtaskFieldOptions } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 import multer from "multer";
@@ -208,6 +208,35 @@ export async function registerRoutes(
       const options = await getAsanaEnumOptions(projectWithFields.asanaCustomFields as any[], req.params.fieldName);
       res.json(options);
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/hrsp/field-options/:subtaskGid", async (req, res) => {
+    try {
+      const options = await getSubtaskFieldOptions(req.params.subtaskGid, 'grants status');
+      res.json(options);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/hrsp/:projectId", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      if (!project.hrspSubtaskGid) return res.status(400).json({ message: "No HRSP subtask found for this project" });
+
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ message: "Status is required" });
+
+      await updateSubtaskField(project.hrspSubtaskGid, 'grants status', status);
+
+      await storage.updateProject(project.id, { hrspStatus: status });
+
+      res.json({ success: true, hrspStatus: status });
+    } catch (error: any) {
+      console.error('HRSP update error:', error.message);
       res.status(500).json({ message: error.message });
     }
   });
