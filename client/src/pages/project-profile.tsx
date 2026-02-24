@@ -49,62 +49,102 @@ function getExpectedDateFromActions(
 function computeExpectedDates(project: Project, taskActions: any[]) {
   const stages: Record<string, { target: string | null; expected: string | null; status: string }> = {};
 
+  const STAGE_GAPS = { ucToContract: 7, contractToSv: 7, svToAhj: 14, ahjToInstall: 7, installToCloseOff: 7 };
+  const LATE_PUSH = 7;
+
+  const UC_COMPLETE = ['approved', 'complete', 'not required', 'closed', 'close off'];
+  const CONTRACT_DONE = ['pending deposit', 'deposit collected', 'pending site visit', 'active install', 'complete'];
+  const SV_DONE = ['visit complete', 'not required', 'visit booked'];
+  const AHJ_DONE = ['permit issued', 'closed', 'not required', 'permit close off', 'approved', 'complete'];
+  const AHJ_NOT_REQUIRED = ['not required', 'closed', 'permit close off'];
+
+  const isMatch = (val: string | null, keywords: string[]) =>
+    val ? keywords.some(k => val.toLowerCase().includes(k)) : false;
+
+  const ucDone = isMatch(project.ucStatus, UC_COMPLETE);
+  const contractDone = isMatch(project.installTeamStage, CONTRACT_DONE);
+  const svDone = isMatch(project.siteVisitStatus, SV_DONE);
+  const ahjDone = isMatch(project.ahjStatus, AHJ_DONE);
+  const ahjNotRequired = isMatch(project.ahjStatus, AHJ_NOT_REQUIRED);
+  const effectiveSvToAhj = ahjNotRequired ? 0 : STAGE_GAPS.svToAhj;
+
+  const addD = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+  const toStr = (d: Date) => d.toISOString().split('T')[0];
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  let expectedUc = project.ucDueDate ? new Date(project.ucDueDate) : addD(now, 21);
+  let expectedContract = project.contractDueDate ? new Date(project.contractDueDate) : addD(expectedUc, STAGE_GAPS.ucToContract);
+  let expectedSv = project.siteVisitDueDate ? new Date(project.siteVisitDueDate) : addD(expectedContract, STAGE_GAPS.contractToSv);
+  let expectedAhj = project.ahjDueDate ? new Date(project.ahjDueDate) : addD(expectedSv, effectiveSvToAhj);
+  let expectedInstall = project.installDueDate ? new Date(project.installDueDate) : addD(expectedAhj, STAGE_GAPS.ahjToInstall);
+  let expectedCloseOff = project.closeOffDueDate ? new Date(project.closeOffDueDate) : addD(expectedInstall, STAGE_GAPS.installToCloseOff);
+
+  if (!ucDone && expectedUc < now) {
+    expectedUc = addD(now, LATE_PUSH);
+    expectedContract = addD(expectedUc, STAGE_GAPS.ucToContract);
+    expectedSv = addD(expectedContract, STAGE_GAPS.contractToSv);
+    expectedAhj = addD(expectedSv, effectiveSvToAhj);
+    expectedInstall = addD(expectedAhj, STAGE_GAPS.ahjToInstall);
+    expectedCloseOff = addD(expectedInstall, STAGE_GAPS.installToCloseOff);
+  } else if (!contractDone && expectedContract < now) {
+    expectedContract = addD(now, LATE_PUSH);
+    expectedSv = addD(expectedContract, STAGE_GAPS.contractToSv);
+    expectedAhj = addD(expectedSv, effectiveSvToAhj);
+    expectedInstall = addD(expectedAhj, STAGE_GAPS.ahjToInstall);
+    expectedCloseOff = addD(expectedInstall, STAGE_GAPS.installToCloseOff);
+  } else if (!svDone && expectedSv < now) {
+    expectedSv = addD(now, LATE_PUSH);
+    expectedAhj = addD(expectedSv, effectiveSvToAhj);
+    expectedInstall = addD(expectedAhj, STAGE_GAPS.ahjToInstall);
+    expectedCloseOff = addD(expectedInstall, STAGE_GAPS.installToCloseOff);
+  } else if (!ahjDone && expectedAhj < now) {
+    expectedAhj = addD(now, LATE_PUSH);
+    expectedInstall = addD(expectedAhj, STAGE_GAPS.ahjToInstall);
+    expectedCloseOff = addD(expectedInstall, STAGE_GAPS.installToCloseOff);
+  } else if (!ahjDone && !svDone && !contractDone && !ucDone) {
+    // no cascade needed, dates are in the future
+  }
+
   stages.uc_application = {
     target: project.ucDueDate,
-    expected: project.ucDueDate,
-    status: getStageStatus(project.ucStatus, ["approved", "complete", "not required", "closed"]),
+    expected: toStr(expectedUc),
+    status: ucDone ? "completed" : (project.ucStatus ? "in_progress" : "pending"),
   };
 
   stages.rebates_payment = {
     target: project.ucDueDate,
-    expected: project.ucDueDate,
+    expected: toStr(expectedUc),
     status: getStageStatus(project.rebateStatus, ["complete", "not required", "approved"]),
   };
 
   stages.contract_signing = {
     target: project.contractDueDate,
-    expected: project.contractDueDate,
-    status: getStageStatus(project.installTeamStage, ["signed", "complete", "sent", "active", "pending site"]),
+    expected: toStr(expectedContract),
+    status: contractDone ? "completed" : (project.installTeamStage ? "in_progress" : "pending"),
   };
 
-  const svCompletionDate = getExpectedDateFromActions(taskActions, "site_visits", "completed", 0);
   stages.site_visit = {
     target: project.siteVisitDueDate,
-    expected: project.siteVisitDate || svCompletionDate || project.siteVisitDueDate,
-    status: project.siteVisitStatus?.toLowerCase().includes("visit complete")
-      ? "completed"
-      : "pending",
+    expected: project.siteVisitDate || toStr(expectedSv),
+    status: svDone ? "completed" : "pending",
   };
 
-  const expectedAhj = svCompletionDate
-    ? getExpectedDateFromActions(taskActions, "site_visits", "completed", 21)
-    : null;
   stages.ahj_permitting = {
     target: project.ahjDueDate,
-    expected: expectedAhj || project.ahjDueDate,
-    status: getStageStatus(project.ahjStatus, [
-      "permit issued",
-      "closed",
-      "not required",
-      "permit close off",
-      "approved",
-      "complete",
-    ]),
+    expected: toStr(expectedAhj),
+    status: ahjDone ? "completed" : (project.ahjStatus ? "in_progress" : "pending"),
   };
 
-  const ahjCompletionDate = getExpectedDateFromActions(taskActions, "ahj", "completed", 0);
-  const expectedInstall = ahjCompletionDate
-    ? getExpectedDateFromActions(taskActions, "ahj", "completed", 7)
-    : null;
   stages.install_booking = {
     target: project.installDueDate,
-    expected: expectedInstall || project.installDueDate,
+    expected: project.installStartDate || toStr(expectedInstall),
     status: project.installStartDate ? "completed" : "pending",
   };
 
   stages.installation = {
     target: project.installDueDate,
-    expected: project.installStartDate || expectedInstall || project.installDueDate,
+    expected: project.installStartDate || toStr(expectedInstall),
     status: project.installTeamStage?.toLowerCase().includes("active install")
       ? "completed"
       : project.installTeamStage?.toLowerCase().includes("complete")
@@ -114,7 +154,7 @@ function computeExpectedDates(project: Project, taskActions: any[]) {
 
   stages.close_off = {
     target: project.closeOffDueDate,
-    expected: project.closeOffDueDate,
+    expected: toStr(expectedCloseOff),
     status:
       project.pmStatus?.toLowerCase().includes("close") ||
       project.pmStatus?.toLowerCase().includes("complete")
@@ -363,6 +403,28 @@ function InfoRow({ label, value, testId }: { label: string; value: React.ReactNo
   );
 }
 
+function ExpectedDueRow({ target, expected, testId }: { target: string | null; expected: string | null; testId?: string }) {
+  if (!expected) return <InfoRow label="Expected Due" value="--" testId={testId} />;
+  const formattedExpected = formatDate(expected);
+  const isLate = target && expected && new Date(expected) > new Date(target);
+  const isPushed = target && expected && target !== expected;
+  return (
+    <div className="flex items-center justify-between py-1 text-sm">
+      <span className="text-muted-foreground">Expected Due</span>
+      <span className="flex items-center gap-2" data-testid={testId}>
+        <span className={`font-medium ${isLate ? 'text-red-600 dark:text-red-400' : isPushed ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+          {formattedExpected}
+        </span>
+        {isLate && (
+          <Badge variant="destructive" className="text-[10px] px-1.5">
+            {differenceInDays(parseISO(expected), parseISO(target!))}d late
+          </Badge>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return null;
   try {
@@ -536,7 +598,7 @@ export default function ProjectProfile() {
           <InfoRow label="Status" value={<StatusBadge status={project.ucStatus} />} testId="text-uc-status" />
           <InfoRow label="UC Team" value={project.ucTeam} testId="text-uc-team" />
           <InfoRow label="Target Due" value={formatDate(project.ucDueDate)} testId="text-uc-target" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.ucDueDate} />} />
+          <ExpectedDueRow target={project.ucDueDate} expected={stages.uc_application.expected} testId="text-uc-expected" />
           {project.ucSubmittedDate && (
             <InfoRow label="Submitted" value={`${formatDate(project.ucSubmittedDate)}${project.ucSubmittedBy ? ` by ${project.ucSubmittedBy}` : ""}`} />
           )}
@@ -553,7 +615,7 @@ export default function ProjectProfile() {
         <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status}>
           <InfoRow label="Contract Status" value={<StatusBadge status={project.installTeamStage} />} testId="text-contract-status" />
           <InfoRow label="Target Due" value={formatDate(project.contractDueDate)} testId="text-contract-target" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.contractDueDate} />} />
+          <ExpectedDueRow target={project.contractDueDate} expected={stages.contract_signing.expected} testId="text-contract-expected" />
           <InfoRow
             label="Permit Payment"
             value={project.permitPaymentCollected ? "Collected" : "Pending"}
@@ -569,7 +631,7 @@ export default function ProjectProfile() {
         <StageSection title="Site Visit" icon={Camera} status={stages.site_visit.status}>
           <InfoRow label="Status" value={<StatusBadge status={project.siteVisitStatus} />} testId="text-sv-status" />
           <InfoRow label="Target Due" value={formatDate(project.siteVisitDueDate)} testId="text-sv-target" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.siteVisitDueDate} />} />
+          <ExpectedDueRow target={project.siteVisitDueDate} expected={stages.site_visit.expected} testId="text-sv-expected" />
           {project.siteVisitDate && (
             <InfoRow label="Visit Date" value={formatDate(project.siteVisitDate)} testId="text-sv-date" />
           )}
@@ -578,15 +640,13 @@ export default function ProjectProfile() {
         <StageSection title="AHJ / Permitting" icon={Shield} status={stages.ahj_permitting.status}>
           <InfoRow label="Status" value={<StatusBadge status={project.ahjStatus} />} testId="text-ahj-status" />
           <InfoRow label="Target Due" value={formatDate(project.ahjDueDate)} testId="text-ahj-target" />
-          <InfoRow label="Expected Due" value={formatDate(stages.ahj_permitting.expected)} testId="text-ahj-expected" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.ahjDueDate} />} />
+          <ExpectedDueRow target={project.ahjDueDate} expected={stages.ahj_permitting.expected} testId="text-ahj-expected" />
         </StageSection>
 
         <StageSection title="Installation" icon={Wrench} status={stages.installation.status}>
           <InfoRow label="Install Stage" value={project.installTeamStage} testId="text-install-team-stage" />
           <InfoRow label="Target Due" value={formatDate(project.installDueDate)} testId="text-install-target" />
-          <InfoRow label="Expected Due" value={formatDate(stages.installation.expected)} testId="text-install-expected" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.installDueDate} />} />
+          <ExpectedDueRow target={project.installDueDate} expected={stages.installation.expected} testId="text-install-expected" />
           {project.installStartDate && (
             <InfoRow label="Install Start" value={formatDate(project.installStartDate)} testId="text-install-start" />
           )}
@@ -621,7 +681,7 @@ export default function ProjectProfile() {
 
         <StageSection title="Close-off" icon={CheckCircle2} status={stages.close_off.status}>
           <InfoRow label="Target Due" value={formatDate(project.closeOffDueDate)} testId="text-closeoff-target" />
-          <InfoRow label="Due In" value={<DaysLeftBadge dateStr={project.closeOffDueDate} />} />
+          <ExpectedDueRow target={project.closeOffDueDate} expected={stages.close_off.expected} testId="text-closeoff-expected" />
           <InfoRow
             label="Milestone Payment"
             value={project.milestonePaymentCollected ? "Collected" : "Pending"}
