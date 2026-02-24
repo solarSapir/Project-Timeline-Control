@@ -12,7 +12,7 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, FileText, FileCheck, Map, CalendarClock, CheckCircle2, Clock, AlertTriangle, DollarSign, MessageSquare, Upload, Send, ShieldCheck } from "lucide-react";
+import { Search, FileText, FileCheck, Map, CalendarClock, CheckCircle2, Clock, AlertTriangle, DollarSign, MessageSquare, Upload, Send, ShieldCheck, Wallet } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -835,6 +835,18 @@ export default function ContractCreationView() {
                         </Badge>
                         <Badge className={`text-xs ${getStageBadgeClass(p.installTeamStage)}`} data-testid={`badge-stage-${p.id}`}>
                           {getStageLabel(p.installTeamStage)}
+                        </Badge>
+                        <Badge
+                          className={`text-xs flex items-center gap-1 ${
+                            p.paymentMethod
+                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300"
+                              : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border-dashed border-gray-300 dark:border-gray-600"
+                          }`}
+                          variant="outline"
+                          data-testid={`badge-payment-method-${p.id}`}
+                        >
+                          <Wallet className="h-3 w-3" />
+                          {p.paymentMethod || "Payment method not set"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
