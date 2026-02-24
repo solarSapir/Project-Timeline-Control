@@ -21,7 +21,6 @@ import {
   Camera,
   Truck,
 } from "lucide-react";
-import { Link } from "wouter";
 
 type Project = Record<string, any>;
 
@@ -425,11 +424,9 @@ export default function ProjectProfile() {
   if (!project) {
     return (
       <div className="p-6 space-y-4">
-        <Link href="/">
-          <Button variant="ghost" size="sm" data-testid="button-back">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-        </Link>
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        </Button>
         <div className="text-center py-12 text-muted-foreground">
           <p>Project not found.</p>
         </div>
@@ -442,11 +439,9 @@ export default function ProjectProfile() {
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 flex-wrap">
-        <Link href="/">
-          <Button variant="ghost" size="sm" data-testid="button-back">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-        </Link>
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        </Button>
       </div>
 
       <div className="space-y-2">
