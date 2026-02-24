@@ -3,45 +3,38 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, FileText, DollarSign, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Search, FileText, DollarSign } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function ContractsView() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("action_needed");
+  const [filter, setFilter] = useState("all");
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
     queryKey: ['/api/projects'],
   });
 
+  const { data: contractorOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options', 'contractStatus'],
+    queryFn: () => fetch('/api/asana/field-options/contractStatus').then(r => r.json()),
+  });
+
+  const contractOptions = (contractorOptions || []).map(o => o.name);
+
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
   );
 
-  const canProceedToContract = (p: any) => {
-    const ucDone = ["Approved", "Complete", "Not Required"].includes(p.ucStatus || '');
-    return ucDone;
-  };
-
   const filtered = installProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "action_needed") {
-      return canProceedToContract(p) && p.contractStatus !== "Signed";
-    }
-    if (filter === "pending_payment") {
-      return p.contractStatus === "Signed" && !p.permitPaymentCollected;
-    }
-    if (filter === "completed") {
-      return p.contractStatus === "Signed" && p.permitPaymentCollected;
-    }
+    if (filter !== "all" && p.contractStatus !== filter) return false;
     return true;
   });
 
@@ -49,7 +42,7 @@ export default function ContractsView() {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { contractStatus: status });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Contract status updated" });
+      toast({ title: "Contractor updated in Asana" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -60,16 +53,6 @@ export default function ContractsView() {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { permitPaymentCollected: collected });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({ title: collected ? "Permit payment marked as collected" : "Permit payment unmarked" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handlePaymentMethod = async (projectId: string, method: string) => {
-    try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { paymentMethod: method });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Payment method updated" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -98,13 +81,13 @@ export default function ContractsView() {
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[200px]" data-testid="select-contracts-filter">
-            <SelectValue />
+            <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="action_needed">Action Needed</SelectItem>
-            <SelectItem value="pending_payment">Pending Payment</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            {contractOptions.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -128,33 +111,21 @@ export default function ContractsView() {
                 <div className="flex items-center gap-4 flex-wrap text-sm">
                   <div className="flex items-center gap-2">
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Contract:</span>
+                    <span className="text-muted-foreground">Contractor:</span>
                     <Select value={p.contractStatus || ''} onValueChange={(v) => handleContractStatus(p.id, v)}>
-                      <SelectTrigger className="h-7 text-xs w-[140px]" data-testid={`select-contract-status-${p.id}`}>
-                        <SelectValue placeholder="Set status" />
+                      <SelectTrigger className="h-7 text-xs w-[200px]" data-testid={`select-contract-status-${p.id}`}>
+                        <SelectValue placeholder="Select contractor" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Not Sent">Not Sent</SelectItem>
-                        <SelectItem value="Sent">Sent</SelectItem>
-                        <SelectItem value="Under Review">Under Review</SelectItem>
-                        <SelectItem value="Multi-stage">Multi-stage</SelectItem>
-                        <SelectItem value="Signed">Signed</SelectItem>
+                        {contractOptions.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Payment:</span>
-                    <Select value={p.paymentMethod || ''} onValueChange={(v) => handlePaymentMethod(p.id, v)}>
-                      <SelectTrigger className="h-7 text-xs w-[120px]" data-testid={`select-payment-method-${p.id}`}>
-                        <SelectValue placeholder="Method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Financing">Financing</SelectItem>
-                        <SelectItem value="Pre-approved">Pre-approved</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <span className="text-muted-foreground">Payment: {p.paymentMethod || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox

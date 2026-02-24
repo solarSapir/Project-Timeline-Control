@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
-import { UC_STATUSES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Clock, Search } from "lucide-react";
@@ -20,6 +19,13 @@ export default function UCView() {
   const { data: projects, isLoading } = useQuery<any[]>({
     queryKey: ['/api/projects'],
   });
+
+  const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options', 'ucStatus'],
+    queryFn: () => fetch('/api/asana/field-options/ucStatus').then(r => r.json()),
+  });
+
+  const statusOptions = (ucOptions || []).map(o => o.name);
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
@@ -35,7 +41,7 @@ export default function UCView() {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { ucStatus: newStatus });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "UC status updated" });
+      toast({ title: "UC status updated in Asana" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -50,11 +56,15 @@ export default function UCView() {
     );
   }
 
+  const completedStatuses = statusOptions.filter(s =>
+    s.toLowerCase().includes('approved') || s.toLowerCase().includes('complete') || s.toLowerCase().includes('not required')
+  );
+
   const actionNeeded = filtered.filter(p =>
-    !["Complete", "Approved", "Not Required", "Rejected", "Close-off"].includes(p.ucStatus || '')
+    !completedStatuses.includes(p.ucStatus || '') && p.ucStatus !== 'Closed'
   );
   const completed = filtered.filter(p =>
-    ["Complete", "Approved", "Not Required"].includes(p.ucStatus || '')
+    completedStatuses.includes(p.ucStatus || '') || p.ucStatus === 'Closed'
   );
 
   return (
@@ -81,7 +91,7 @@ export default function UCView() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {UC_STATUSES.map(s => (
+            {statusOptions.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
@@ -108,7 +118,7 @@ export default function UCView() {
                         <SelectValue placeholder="Change status" />
                       </SelectTrigger>
                       <SelectContent>
-                        {UC_STATUSES.map(s => (
+                        {statusOptions.map(s => (
                           <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}
                       </SelectContent>

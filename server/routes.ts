@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions } from "./asana";
 import { addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
 
@@ -83,10 +83,42 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/asana/field-options/:fieldName", async (req, res) => {
+    try {
+      const allProjects = await storage.getProjects();
+      const projectWithFields = allProjects.find(p => p.asanaCustomFields && (p.asanaCustomFields as any[]).length > 0);
+      if (!projectWithFields) {
+        return res.json([]);
+      }
+      const options = await getAsanaEnumOptions(projectWithFields.asanaCustomFields as any[], req.params.fieldName);
+      res.json(options);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus'];
+
   app.patch("/api/projects/:id", async (req, res) => {
     try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) return res.status(404).json({ message: "Project not found" });
+
+      if (project.asanaGid && project.asanaCustomFields) {
+        const asanaFields = project.asanaCustomFields as any[];
+        for (const field of ASANA_SYNCED_FIELDS) {
+          if (req.body[field] && req.body[field] !== (project as any)[field]) {
+            try {
+              await updateAsanaTaskField(project.asanaGid, asanaFields, field, req.body[field]);
+            } catch (asanaErr: any) {
+              console.error(`Failed to update Asana field ${field}:`, asanaErr.message);
+              return res.status(400).json({ message: `Failed to update Asana: ${asanaErr.message}` });
+            }
+          }
+        }
+      }
+
       const updated = await storage.updateProject(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ message: "Project not found" });
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

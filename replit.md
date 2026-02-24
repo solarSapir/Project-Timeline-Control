@@ -4,6 +4,7 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: Added two-way Asana sync — status changes in the app now push back to Asana via REST API. All dropdowns dynamically load enum options from Asana custom fields. Asana is the single source of truth.
 - 2026-02-24: Initial build with Asana integration, all work views, and deadline tracking
 
 ## Architecture

@@ -34,19 +34,19 @@ export default function CloseOffView() {
   const filtered = installProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "ready") return isReadyForCloseOff(p);
-    if (filter === "pending_docs") return isReadyForCloseOff(p) && p.ucStatus !== "Close-off";
-    if (filter === "completed") return p.ucStatus === "Close-off" && p.ahjStatus === "Close-off";
+    if (filter === "pending_docs") return isReadyForCloseOff(p) && p.ucStatus !== "Closed";
+    if (filter === "completed") return p.ucStatus === "Closed" && p.ahjStatus === "Closed";
     return true;
   });
 
   const handleSetCloseOff = async (projectId: string) => {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, {
-        ucStatus: "Close-off",
-        ahjStatus: "Close-off",
+        ucStatus: "Closed",
+        ahjStatus: "Closed",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Project set to close-off status" });
+      toast({ title: "Project set to close-off status in Asana" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -101,7 +101,7 @@ export default function CloseOffView() {
                     <p className="text-xs text-muted-foreground mt-0.5">{p.province || ''}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {p.ucStatus !== "Close-off" && (
+                    {p.ucStatus !== "Closed" && (
                       <Button size="sm" variant="outline" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>
                         Set Close-off
                       </Button>

@@ -17,34 +17,27 @@ import { format } from "date-fns";
 
 export default function SiteVisitsView() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("needs_booking");
+  const [filter, setFilter] = useState("all");
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
     queryKey: ['/api/projects'],
   });
 
+  const { data: siteVisitOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options', 'siteVisitStatus'],
+    queryFn: () => fetch('/api/asana/field-options/siteVisitStatus').then(r => r.json()),
+  });
+
+  const statusOptions = (siteVisitOptions || []).map(o => o.name);
+
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
   );
 
-  const readyForSiteVisit = (p: any) => {
-    const ucDone = ["Approved", "Complete", "Not Required"].includes(p.ucStatus || '');
-    const contractSigned = p.contractStatus === "Signed";
-    return ucDone && contractSigned;
-  };
-
   const filtered = installProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "needs_booking") {
-      return readyForSiteVisit(p) && (!p.siteVisitStatus || p.siteVisitStatus === "Needs Booking");
-    }
-    if (filter === "booked") {
-      return p.siteVisitStatus === "Booked";
-    }
-    if (filter === "completed") {
-      return p.siteVisitStatus === "Completed";
-    }
+    if (filter !== "all" && p.siteVisitStatus !== filter) return false;
     return true;
   });
 
@@ -52,7 +45,7 @@ export default function SiteVisitsView() {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { siteVisitStatus: status });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Site visit status updated" });
+      toast({ title: "Site visit status updated in Asana" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -62,10 +55,9 @@ export default function SiteVisitsView() {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, {
         siteVisitDate: date ? format(date, 'yyyy-MM-dd') : null,
-        siteVisitStatus: date ? "Booked" : "Needs Booking",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: date ? "Site visit booked" : "Site visit date cleared" });
+      toast({ title: date ? "Site visit date set" : "Site visit date cleared" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -94,13 +86,13 @@ export default function SiteVisitsView() {
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[200px]" data-testid="select-site-visits-filter">
-            <SelectValue />
+            <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="needs_booking">Needs Booking</SelectItem>
-            <SelectItem value="booked">Booked</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {statusOptions.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -122,14 +114,15 @@ export default function SiteVisitsView() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
+                    <StatusBadge status={p.siteVisitStatus} />
                     <Select value={p.siteVisitStatus || ''} onValueChange={(v) => handleSiteVisitStatus(p.id, v)}>
-                      <SelectTrigger className="h-8 text-xs w-[140px]" data-testid={`select-site-visit-status-${p.id}`}>
+                      <SelectTrigger className="h-8 text-xs w-[180px]" data-testid={`select-site-visit-status-${p.id}`}>
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Needs Booking">Needs Booking</SelectItem>
-                        <SelectItem value="Booked">Booked</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
+                        {statusOptions.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Popover>

@@ -7,7 +7,6 @@ import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
-import { AHJ_STATUSES } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -21,6 +20,13 @@ export default function AHJView() {
   const { data: projects, isLoading } = useQuery<any[]>({
     queryKey: ['/api/projects'],
   });
+
+  const { data: ahjOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options', 'ahjStatus'],
+    queryFn: () => fetch('/api/asana/field-options/ahjStatus').then(r => r.json()),
+  });
+
+  const statusOptions = (ahjOptions || []).map(o => o.name);
 
   const installProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install'
@@ -36,7 +42,7 @@ export default function AHJView() {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { ahjStatus: newStatus });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "AHJ status updated" });
+      toast({ title: "AHJ status updated in Asana" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -61,11 +67,15 @@ export default function AHJView() {
     );
   }
 
+  const completedStatuses = statusOptions.filter(s =>
+    s.toLowerCase().includes('approved') || s.toLowerCase().includes('complete') || s.toLowerCase().includes('closed')
+  );
+
   const actionNeeded = filtered.filter(p =>
-    !["Complete", "Rejected", "Close-off"].includes(p.ahjStatus || '')
+    !completedStatuses.includes(p.ahjStatus || '')
   );
   const completed = filtered.filter(p =>
-    ["Complete", "Approved"].includes(p.ahjStatus || '')
+    completedStatuses.includes(p.ahjStatus || '')
   );
 
   return (
@@ -86,7 +96,7 @@ export default function AHJView() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {AHJ_STATUSES.map(s => (
+            {statusOptions.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
@@ -115,7 +125,7 @@ export default function AHJView() {
                         <SelectValue placeholder="Change status" />
                       </SelectTrigger>
                       <SelectContent>
-                        {AHJ_STATUSES.map(s => (
+                        {statusOptions.map(s => (
                           <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}
                       </SelectContent>

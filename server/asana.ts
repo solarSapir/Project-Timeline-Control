@@ -101,6 +101,88 @@ export function extractCustomFieldValue(task: any, fieldName: string): string | 
   return null;
 }
 
+const FIELD_NAME_MAP: Record<string, string[]> = {
+  ucStatus: ['UC TEAM STATUS'],
+  ahjStatus: ['AHJ Status.', 'AHJ Status'],
+  siteVisitStatus: ['Site visit Request', 'Site visit'],
+  contractStatus: ['Contractor'],
+  designStatus: ['DESGIN STATUS', 'DESIGN STATUS'],
+  pmStatus: ['PM Status'],
+  installType: ['Install Type.', 'Install Type'],
+};
+
+function findCustomFieldGid(asanaCustomFields: any[], localFieldName: string): string | null {
+  const patterns = FIELD_NAME_MAP[localFieldName];
+  if (!patterns) return null;
+  for (const pattern of patterns) {
+    const field = asanaCustomFields.find((f: any) =>
+      f.name?.toLowerCase().trim() === pattern.toLowerCase().trim()
+    );
+    if (field) return field.gid;
+  }
+  return null;
+}
+
+export async function updateAsanaTaskField(taskGid: string, asanaCustomFields: any[], localFieldName: string, newValue: string) {
+  const fieldGid = findCustomFieldGid(asanaCustomFields, localFieldName);
+  if (!fieldGid) {
+    throw new Error(`Could not find Asana custom field for "${localFieldName}"`);
+  }
+
+  const accessToken = await getAccessToken();
+
+  const fieldRes = await fetch(`https://app.asana.com/api/1.0/custom_fields/${fieldGid}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  const fieldData = await fieldRes.json();
+  const enumOptions = fieldData?.data?.enum_options || [];
+
+  const matchingOption = enumOptions.find((opt: any) =>
+    opt.name?.toLowerCase().trim() === newValue.toLowerCase().trim()
+  );
+
+  if (!matchingOption) {
+    throw new Error(`Could not find enum option "${newValue}" for field "${localFieldName}". Available: ${enumOptions.map((o: any) => o.name).join(', ')}`);
+  }
+
+  const updateRes = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: {
+        custom_fields: {
+          [fieldGid]: matchingOption.gid,
+        }
+      }
+    }),
+  });
+
+  if (!updateRes.ok) {
+    const errBody = await updateRes.text();
+    throw new Error(`Asana update failed: ${updateRes.status} ${errBody}`);
+  }
+
+  return await updateRes.json();
+}
+
+export async function getAsanaEnumOptions(asanaCustomFields: any[], localFieldName: string): Promise<{ gid: string; name: string }[]> {
+  const fieldGid = findCustomFieldGid(asanaCustomFields, localFieldName);
+  if (!fieldGid) return [];
+
+  const accessToken = await getAccessToken();
+  const fieldRes = await fetch(`https://app.asana.com/api/1.0/custom_fields/${fieldGid}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  const fieldData = await fieldRes.json();
+  const enumOptions = fieldData?.data?.enum_options || [];
+  return enumOptions
+    .filter((opt: any) => opt.enabled !== false)
+    .map((opt: any) => ({ gid: opt.gid, name: opt.name }));
+}
+
 export function mapAsanaTaskToProject(task: any) {
   return {
     asanaGid: task.gid,
