@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import type { Project } from "@shared/schema";
@@ -123,7 +123,6 @@ export default function InstallCalendar() {
 
     const CONTRACT_DONE_STAGES = ['pending deposit', 'deposit collected', 'pending site visit', 'active install', 'complete'];
     const isContractDone = (s: string | null) => s ? CONTRACT_DONE_STAGES.some(k => s.toLowerCase().includes(k)) : false;
-    const isContractSent = (s: string | null) => s ? s.toLowerCase().includes('pending contract to be signed') || isContractDone(s) : false;
 
     const SV_DONE = ['visit complete', 'not required', 'visit booked'];
     const isSvDone = (s: string | null) => s ? SV_DONE.some(k => s.toLowerCase().includes(k)) : false;
@@ -133,34 +132,8 @@ export default function InstallCalendar() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const ahjActionMap: Record<string, string> = {};
-    const svActionMap: Record<string, string> = {};
-    const ucActionMap: Record<string, string> = {};
-
-    (taskActions || []).forEach((a: any) => {
-      if (a.completedAt && a.projectId) {
-        const existing = ahjActionMap[a.projectId];
-        if (!existing || new Date(a.completedAt) > new Date(existing)) {
-          ahjActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
-        }
-      }
-    });
-    (siteVisitActions || []).forEach((a: any) => {
-      if (a.completedAt && a.projectId) {
-        const existing = svActionMap[a.projectId];
-        if (!existing || new Date(a.completedAt) > new Date(existing)) {
-          svActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
-        }
-      }
-    });
-    (ucActions || []).forEach((a: any) => {
-      if (a.completedAt && a.projectId) {
-        const existing = ucActionMap[a.projectId];
-        if (!existing || new Date(a.completedAt) > new Date(existing)) {
-          ucActionMap[a.projectId] = typeof a.completedAt === 'string' ? a.completedAt.split('T')[0] : new Date(a.completedAt).toISOString().split('T')[0];
-        }
-      }
-    });
+    const STAGE_GAPS = { ucToContract: 14, contractToSv: 7, svToAhj: 14, ahjToInstall: 7 };
+    const LATE_PUSH = 7;
 
     const result: CalendarProject[] = [];
 
@@ -176,75 +149,72 @@ export default function InstallCalendar() {
         continue;
       }
 
-      let expectedDate: string;
-      let reason: string;
-      const ahjDone = isAhjComplete(p.ahjStatus);
       const ucDone = isUcDone(p.ucStatus);
       const contractDone = isContractDone(p.installTeamStage);
       const svDone = isSvDone(p.siteVisitStatus);
+      const ahjDone = isAhjComplete(p.ahjStatus);
 
-      if (ahjDone) {
-        const ahjCompletionDate = ahjActionMap[p.id];
-        if (ahjCompletionDate) {
-          expectedDate = toDateStr(addDays(new Date(ahjCompletionDate), 7));
-        } else if (p.ahjDueDate) {
-          const ahjDue = new Date(p.ahjDueDate);
-          expectedDate = toDateStr(addDays(ahjDue < now ? now : ahjDue, 7));
-        } else {
-          expectedDate = toDateStr(addDays(now, 7));
-        }
-        reason = "ahj-complete";
-      } else if (svDone) {
-        const svCompletionDate = svActionMap[p.id];
-        if (svCompletionDate) {
-          expectedDate = toDateStr(addDays(new Date(svCompletionDate), 21 + 7));
-        } else if (p.siteVisitDueDate) {
-          const svDue = new Date(p.siteVisitDueDate);
-          expectedDate = toDateStr(addDays(svDue < now ? now : svDue, 21 + 7));
-        } else {
-          expectedDate = toDateStr(addDays(now, 21 + 7));
-        }
-        reason = "sv-complete";
-      } else if (contractDone) {
-        if (p.siteVisitDueDate) {
-          const svDue = new Date(p.siteVisitDueDate);
-          expectedDate = toDateStr(addDays(svDue < now ? now : svDue, 7 + 21 + 7));
-        } else if (p.contractDueDate) {
-          expectedDate = toDateStr(addDays(new Date(p.contractDueDate), 7 + 21 + 7));
-        } else {
-          expectedDate = toDateStr(addDays(now, 7 + 21 + 7));
-        }
-        reason = "contract-done";
-      } else if (isContractSent(p.installTeamStage)) {
-        if (p.contractDueDate) {
-          const cDue = new Date(p.contractDueDate);
-          expectedDate = toDateStr(addDays(cDue < now ? now : cDue, 7 + 7 + 21 + 7));
-        } else {
-          expectedDate = toDateStr(addDays(now, 7 + 7 + 21 + 7));
-        }
-        reason = "contract-sent";
-      } else if (ucDone) {
-        const ucCompletionDate = ucActionMap[p.id];
-        if (ucCompletionDate) {
-          expectedDate = toDateStr(addDays(new Date(ucCompletionDate), 7 + 7 + 21 + 7));
-        } else if (p.contractDueDate) {
-          const cDue = new Date(p.contractDueDate);
-          expectedDate = toDateStr(addDays(cDue < now ? now : cDue, 7 + 21 + 7));
-        } else {
-          expectedDate = p.installDueDate || toDateStr(addDays(now, 42));
-        }
-        reason = "uc-complete";
-      } else {
-        const ucDue = p.ucDueDate ? new Date(p.ucDueDate) : null;
-        if (p.installDueDate) {
-          const installDue = new Date(p.installDueDate);
-          expectedDate = toDateStr(installDue < now ? addDays(now, 42) : installDue);
-        } else if (ucDue) {
-          expectedDate = toDateStr(addDays(ucDue < now ? now : ucDue, 42));
-        } else {
-          expectedDate = toDateStr(addDays(now, 56));
+      let adjustedUcTarget = p.ucDueDate ? new Date(p.ucDueDate) : addDays(now, 21);
+      let adjustedContractTarget = p.contractDueDate ? new Date(p.contractDueDate) : addDays(adjustedUcTarget, STAGE_GAPS.ucToContract);
+      let adjustedSvTarget = p.siteVisitDueDate ? new Date(p.siteVisitDueDate) : addDays(adjustedContractTarget, STAGE_GAPS.contractToSv);
+      let adjustedAhjTarget = p.ahjDueDate ? new Date(p.ahjDueDate) : addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+      let adjustedInstallTarget = p.installDueDate ? new Date(p.installDueDate) : addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
+
+      let reason: string;
+      let cascadeFrom: Date | null = null;
+
+      if (!ucDone) {
+        if (adjustedUcTarget < now) {
+          adjustedUcTarget = addDays(now, LATE_PUSH);
+          cascadeFrom = adjustedUcTarget;
         }
         reason = "uc-pending";
+      } else if (!contractDone) {
+        if (adjustedContractTarget < now) {
+          adjustedContractTarget = addDays(now, LATE_PUSH);
+          cascadeFrom = adjustedContractTarget;
+        }
+        reason = "uc-complete";
+      } else if (!svDone) {
+        if (adjustedSvTarget < now) {
+          adjustedSvTarget = addDays(now, LATE_PUSH);
+          cascadeFrom = adjustedSvTarget;
+        }
+        reason = "contract-done";
+      } else if (!ahjDone) {
+        if (adjustedAhjTarget < now) {
+          adjustedAhjTarget = addDays(now, LATE_PUSH);
+          cascadeFrom = adjustedAhjTarget;
+        }
+        reason = "sv-complete";
+      } else {
+        reason = "ahj-complete";
+      }
+
+      if (cascadeFrom) {
+        if (reason === "uc-pending") {
+          adjustedContractTarget = addDays(cascadeFrom, STAGE_GAPS.ucToContract);
+          adjustedSvTarget = addDays(adjustedContractTarget, STAGE_GAPS.contractToSv);
+          adjustedAhjTarget = addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+          adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
+        } else if (reason === "uc-complete") {
+          adjustedSvTarget = addDays(cascadeFrom, STAGE_GAPS.contractToSv);
+          adjustedAhjTarget = addDays(adjustedSvTarget, STAGE_GAPS.svToAhj);
+          adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
+        } else if (reason === "contract-done") {
+          adjustedAhjTarget = addDays(cascadeFrom, STAGE_GAPS.svToAhj);
+          adjustedInstallTarget = addDays(adjustedAhjTarget, STAGE_GAPS.ahjToInstall);
+        } else if (reason === "sv-complete") {
+          adjustedInstallTarget = addDays(cascadeFrom, STAGE_GAPS.ahjToInstall);
+        }
+      }
+
+      let expectedDate: string;
+
+      if (ahjDone) {
+        expectedDate = toDateStr(addDays(now, STAGE_GAPS.ahjToInstall));
+      } else {
+        expectedDate = toDateStr(adjustedInstallTarget);
       }
 
       const status = getInstallStatus(expectedDate, p.installDueDate);
@@ -497,6 +467,7 @@ export default function InstallCalendar() {
       <Dialog open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
         <DialogContent className="max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
+            <DialogDescription className="sr-only">Projects expected to start installation on this day</DialogDescription>
             <DialogTitle data-testid="text-day-detail-title">
               {selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               <span className="text-sm font-normal text-muted-foreground ml-2">
