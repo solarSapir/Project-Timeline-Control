@@ -28,52 +28,112 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/asana/sync/:projectGid", async (req, res) => {
-    try {
-      const tasks = await fetchAsanaTasksFromProject(req.params.projectGid);
-      const synced = [];
+  async function syncProjectFromAsana(projectGid: string) {
+    const tasks = await fetchAsanaTasksFromProject(projectGid);
+    const synced = [];
 
-      for (const task of tasks) {
-        if (!task.name || task.name.trim() === '') continue;
-        const mapped: any = mapAsanaTaskToProject(task);
+    for (const task of tasks) {
+      if (!task.name || task.name.trim() === '') continue;
+      const mapped: any = mapAsanaTaskToProject(task);
 
-        if (mapped.projectCreatedDate) {
-          const createdDate = new Date(mapped.projectCreatedDate);
-          mapped.ucDueDate = format(addDays(createdDate, 21), 'yyyy-MM-dd');
-          mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
-          mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
-          mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
-          mapped.installDueDate = format(addDays(createdDate, 70), 'yyyy-MM-dd');
-          mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
-        }
-
-        const project = await storage.upsertProject(mapped);
-
-        const existingDeadlines = await storage.getProjectDeadlines(project.id);
-        if (existingDeadlines.length === 0) {
-          const baseDate = mapped.projectCreatedDate ? new Date(mapped.projectCreatedDate) : new Date();
-          for (const stage of PROJECT_STAGES) {
-            const config = DEFAULT_DEADLINES_WEEKS[stage];
-            if (config) {
-              await storage.upsertProjectDeadline({
-                projectId: project.id,
-                stage,
-                targetDate: format(addWeeks(baseDate, config.max), 'yyyy-MM-dd'),
-                status: "pending",
-              });
-            }
-          }
-        }
-
-        synced.push(project);
+      if (mapped.projectCreatedDate) {
+        const createdDate = new Date(mapped.projectCreatedDate);
+        mapped.ucDueDate = format(addDays(createdDate, 21), 'yyyy-MM-dd');
+        mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
+        mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
+        mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
+        mapped.installDueDate = format(addDays(createdDate, 70), 'yyyy-MM-dd');
+        mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
       }
 
+      const project = await storage.upsertProject(mapped);
+
+      const existingDeadlines = await storage.getProjectDeadlines(project.id);
+      if (existingDeadlines.length === 0) {
+        const baseDate = mapped.projectCreatedDate ? new Date(mapped.projectCreatedDate) : new Date();
+        for (const stage of PROJECT_STAGES) {
+          const config = DEFAULT_DEADLINES_WEEKS[stage];
+          if (config) {
+            await storage.upsertProjectDeadline({
+              projectId: project.id,
+              stage,
+              targetDate: format(addWeeks(baseDate, config.max), 'yyyy-MM-dd'),
+              status: "pending",
+            });
+          }
+        }
+      }
+
+      synced.push(project);
+    }
+
+    return synced;
+  }
+
+  let cachedProjectGid: string | null = null;
+  let lastSyncTime: string | null = null;
+
+  async function findProjectManageTeamGid(): Promise<string> {
+    if (cachedProjectGid) return cachedProjectGid;
+
+    const workspaces = await fetchAsanaWorkspaces();
+    for (const ws of workspaces) {
+      const projects = await fetchAsanaProjects(ws.gid);
+      const target = projects.find((p: any) =>
+        p.name.toLowerCase().includes('project manage team')
+      );
+      if (target) {
+        cachedProjectGid = target.gid;
+        return target.gid;
+      }
+    }
+    throw new Error('Could not find "Project Manage Team" project in Asana. Please check your Asana workspace.');
+  }
+
+  app.post("/api/asana/sync-all", async (_req, res) => {
+    try {
+      const projectGid = await findProjectManageTeamGid();
+      const synced = await syncProjectFromAsana(projectGid);
+      lastSyncTime = new Date().toISOString();
+      console.log(`[Auto-Sync] Synced ${synced.length} projects at ${lastSyncTime}`);
+      res.json({ synced: synced.length, lastSyncTime, projectGid });
+    } catch (error: any) {
+      console.error("Sync error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/asana/sync-status", async (_req, res) => {
+    res.json({ lastSyncTime, cachedProjectGid });
+  });
+
+  app.post("/api/asana/sync/:projectGid", async (req, res) => {
+    try {
+      const synced = await syncProjectFromAsana(req.params.projectGid);
+      lastSyncTime = new Date().toISOString();
       res.json({ synced: synced.length, projects: synced });
     } catch (error: any) {
       console.error("Sync error:", error);
       res.status(500).json({ message: error.message });
     }
   });
+
+  const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+  async function runAutoSync() {
+    try {
+      const projectGid = await findProjectManageTeamGid();
+      const synced = await syncProjectFromAsana(projectGid);
+      lastSyncTime = new Date().toISOString();
+      console.log(`[Auto-Sync] Synced ${synced.length} projects at ${lastSyncTime}`);
+    } catch (error: any) {
+      console.error("[Auto-Sync] Error:", error.message);
+    }
+  }
+
+  setTimeout(() => {
+    runAutoSync();
+    setInterval(runAutoSync, AUTO_SYNC_INTERVAL_MS);
+  }, 10000);
 
   app.get("/api/projects", async (_req, res) => {
     try {
