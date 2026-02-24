@@ -217,6 +217,20 @@ export default function InstallCalendar() {
         });
         continue;
       }
+
+      if (p.installDueDate) {
+        const status = getInstallStatus(p.installDueDate, p.installDueDate);
+        result.push({
+          id: p.id,
+          name: p.name,
+          expectedDate: p.installDueDate,
+          targetDate: p.installDueDate,
+          status,
+          province: p.province,
+          ahjStatus: p.ahjStatus,
+          daysLate: null,
+        });
+      }
     }
 
     return result;
