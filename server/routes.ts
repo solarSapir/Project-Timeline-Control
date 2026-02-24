@@ -417,8 +417,10 @@ export async function registerRoutes(
       const project = await storage.getProject(projectId);
       if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
 
-      const { notes, completedBy } = req.body;
-      const commentText = `UC Follow-up by ${completedBy || 'Team'}:\n${notes || 'Follow-up completed'}`;
+      const { notes, completedBy, viewType } = req.body;
+      const isContract = viewType === 'contracts';
+      const commentPrefix = isContract ? 'Contract Follow-up' : 'UC Follow-up';
+      const commentText = `${commentPrefix} by ${completedBy || 'Team'}:\n${notes || 'Follow-up completed'}`;
 
       await postCommentToTask(project.asanaGid, commentText);
 
@@ -431,16 +433,17 @@ export async function registerRoutes(
         );
       }
 
+      const followUpDays = isContract ? 1 : 7;
       const action = await storage.createTaskAction({
         projectId: projectId,
-        viewType: 'uc',
+        viewType: viewType || 'uc',
         actionType: 'follow_up',
         completedBy: completedBy || null,
         notes: notes || null,
-        followUpDate: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+        followUpDate: format(addDays(new Date(), followUpDays), 'yyyy-MM-dd'),
       });
 
-      res.json({ success: true, action, message: "Follow-up posted to Asana timeline" });
+      res.json({ success: true, action, message: `${commentPrefix} posted to Asana timeline` });
     } catch (error: any) {
       console.error("Follow-up error:", error);
       res.status(500).json({ message: error.message });
