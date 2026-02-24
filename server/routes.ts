@@ -594,13 +594,21 @@ export async function registerRoutes(
       );
 
       const totalProjects = installProjects.length;
-      const overdueDeadlines = allDeadlines.filter(d =>
-        d.status === 'pending' && d.targetDate && new Date(d.targetDate) < today
-      );
+      const installProjectIds = new Set(installProjects.map(p => p.id));
+      const installDeadlines = allDeadlines.filter(d => installProjectIds.has(d.projectId));
+
+      const projectsWithOverdue = new Set<string>();
+      for (const d of installDeadlines) {
+        if (d.status === 'pending' && d.targetDate && new Date(d.targetDate) < today) {
+          projectsWithOverdue.add(d.projectId);
+        }
+      }
+      const overdueProjectCount = projectsWithOverdue.size;
+      const onTrackProjectCount = totalProjects - overdueProjectCount;
 
       const stageBreakdown: Record<string, { total: number; overdue: number; onTrack: number }> = {};
       for (const stage of PROJECT_STAGES) {
-        const deadlinesForStage = allDeadlines.filter(d => d.stage === stage);
+        const deadlinesForStage = installDeadlines.filter(d => d.stage === stage);
         stageBreakdown[stage] = {
           total: deadlinesForStage.length,
           overdue: deadlinesForStage.filter(d => d.status === 'pending' && d.targetDate && new Date(d.targetDate) < today).length,
@@ -620,7 +628,8 @@ export async function registerRoutes(
       res.json({
         totalProjects,
         totalInstallProjects: installProjects.length,
-        overdueCount: overdueDeadlines.length,
+        overdueCount: overdueProjectCount,
+        onTrackCount: onTrackProjectCount,
         stageBreakdown,
         ucBreakdown,
         ahjBreakdown,

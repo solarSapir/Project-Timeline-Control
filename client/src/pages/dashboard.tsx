@@ -14,6 +14,7 @@ interface DashboardStats {
   totalProjects: number;
   totalInstallProjects: number;
   overdueCount: number;
+  onTrackCount: number;
   stageBreakdown: Record<string, { total: number; overdue: number; onTrack: number }>;
   ucBreakdown: Record<string, number>;
   ahjBreakdown: Record<string, number>;
@@ -108,7 +109,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600" data-testid="text-on-track">
-              {stageData.reduce((sum, d) => sum + d.onTrack, 0)}
+              {stats?.onTrackCount || 0}
             </div>
           </CardContent>
         </Card>
