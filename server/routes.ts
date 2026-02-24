@@ -358,6 +358,33 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/workflow-config", async (_req, res) => {
+    try {
+      const configs = await storage.getWorkflowConfigs();
+      res.json(configs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put("/api/workflow-config", async (req, res) => {
+    try {
+      const items = req.body as Array<{ stage: string; targetDays: number; dependsOn: string[] }>;
+      const results = [];
+      for (const item of items) {
+        const result = await storage.upsertWorkflowConfig({
+          stage: item.stage,
+          targetDays: item.targetDays,
+          dependsOn: item.dependsOn || [],
+        });
+        results.push(result);
+      }
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/task-actions/:viewType", async (req, res) => {
     try {
       const actions = await storage.getTaskActionsByView(req.params.viewType);

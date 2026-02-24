@@ -1,12 +1,13 @@
 import { eq, and, lte, isNull, or, desc, asc } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, projects, projectDeadlines, taskActions, installSchedule,
+  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
   type TaskAction, type InsertTaskAction,
   type InstallSchedule, type InsertInstallSchedule,
+  type WorkflowConfig, type InsertWorkflowConfig,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -32,6 +33,9 @@ export interface IStorage {
   getInstallSchedules(projectId: string): Promise<InstallSchedule[]>;
   upsertInstallSchedule(data: InsertInstallSchedule & { id?: string }): Promise<InstallSchedule>;
   getAllInstallSchedules(): Promise<InstallSchedule[]>;
+
+  getWorkflowConfigs(): Promise<WorkflowConfig[]>;
+  upsertWorkflowConfig(data: InsertWorkflowConfig): Promise<WorkflowConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -164,6 +168,24 @@ export class DatabaseStorage implements IStorage {
 
   async getAllInstallSchedules(): Promise<InstallSchedule[]> {
     return db.select().from(installSchedule).orderBy(asc(installSchedule.scheduledDate));
+  }
+
+  async getWorkflowConfigs(): Promise<WorkflowConfig[]> {
+    return db.select().from(workflowConfig);
+  }
+
+  async upsertWorkflowConfig(data: InsertWorkflowConfig): Promise<WorkflowConfig> {
+    const [existing] = await db.select().from(workflowConfig)
+      .where(eq(workflowConfig.stage, data.stage));
+    if (existing) {
+      const [updated] = await db.update(workflowConfig)
+        .set(data)
+        .where(eq(workflowConfig.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(workflowConfig).values(data).returning();
+    return created;
   }
 }
 

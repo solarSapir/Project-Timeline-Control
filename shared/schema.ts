@@ -126,6 +126,20 @@ export type InsertTaskAction = z.infer<typeof insertTaskActionSchema>;
 export type InstallSchedule = typeof installSchedule.$inferSelect;
 export type InsertInstallSchedule = z.infer<typeof insertInstallScheduleSchema>;
 
+export const workflowConfig = pgTable("workflow_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stage: text("stage").notNull().unique(),
+  targetDays: integer("target_days").notNull(),
+  dependsOn: text("depends_on").array(),
+});
+
+export const insertWorkflowConfigSchema = createInsertSchema(workflowConfig).omit({
+  id: true,
+});
+
+export type WorkflowConfig = typeof workflowConfig.$inferSelect;
+export type InsertWorkflowConfig = z.infer<typeof insertWorkflowConfigSchema>;
+
 export const UC_STATUSES = [
   "New Application",
   "Missing Information",
