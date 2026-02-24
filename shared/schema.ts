@@ -131,6 +131,7 @@ export const workflowConfig = pgTable("workflow_config", {
   stage: text("stage").notNull().unique(),
   targetDays: integer("target_days").notNull(),
   dependsOn: text("depends_on").array(),
+  gapRelativeTo: text("gap_relative_to"),
 });
 
 export const insertWorkflowConfigSchema = createInsertSchema(workflowConfig).omit({
@@ -196,13 +197,13 @@ export const DEFAULT_DEADLINES_WEEKS: Record<string, { min: number; max: number;
   close_off: { min: 12, max: 14, dependsOn: ["installation"] },
 };
 
-export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[] }> = {
-  uc_application: { gapDays: 21, dependsOn: [] },
-  rebates_payment: { gapDays: 14, dependsOn: [] },
-  contract_signing: { gapDays: 7, dependsOn: ["uc_application"] },
-  site_visit: { gapDays: 7, dependsOn: ["contract_signing"] },
-  ahj_permitting: { gapDays: 14, dependsOn: ["site_visit"] },
-  install_booking: { gapDays: 7, dependsOn: ["ahj_permitting"] },
-  installation: { gapDays: 7, dependsOn: ["install_booking"] },
-  close_off: { gapDays: 7, dependsOn: ["installation"] },
+export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[]; gapRelativeTo: string | null }> = {
+  uc_application: { gapDays: 21, dependsOn: [], gapRelativeTo: null },
+  rebates_payment: { gapDays: 14, dependsOn: [], gapRelativeTo: null },
+  contract_signing: { gapDays: 7, dependsOn: ["uc_application"], gapRelativeTo: "uc_application" },
+  site_visit: { gapDays: 7, dependsOn: ["contract_signing"], gapRelativeTo: "contract_signing" },
+  ahj_permitting: { gapDays: 14, dependsOn: ["site_visit"], gapRelativeTo: "site_visit" },
+  install_booking: { gapDays: 7, dependsOn: ["ahj_permitting"], gapRelativeTo: "ahj_permitting" },
+  installation: { gapDays: 7, dependsOn: ["install_booking"], gapRelativeTo: "install_booking" },
+  close_off: { gapDays: 7, dependsOn: ["installation"], gapRelativeTo: "installation" },
 };

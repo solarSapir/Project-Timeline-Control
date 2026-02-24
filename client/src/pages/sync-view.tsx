@@ -7,6 +7,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch,
   ArrowRight, ArrowDown, Save, RotateCcw, Info
 } from "lucide-react";
@@ -35,6 +43,7 @@ type StageConfig = {
   stage: string;
   targetDays: number;
   dependsOn: string[];
+  gapRelativeTo: string | null;
 };
 
 function defaultConfigs(): StageConfig[] {
@@ -44,6 +53,7 @@ function defaultConfigs(): StageConfig[] {
       stage,
       targetDays: gap ? gap.gapDays : (DEFAULT_DEADLINES_WEEKS[stage]?.max ?? 4) * 7,
       dependsOn: gap ? gap.dependsOn : (DEFAULT_DEADLINES_WEEKS[stage]?.dependsOn || []),
+      gapRelativeTo: gap ? gap.gapRelativeTo : null,
     };
   });
 }
@@ -53,8 +63,13 @@ function mergeWithDefaults(saved: WorkflowConfig[]): StageConfig[] {
   return PROJECT_STAGES.map(stage => {
     const s = savedMap.get(stage);
     const gap = DEFAULT_STAGE_GAPS[stage];
-    if (s) return { stage: s.stage, targetDays: s.targetDays, dependsOn: s.dependsOn || gap?.dependsOn || [] };
-    return { stage, targetDays: gap?.gapDays ?? 7, dependsOn: gap?.dependsOn || [] };
+    if (s) return {
+      stage: s.stage,
+      targetDays: s.targetDays,
+      dependsOn: s.dependsOn || gap?.dependsOn || [],
+      gapRelativeTo: s.gapRelativeTo ?? gap?.gapRelativeTo ?? null,
+    };
+    return { stage, targetDays: gap?.gapDays ?? 7, dependsOn: gap?.dependsOn || [], gapRelativeTo: gap?.gapRelativeTo ?? null };
   });
 }
 
@@ -94,6 +109,34 @@ function WorkflowEditor() {
     setHasChanges(true);
   }, []);
 
+  const updateGapRelativeTo = useCallback((stage: string, relativeTo: string) => {
+    setConfigs(prev => prev.map(c => {
+      if (c.stage !== stage) return c;
+      const newDeps = c.dependsOn.includes(relativeTo) ? c.dependsOn : [...c.dependsOn, relativeTo];
+      return { ...c, gapRelativeTo: relativeTo, dependsOn: newDeps };
+    }));
+    setHasChanges(true);
+  }, []);
+
+  const toggleDependency = useCallback((stage: string, dep: string) => {
+    setConfigs(prev => prev.map(c => {
+      if (c.stage !== stage) return c;
+      const hasDep = c.dependsOn.includes(dep);
+      let newDeps: string[];
+      let newGapRelativeTo = c.gapRelativeTo;
+      if (hasDep) {
+        newDeps = c.dependsOn.filter(d => d !== dep);
+        if (c.gapRelativeTo === dep) {
+          newGapRelativeTo = newDeps.length > 0 ? newDeps[newDeps.length - 1] : null;
+        }
+      } else {
+        newDeps = [...c.dependsOn, dep];
+      }
+      return { ...c, dependsOn: newDeps, gapRelativeTo: newGapRelativeTo };
+    }));
+    setHasChanges(true);
+  }, []);
+
   const resetToDefaults = useCallback(() => {
     setConfigs(defaultConfigs());
     setHasChanges(true);
@@ -127,8 +170,9 @@ function WorkflowEditor() {
         cumMap[stage] = c?.targetDays ?? 0;
         return cumMap[stage];
       }
-      const maxDep = Math.max(...c.dependsOn.map(d => resolve(d)));
-      cumMap[stage] = maxDep + c.targetDays;
+      const relTo = c.gapRelativeTo && c.dependsOn.includes(c.gapRelativeTo) ? c.gapRelativeTo : null;
+      const baseDays = relTo ? resolve(relTo) : Math.max(...c.dependsOn.map(d => resolve(d)));
+      cumMap[stage] = baseDays + c.targetDays;
       return cumMap[stage];
     };
     configs.forEach(c => resolve(c.stage));
@@ -227,8 +271,8 @@ function WorkflowEditor() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap w-16">Gap:</span>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Gap:</span>
                       <Input
                         type="number"
                         min={0}
@@ -238,11 +282,28 @@ function WorkflowEditor() {
                         className="h-8 w-20 text-sm text-center tabular-nums"
                         data-testid={`input-days-${config.stage}`}
                       />
-                      <span className="text-xs text-muted-foreground">
-                        {config.dependsOn.length > 0
-                          ? `days after ${STAGE_LABELS[config.dependsOn[config.dependsOn.length - 1]] || config.dependsOn[config.dependsOn.length - 1]}`
-                          : 'days from start'}
-                      </span>
+                      {config.dependsOn.length > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">days after</span>
+                          <Select
+                            value={config.gapRelativeTo || config.dependsOn[0]}
+                            onValueChange={(val) => updateGapRelativeTo(config.stage, val)}
+                          >
+                            <SelectTrigger className="h-8 w-[180px] text-xs" data-testid={`select-gap-relative-${config.stage}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {config.dependsOn.map(dep => (
+                                <SelectItem key={dep} value={dep}>
+                                  {STAGE_LABELS[dep] || dep}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">days from project start</span>
+                      )}
                     </div>
 
                     <div className="h-2 bg-white/60 dark:bg-black/20 rounded-full overflow-hidden mb-2">
@@ -252,29 +313,38 @@ function WorkflowEditor() {
                       />
                     </div>
 
-                    {config.dependsOn.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Depends on:</span>
-                        {config.dependsOn.map(dep => {
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dependencies:</span>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {PROJECT_STAGES.filter(s => s !== config.stage).map(dep => {
+                          const depIdx = PROJECT_STAGES.indexOf(dep);
+                          const stageIdx = PROJECT_STAGES.indexOf(config.stage);
+                          if (depIdx >= stageIdx) return null;
                           const depColors = STAGE_COLORS[dep];
+                          const isChecked = config.dependsOn.includes(dep);
                           return (
-                            <span
+                            <label
                               key={dep}
-                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${depColors?.bg || 'bg-gray-100'} ${depColors?.text || 'text-gray-600'}`}
+                              className="flex items-center gap-1.5 cursor-pointer"
                             >
-                              <span className={`h-1.5 w-1.5 rounded-full ${depColors?.dot || 'bg-gray-400'}`} />
-                              {STAGE_LABELS[dep] || dep}
-                            </span>
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => toggleDependency(config.stage, dep)}
+                                className="h-3.5 w-3.5"
+                                data-testid={`checkbox-dep-${config.stage}-${dep}`}
+                              />
+                              <span className={`inline-flex items-center gap-1 text-[10px] ${isChecked ? (depColors?.text || 'text-gray-600') : 'text-muted-foreground'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${depColors?.dot || 'bg-gray-400'}`} />
+                                {STAGE_LABELS[dep] || dep}
+                              </span>
+                            </label>
                           );
                         })}
                       </div>
-                    )}
-
-                    {config.dependsOn.length === 0 && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Starts immediately (no dependencies)</span>
-                      </div>
-                    )}
+                      {config.dependsOn.length === 0 && (
+                        <span className="text-[10px] text-muted-foreground italic">No dependencies — starts from project creation</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}

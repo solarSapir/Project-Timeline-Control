@@ -383,13 +383,14 @@ export async function registerRoutes(
 
   app.put("/api/workflow-config", async (req, res) => {
     try {
-      const items = req.body as Array<{ stage: string; targetDays: number; dependsOn: string[] }>;
+      const items = req.body as Array<{ stage: string; targetDays: number; dependsOn: string[]; gapRelativeTo?: string | null }>;
       const results = [];
       for (const item of items) {
         const result = await storage.upsertWorkflowConfig({
           stage: item.stage,
           targetDays: item.targetDays,
           dependsOn: item.dependsOn || [],
+          gapRelativeTo: item.gapRelativeTo ?? null,
         });
         results.push(result);
       }
