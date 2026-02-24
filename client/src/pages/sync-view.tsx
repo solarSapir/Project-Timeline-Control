@@ -22,7 +22,7 @@ import {
   PROJECT_STAGES, STAGE_LABELS, DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS
 } from "@shared/schema";
 import type { WorkflowConfig } from "@shared/schema";
-import { STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
+import { STAGE_COMPLETION_CRITERIA, DEFAULT_COMPLETION_CRITERIA, STAGE_FIELD_MAP, STAGE_TAB_MAP } from "@/lib/stage-dependencies";
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +45,7 @@ type StageConfig = {
   targetDays: number;
   dependsOn: string[];
   gapRelativeTo: string | null;
+  completionCriteria: string[];
 };
 
 function defaultConfigs(): StageConfig[] {
@@ -55,6 +56,7 @@ function defaultConfigs(): StageConfig[] {
       targetDays: gap ? gap.gapDays : (DEFAULT_DEADLINES_WEEKS[stage]?.max ?? 4) * 7,
       dependsOn: gap ? gap.dependsOn : (DEFAULT_DEADLINES_WEEKS[stage]?.dependsOn || []),
       gapRelativeTo: gap ? gap.gapRelativeTo : null,
+      completionCriteria: DEFAULT_COMPLETION_CRITERIA[stage] || [],
     };
   });
 }
@@ -69,8 +71,15 @@ function mergeWithDefaults(saved: WorkflowConfig[]): StageConfig[] {
       targetDays: s.targetDays,
       dependsOn: s.dependsOn || gap?.dependsOn || [],
       gapRelativeTo: s.gapRelativeTo ?? gap?.gapRelativeTo ?? null,
+      completionCriteria: (s as any).completionCriteria ?? DEFAULT_COMPLETION_CRITERIA[stage] ?? [],
     };
-    return { stage, targetDays: gap?.gapDays ?? 7, dependsOn: gap?.dependsOn || [], gapRelativeTo: gap?.gapRelativeTo ?? null };
+    return {
+      stage,
+      targetDays: gap?.gapDays ?? 7,
+      dependsOn: gap?.dependsOn || [],
+      gapRelativeTo: gap?.gapRelativeTo ?? null,
+      completionCriteria: DEFAULT_COMPLETION_CRITERIA[stage] || [],
+    };
   });
 }
 
@@ -135,6 +144,11 @@ function WorkflowEditor() {
       }
       return { ...c, dependsOn: newDeps, gapRelativeTo: newGapRelativeTo };
     }));
+    setHasChanges(true);
+  }, []);
+
+  const updateCompletionCriteria = useCallback((stage: string, criteria: string[]) => {
+    setConfigs(prev => prev.map(c => c.stage === stage ? { ...c, completionCriteria: criteria } : c));
     setHasChanges(true);
   }, []);
 

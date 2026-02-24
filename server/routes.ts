@@ -383,7 +383,7 @@ export async function registerRoutes(
 
   app.put("/api/workflow-config", async (req, res) => {
     try {
-      const items = req.body as Array<{ stage: string; targetDays: number; dependsOn: string[]; gapRelativeTo?: string | null }>;
+      const items = req.body as Array<{ stage: string; targetDays: number; dependsOn: string[]; gapRelativeTo?: string | null; completionCriteria?: string[] | null }>;
       const results = [];
       for (const item of items) {
         const result = await storage.upsertWorkflowConfig({
@@ -391,6 +391,7 @@ export async function registerRoutes(
           targetDays: item.targetDays,
           dependsOn: item.dependsOn || [],
           gapRelativeTo: item.gapRelativeTo ?? null,
+          completionCriteria: item.completionCriteria ?? null,
         });
         results.push(result);
       }

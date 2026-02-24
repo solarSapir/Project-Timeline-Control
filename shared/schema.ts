@@ -132,6 +132,7 @@ export const workflowConfig = pgTable("workflow_config", {
   targetDays: integer("target_days").notNull(),
   dependsOn: text("depends_on").array(),
   gapRelativeTo: text("gap_relative_to"),
+  completionCriteria: text("completion_criteria").array(),
 });
 
 export const insertWorkflowConfigSchema = createInsertSchema(workflowConfig).omit({
