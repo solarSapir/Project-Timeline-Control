@@ -1,9 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions } from "./asana";
+import { fetchAsanaWorkspaces, fetchAsanaProjects, fetchAsanaTasksFromProject, mapAsanaTaskToProject, updateAsanaTaskField, getAsanaEnumOptions, fetchTaskStories, findStatusChangeInStories, postCommentToTask, uploadAttachmentToTask } from "./asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, PROJECT_STAGES } from "@shared/schema";
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 export async function registerRoutes(
   httpServer: Server,
@@ -38,12 +41,28 @@ export async function registerRoutes(
 
       if (mapped.projectCreatedDate) {
         const createdDate = new Date(mapped.projectCreatedDate);
-        mapped.ucDueDate = format(addDays(createdDate, 21), 'yyyy-MM-dd');
+        const isOffGrid = mapped.ucTeam?.toLowerCase().includes('off grid') || mapped.ucTeam?.toLowerCase().includes('no/');
+        mapped.ucDueDate = isOffGrid
+          ? format(createdDate, 'yyyy-MM-dd')
+          : format(addDays(createdDate, 21), 'yyyy-MM-dd');
         mapped.ahjDueDate = format(addDays(createdDate, 56), 'yyyy-MM-dd');
         mapped.contractDueDate = format(addDays(createdDate, 35), 'yyyy-MM-dd');
         mapped.siteVisitDueDate = format(addDays(createdDate, 42), 'yyyy-MM-dd');
         mapped.installDueDate = format(addDays(createdDate, 70), 'yyyy-MM-dd');
         mapped.closeOffDueDate = format(addDays(createdDate, 84), 'yyyy-MM-dd');
+      }
+
+      if (mapped.ucStatus?.toLowerCase() === 'submitted' && task.gid) {
+        try {
+          const stories = await fetchTaskStories(task.gid);
+          const submittedChange = findStatusChangeInStories(stories, 'UC TEAM STATUS', 'Submitted');
+          if (submittedChange) {
+            mapped.ucSubmittedDate = submittedChange.date.split('T')[0];
+            mapped.ucSubmittedBy = submittedChange.user;
+          }
+        } catch (err: any) {
+          console.log(`Could not fetch stories for ${task.name}: ${err.message}`);
+        }
       }
 
       const project = await storage.upsertProject(mapped);
@@ -284,6 +303,54 @@ export async function registerRoutes(
       const schedule = await storage.upsertInstallSchedule(req.body);
       res.json(schedule);
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/projects/:id/stories", async (req, res) => {
+    try {
+      const projectId = req.params.id as string;
+      const project = await storage.getProject(projectId);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+      const stories = await fetchTaskStories(project.asanaGid);
+      res.json(stories);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/projects/:id/follow-up", upload.single('screenshot'), async (req, res) => {
+    try {
+      const projectId = req.params.id as string;
+      const project = await storage.getProject(projectId);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+      const { notes, completedBy } = req.body;
+      const commentText = `UC Follow-up by ${completedBy || 'Team'}:\n${notes || 'Follow-up completed'}`;
+
+      await postCommentToTask(project.asanaGid, commentText);
+
+      if (req.file) {
+        await uploadAttachmentToTask(
+          project.asanaGid,
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+      }
+
+      const action = await storage.createTaskAction({
+        projectId: projectId,
+        viewType: 'uc',
+        actionType: 'follow_up',
+        completedBy: completedBy || null,
+        notes: notes || null,
+        followUpDate: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
+      });
+
+      res.json({ success: true, action, message: "Follow-up posted to Asana timeline" });
+    } catch (error: any) {
+      console.error("Follow-up error:", error);
       res.status(500).json({ message: error.message });
     }
   });

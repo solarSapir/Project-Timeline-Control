@@ -185,6 +185,92 @@ export async function getAsanaEnumOptions(asanaCustomFields: any[], localFieldNa
     .map((opt: any) => ({ gid: opt.gid, name: opt.name }));
 }
 
+export async function fetchTaskStories(taskGid: string): Promise<any[]> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories?opt_fields=created_at,created_by,created_by.name,resource_subtype,text,type`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data?.data || [];
+}
+
+export function findStatusChangeInStories(stories: any[], fieldName: string, targetStatus: string): { date: string; user: string } | null {
+  for (let i = stories.length - 1; i >= 0; i--) {
+    const story = stories[i];
+    if (story.resource_subtype === 'enum_custom_field_changed' || story.resource_subtype === 'custom_field_changed') {
+      const text = story.text || '';
+      if (text.toLowerCase().includes(fieldName.toLowerCase()) && text.toLowerCase().includes(targetStatus.toLowerCase())) {
+        return {
+          date: story.created_at || '',
+          user: story.created_by?.name || 'Unknown',
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export async function postCommentToTask(taskGid: string, commentText: string): Promise<any> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: {
+        text: commentText,
+      }
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to post comment: ${res.status} ${errBody}`);
+  }
+  return await res.json();
+}
+
+export async function uploadAttachmentToTask(taskGid: string, fileBuffer: Buffer, fileName: string, contentType: string): Promise<any> {
+  const accessToken = await getAccessToken();
+  const boundary = '----FormBoundary' + Math.random().toString(36).substring(2);
+
+  const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${contentType}\r\n\r\n`;
+  const footer = `\r\n--${boundary}--\r\n`;
+
+  const headerBuffer = Buffer.from(header, 'utf-8');
+  const footerBuffer = Buffer.from(footer, 'utf-8');
+  const body = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
+
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    },
+    body: body,
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to upload attachment: ${res.status} ${errBody}`);
+  }
+  return await res.json();
+}
+
+function extractUcTeamValue(task: any): string | null {
+  if (!task.custom_fields) return null;
+  const field = task.custom_fields.find((f: any) => {
+    const name = f.name?.trim();
+    return name === 'UC Team' || name === 'UC TEAM';
+  });
+  if (!field) return null;
+  if (field.enum_value?.name) return field.enum_value.name;
+  if (field.display_value) return field.display_value;
+  if (field.text_value) return field.text_value;
+  return null;
+}
+
 export function mapAsanaTaskToProject(task: any) {
   return {
     asanaGid: task.gid,
@@ -201,6 +287,7 @@ export function mapAsanaTaskToProject(task: any) {
     rebateStatus: extractCustomFieldValue(task, 'grants status') || extractCustomFieldValue(task, 'rebate'),
     contractStatus: extractCustomFieldValue(task, 'contract'),
     siteVisitStatus: extractCustomFieldValue(task, 'site visit'),
+    ucTeam: extractUcTeamValue(task),
     projectCreatedDate: task.created_at ? task.created_at.split('T')[0] : null,
     asanaCustomFields: task.custom_fields || [],
   };

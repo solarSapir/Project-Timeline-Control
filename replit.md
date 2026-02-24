@@ -4,6 +4,8 @@
 A solar installation project management application that connects to Asana to sync projects and provides team-specific work views for managing the full lifecycle of solar installation projects. The app tracks UC applications, contracts, permits, installations, payments, and close-off stages with automated deadline tracking.
 
 ## Recent Changes
+- 2026-02-24: UC view enhanced — shows "UC Team" badge (Net metering/Load displacement/No-Off grid), tracks submission date & user from Asana Stories API, weekly follow-up alerts for submitted projects, follow-up dialog with screenshot upload posts to Asana timeline. Off-grid projects (UC TEAM = "No/ Off grid") get UC due date = creation date.
+- 2026-02-24: Fixed UC field mapping — now reads "UC TEAM STATUS" (not "UC Team" which is a different field). Completed UC apps (Approved/Complete/Not Required) hidden by default with filter options.
 - 2026-02-24: Replaced "Contracts & Payments" with "Payment Method" view (tracks "How will the customer pay" Asana field, 7-day deadline from project creation) and "Payment Collection" with "Rebates" view (tracks "GRANTS STATUS." Asana field). Both sync bidirectionally with Asana.
 - 2026-02-24: Added due date calculations from project creation date (UC +21d, contract +35d, site visit +42d, AHJ +56d, install +70d, close-off +84d) with overdue badges
 - 2026-02-24: Added two-way Asana sync — status changes in the app now push back to Asana via REST API. All dropdowns dynamically load enum options from Asana custom fields. Asana is the single source of truth.
@@ -18,7 +20,7 @@ A solar installation project management application that connects to Asana to sy
 
 ### Database Tables
 - `users` - App users
-- `projects` - Synced from Asana with custom field mappings (UC status, AHJ status, payment tracking, etc.)
+- `projects` - Synced from Asana with custom field mappings (UC status, UC team, AHJ status, payment tracking, ucSubmittedDate/By from Stories API, etc.)
 - `project_deadlines` - Calculated deadline targets for each project stage
 - `task_actions` - Team member task completions and follow-ups
 - `install_schedule` - Installation scheduling (equipment, start dates, inspections)
