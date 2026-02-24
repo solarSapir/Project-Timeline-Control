@@ -8,38 +8,79 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, CheckCircle2, Mail, Camera, FileText } from "lucide-react";
+import { Search, CheckCircle2, Mail, Camera, FileText, CalendarClock, AlertTriangle, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { StatusBadge } from "@/components/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+function getDaysUntilDue(dueDate: string | null) {
+  if (!dueDate) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getCloseOffDueDate(project: any): string | null {
+  const installDate = project.installStartDate;
+  if (!installDate) return project.closeOffDueDate || null;
+  const d = new Date(installDate);
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().split('T')[0];
+}
+
 export default function CloseOffView() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("ready");
+  const [filter, setFilter] = useState("all");
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
     queryKey: ['/api/projects'],
   });
 
-  const installProjects = (projects || []).filter((p: any) =>
+  const closeOffProjects = (projects || []).filter((p: any) =>
     p.installType?.toLowerCase() === 'install' &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    p.pmStatus?.toLowerCase() === 'close-off'
   );
 
-  const isReadyForCloseOff = (p: any) => {
-    return p.pmStatus?.toLowerCase()?.includes('close') ||
-      p.pmStatus?.toLowerCase()?.includes('install') ||
-      (["Complete", "Approved"].includes(p.ahjStatus || '') && p.finalPaymentCollected);
+  const isFullyComplete = (p: any) => {
+    return p.ucStatus?.toLowerCase().includes('closed') &&
+      p.ahjStatus?.toLowerCase().includes('closed') &&
+      p.finalPaymentCollected;
   };
 
-  const filtered = installProjects.filter((p: any) => {
+  const filtered = closeOffProjects.filter((p: any) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "ready") return isReadyForCloseOff(p);
-    if (filter === "pending_docs") return isReadyForCloseOff(p) && p.ucStatus !== "Closed";
-    if (filter === "completed") return p.ucStatus === "Closed" && p.ahjStatus === "Closed";
+    const dueDate = getCloseOffDueDate(p);
+    const daysLeft = getDaysUntilDue(dueDate);
+    if (filter === "overdue") return daysLeft !== null && daysLeft < 0 && !isFullyComplete(p);
+    if (filter === "pending") return !isFullyComplete(p);
+    if (filter === "completed") return isFullyComplete(p);
     return true;
   });
+
+  const sortedFiltered = [...filtered].sort((a: any, b: any) => {
+    const aDone = isFullyComplete(a);
+    const bDone = isFullyComplete(b);
+    if (aDone && !bDone) return 1;
+    if (!aDone && bDone) return -1;
+    const aDue = getCloseOffDueDate(a);
+    const bDue = getCloseOffDueDate(b);
+    const aDays = getDaysUntilDue(aDue);
+    const bDays = getDaysUntilDue(bDue);
+    if (aDays === null) return 1;
+    if (bDays === null) return -1;
+    return aDays - bDays;
+  });
+
+  const pendingCount = closeOffProjects.filter((p: any) => !isFullyComplete(p)).length;
+  const completedCount = closeOffProjects.filter(isFullyComplete).length;
+  const overdueCount = closeOffProjects.filter((p: any) => {
+    const dueDate = getCloseOffDueDate(p);
+    const daysLeft = getDaysUntilDue(dueDate);
+    return daysLeft !== null && daysLeft < 0 && !isFullyComplete(p);
+  }).length;
 
   const handleSetCloseOff = async (projectId: string) => {
     try {
@@ -67,8 +108,34 @@ export default function CloseOffView() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-semibold" data-testid="text-close-off-title">Close-off</h1>
-        <Badge variant="outline" data-testid="badge-project-count">{filtered.length} projects</Badge>
+        <div className="flex gap-2 flex-wrap">
+          <Badge variant="secondary" data-testid="badge-total-count">
+            Total: {closeOffProjects.length}
+          </Badge>
+          {pendingCount > 0 && (
+            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" data-testid="badge-pending-count">
+              <Clock className="h-3 w-3 mr-1" />
+              Pending: {pendingCount}
+            </Badge>
+          )}
+          {overdueCount > 0 && (
+            <Badge variant="destructive" data-testid="badge-overdue-count">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Overdue: {overdueCount}
+            </Badge>
+          )}
+          {completedCount > 0 && (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-completed-count">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Completed: {completedCount}
+            </Badge>
+          )}
+        </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        Projects appear here when PM Status = "Close-Off". Due date is 14 days after the install date.
+      </p>
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -76,71 +143,126 @@ export default function CloseOffView() {
           <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-close-off" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[180px]" data-testid="select-close-off-filter">
+          <SelectTrigger className="w-[220px]" data-testid="select-close-off-filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="ready">Ready for Close-off</SelectItem>
-            <SelectItem value="pending_docs">Pending Docs</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="all">All Close-off ({closeOffProjects.length})</SelectItem>
+            <SelectItem value="pending">Pending ({pendingCount})</SelectItem>
+            <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>
+            <SelectItem value="completed">Completed ({completedCount})</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p>No projects match this filter.</p>
+          <p>{filter === "all" ? "No projects are in Close-Off status yet." : "No projects match this filter."}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((p: any) => (
-            <Card key={p.id} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-4 px-4 space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
-                    <p className="text-xs text-muted-foreground mt-0.5">{p.province || ''}</p>
+          {sortedFiltered.map((p: any) => {
+            const dueDate = getCloseOffDueDate(p);
+            const daysLeft = getDaysUntilDue(dueDate);
+            const complete = isFullyComplete(p);
+            const isOverdue = daysLeft !== null && daysLeft < 0 && !complete;
+
+            return (
+              <Card
+                key={p.id}
+                className={complete ? "border-green-300 dark:border-green-800" : isOverdue ? "border-red-300 dark:border-red-800" : ""}
+                data-testid={`card-project-${p.id}`}
+              >
+                <CardContent className="py-4 px-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
+                        {p.province && (
+                          <span className="text-xs text-muted-foreground">{p.province}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {dueDate && (
+                          <Badge
+                            className={`text-xs flex items-center gap-1 ${
+                              complete
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                : isOverdue
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                  : daysLeft !== null && daysLeft <= 3
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            }`}
+                            data-testid={`badge-due-${p.id}`}
+                          >
+                            <CalendarClock className="h-3 w-3" />
+                            {complete
+                              ? "Complete"
+                              : isOverdue
+                                ? `${Math.abs(daysLeft!)}d overdue`
+                                : `Due in ${daysLeft}d`
+                            }
+                            {" "}({new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+                          </Badge>
+                        )}
+                        {p.installStartDate && (
+                          <Badge variant="outline" className="text-xs" data-testid={`badge-install-date-${p.id}`}>
+                            Installed: {new Date(p.installStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </Badge>
+                        )}
+                        {!p.installStartDate && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground border-dashed" data-testid={`badge-no-install-date-${p.id}`}>
+                            No install date set
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {!complete && (
+                        <Button size="sm" variant="outline" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>
+                          Set Close-off
+                        </Button>
+                      )}
+                      <TaskActionDialog projectId={p.id} projectName={p.name} viewType="close_off" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {p.ucStatus !== "Closed" && (
-                      <Button size="sm" variant="outline" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>
-                        Set Close-off
-                      </Button>
-                    )}
-                    <TaskActionDialog projectId={p.id} projectName={p.name} viewType="close_off" />
+                  <div className="flex items-center gap-4 flex-wrap text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">UC:</span>
+                      <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">AHJ:</span>
+                      <StatusBadge status={p.ahjStatus} data-testid={`status-ahj-${p.id}`} />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Photos:</span>
+                      <span data-testid={`text-photos-status-${p.id}`}>Pending</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Final Payment:</span>
+                      <span
+                        className={p.finalPaymentCollected ? "text-green-600 font-medium" : ""}
+                        data-testid={`text-final-payment-${p.id}`}
+                      >
+                        {p.finalPaymentCollected ? "Collected" : "Pending"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Marketing notified:</span>
+                      <span data-testid={`text-marketing-status-${p.id}`}>Pending</span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4 flex-wrap text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">UC:</span>
-                    <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">AHJ:</span>
-                    <StatusBadge status={p.ahjStatus} data-testid={`status-ahj-${p.id}`} />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Photos:</span>
-                    <span data-testid={`text-photos-status-${p.id}`}>Pending</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Final Payment:</span>
-                    <span data-testid={`text-final-payment-${p.id}`}>{p.finalPaymentCollected ? "Collected" : "Pending"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Marketing notified:</span>
-                    <span data-testid={`text-marketing-status-${p.id}`}>Pending</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
