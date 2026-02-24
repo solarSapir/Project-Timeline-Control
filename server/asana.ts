@@ -191,7 +191,7 @@ export function mapAsanaTaskToProject(task: any) {
     name: task.name || 'Unnamed Project',
     installType: extractCustomFieldValue(task, 'install type') || extractCustomFieldValue(task, 'install typ'),
     pmStatus: extractCustomFieldValue(task, 'pm status'),
-    ucStatus: extractCustomFieldValue(task, 'uc team') || extractCustomFieldValue(task, 'uc status'),
+    ucStatus: extractCustomFieldValue(task, 'uc team status') || extractCustomFieldValue(task, 'uc status'),
     ahjStatus: extractCustomFieldValue(task, 'ahj status') || extractCustomFieldValue(task, 'ahj'),
     designStatus: extractCustomFieldValue(task, 'design') || extractCustomFieldValue(task, 'desgin'),
     quotingStatus: extractCustomFieldValue(task, 'quoting'),

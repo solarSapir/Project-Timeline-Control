@@ -9,7 +9,7 @@ import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Clock, Search, CalendarClock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Search, CalendarClock } from "lucide-react";
 
 function getDaysUntilDue(dueDate: string | null) {
   if (!dueDate) return null;
@@ -51,8 +51,9 @@ function DueDateBadge({ dueDate, projectCreatedDate }: { dueDate: string | null;
 }
 
 export default function UCView() {
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("needs_action");
   const [search, setSearch] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<any[]>({
@@ -69,9 +70,17 @@ export default function UCView() {
     p.installType?.toLowerCase() === 'install'
   );
 
+  const isCompletedStatus = (status: string | null) => {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s.includes('approved') || s.includes('complete') || s.includes('not required') || s.includes('closed');
+  };
+
   const filtered = installProjects.filter((p: any) => {
-    if (filter !== "all" && p.ucStatus !== filter) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter === "needs_action") return !isCompletedStatus(p.ucStatus);
+    if (filter === "completed") return isCompletedStatus(p.ucStatus);
+    if (filter !== "all" && p.ucStatus !== filter) return false;
     return true;
   });
 
@@ -94,18 +103,11 @@ export default function UCView() {
     );
   }
 
-  const completedStatuses = statusOptions.filter(s =>
-    s.toLowerCase().includes('approved') || s.toLowerCase().includes('complete') || s.toLowerCase().includes('not required') || s.toLowerCase().includes('closed')
-  );
+  const totalNeedAction = installProjects.filter(p => !isCompletedStatus(p.ucStatus)).length;
+  const totalCompleted = installProjects.filter(p => isCompletedStatus(p.ucStatus)).length;
 
-  const actionNeeded = filtered.filter(p =>
-    !completedStatuses.includes(p.ucStatus || '')
-  );
-  const completed = filtered.filter(p =>
-    completedStatuses.includes(p.ucStatus || '')
-  );
-
-  const overdueCount = actionNeeded.filter(p => {
+  const overdueCount = installProjects.filter(p => {
+    if (isCompletedStatus(p.ucStatus)) return false;
     const days = getDaysUntilDue(p.ucDueDate);
     return days !== null && days < 0;
   }).length;
@@ -118,7 +120,8 @@ export default function UCView() {
           {overdueCount > 0 && (
             <Badge variant="destructive" data-testid="badge-overdue-count">{overdueCount} overdue</Badge>
           )}
-          <Badge variant="outline" data-testid="badge-action-count">{actionNeeded.length} need action</Badge>
+          <Badge variant="outline" data-testid="badge-action-count">{totalNeedAction} need action</Badge>
+          <Badge variant="outline" className="bg-green-50 dark:bg-green-950" data-testid="badge-completed-count">{totalCompleted} complete</Badge>
         </div>
       </div>
 
@@ -134,10 +137,12 @@ export default function UCView() {
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[200px]" data-testid="select-uc-filter">
+          <SelectTrigger className="w-[220px]" data-testid="select-uc-filter">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="needs_action">Needs Action</SelectItem>
+            <SelectItem value="completed">Completed (Approved / Not Required)</SelectItem>
             <SelectItem value="all">All Statuses</SelectItem>
             {statusOptions.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -146,78 +151,71 @@ export default function UCView() {
         </Select>
       </div>
 
-      {actionNeeded.length > 0 && (
+      {filtered.length > 0 ? (
         <div className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-            <AlertTriangle className="h-4 w-4" /> Action Required ({actionNeeded.length})
+            {filter === "completed" ? (
+              <><CheckCircle2 className="h-4 w-4" /> Completed ({filtered.length})</>
+            ) : filter === "needs_action" ? (
+              <><AlertTriangle className="h-4 w-4" /> Action Required ({filtered.length})</>
+            ) : (
+              <><Clock className="h-4 w-4" /> All Projects ({filtered.length})</>
+            )}
           </h2>
-          {actionNeeded
+          {[...filtered]
             .sort((a: any, b: any) => {
+              if (isCompletedStatus(a.ucStatus) && !isCompletedStatus(b.ucStatus)) return 1;
+              if (!isCompletedStatus(a.ucStatus) && isCompletedStatus(b.ucStatus)) return -1;
               const aDays = getDaysUntilDue(a.ucDueDate);
               const bDays = getDaysUntilDue(b.ucDueDate);
               if (aDays === null) return 1;
               if (bDays === null) return -1;
               return aDays - bDays;
             })
-            .map((p: any) => (
-            <Card key={p.id} className={getDaysUntilDue(p.ucDueDate) !== null && getDaysUntilDue(p.ucDueDate)! < 0 ? "border-red-300 dark:border-red-800" : ""} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
-                      {p.projectCreatedDate && (
-                        <span className="text-xs text-muted-foreground">Created: {new Date(p.projectCreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                      )}
-                      <DueDateBadge dueDate={p.ucDueDate} projectCreatedDate={p.projectCreatedDate} />
+            .map((p: any) => {
+              const completed = isCompletedStatus(p.ucStatus);
+              const isOverdue = !completed && getDaysUntilDue(p.ucDueDate) !== null && getDaysUntilDue(p.ucDueDate)! < 0;
+              return (
+                <Card
+                  key={p.id}
+                  className={completed ? "opacity-60" : isOverdue ? "border-red-300 dark:border-red-800" : ""}
+                  data-testid={`card-project-${p.id}`}
+                >
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-[200px]">
+                        <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
+                          {p.projectCreatedDate && (
+                            <span className="text-xs text-muted-foreground">Created: {new Date(p.projectCreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          )}
+                          {!completed && <DueDateBadge dueDate={p.ucDueDate} projectCreatedDate={p.projectCreatedDate} />}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />
+                        <Select value={p.ucStatus || ''} onValueChange={(v) => handleStatusChange(p.id, v)}>
+                          <SelectTrigger className="w-[180px] h-8 text-xs" data-testid={`select-uc-status-${p.id}`}>
+                            <SelectValue placeholder="Change status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map(s => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!completed && <TaskActionDialog projectId={p.id} projectName={p.name} viewType="uc" />}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />
-                    <Select value={p.ucStatus || ''} onValueChange={(v) => handleStatusChange(p.id, v)}>
-                      <SelectTrigger className="w-[180px] h-8 text-xs" data-testid={`select-uc-status-${p.id}`}>
-                        <SelectValue placeholder="Change status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <TaskActionDialog projectId={p.id} projectName={p.name} viewType="uc" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
-      )}
-
-      {completed.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-            <Clock className="h-4 w-4" /> Completed / Approved ({completed.length})
-          </h2>
-          {completed.map((p: any) => (
-            <Card key={p.id} className="opacity-75" data-testid={`card-project-completed-${p.id}`}>
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <p className="font-medium" data-testid={`text-project-name-${p.id}`}>{p.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{p.province || 'No province'}</p>
-                  </div>
-                  <StatusBadge status={p.ucStatus} data-testid={`status-uc-${p.id}`} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {filtered.length === 0 && (
+      ) : (
         <div className="text-center py-12 text-muted-foreground">
-          <p>No projects found. Sync from Asana to import projects.</p>
+          <p>{filter === "needs_action" ? "All UC applications are complete — no action needed." : "No projects match this filter."}</p>
         </div>
       )}
     </div>
