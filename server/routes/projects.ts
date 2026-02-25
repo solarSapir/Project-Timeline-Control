@@ -125,7 +125,7 @@ projectsRouter.patch("/:id", async (req, res) => {
         const allSubtasks = await fetchSubtasksForTask(project.asanaGid!);
         const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
           const name = ((st.name as string) || '').toLowerCase();
-          return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate') && !st.completed;
+          return name.includes('uc') && !st.completed;
         });
         for (const st of ucSubtasks) {
           await completeAsanaTask(st.gid as string);
@@ -195,7 +195,7 @@ projectsRouter.get("/:id/uc-subtasks", async (req, res) => {
     const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
     const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
       const name = ((st.name as string) || '').toLowerCase();
-      return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate');
+      return name.includes('uc');
     });
     ucSubtasks.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
       const aName = (a.name as string) || '';
@@ -221,7 +221,7 @@ projectsRouter.post("/:id/complete-uc-subtasks", async (req, res) => {
     const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
     const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
       const name = ((st.name as string) || '').toLowerCase();
-      return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate') && !st.completed;
+      return name.includes('uc') && !st.completed;
     });
     for (const st of ucSubtasks) {
       await completeAsanaTask(st.gid as string);

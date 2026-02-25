@@ -33,10 +33,8 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
     if (!targetGid && isUc && project.asanaGid) {
       try {
         const subs = await fetchSubtasksForTask(project.asanaGid);
-        const isUcSub = (s: Record<string, unknown>) => {
-          const n = ((s.name as string) || '').toLowerCase();
-          return n.includes('uc') && !n.includes('install') && !n.includes('hrsp') && !n.includes('rebate');
-        };
+        const isUcSub = (s: Record<string, unknown>) =>
+          ((s.name as string) || '').toLowerCase().includes('uc');
         const ucSub = subs.find((s: Record<string, unknown>) => isUcSub(s) && !s.completed)
           || subs.find((s: Record<string, unknown>) => isUcSub(s));
         if (ucSub) targetGid = ucSub.gid as string;
