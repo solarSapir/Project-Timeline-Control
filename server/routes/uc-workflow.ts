@@ -50,18 +50,31 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
     const { startDate, endDate } = req.query as Record<string, string | undefined>;
     const completions = await storage.getUcCompletions({ startDate, endDate });
     const projects = await storage.getProjects();
+    const projectMap = new Map(projects.map(p => [p.id, p]));
 
-    const installProjects = projects.filter(p =>
+    const ucRequiredProjects = projects.filter(p =>
       p.installType?.toLowerCase() === 'install' &&
-      (!p.propertySector || p.propertySector.toLowerCase() === 'residential')
+      (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+      p.ucStatus?.toLowerCase() !== 'not required'
     );
 
     const dailyCounts: Record<string, Record<string, number>> = {};
+    const recentCompletions: { date: string; staffName: string; actionType: string; projectName: string; toStatus: string | null }[] = [];
+
     for (const c of completions) {
       const day = c.completedAt ? new Date(c.completedAt).toISOString().split('T')[0] : '';
       if (!day) continue;
       if (!dailyCounts[day]) dailyCounts[day] = {};
       dailyCounts[day][c.staffName] = (dailyCounts[day][c.staffName] || 0) + 1;
+
+      const proj = projectMap.get(c.projectId);
+      recentCompletions.push({
+        date: day,
+        staffName: c.staffName,
+        actionType: c.actionType,
+        projectName: proj?.name || 'Unknown Project',
+        toStatus: c.toStatus,
+      });
     }
 
     const now = new Date();
@@ -75,7 +88,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
     const rejectTimes: number[] = [];
     const rejectionsByUtility: Record<string, number> = {};
 
-    for (const p of installProjects) {
+    for (const p of ucRequiredProjects) {
       const effectiveStart = p.lastUnpausedDate || p.projectCreatedDate;
       if (effectiveStart && p.ucSubmittedDate) {
         const days = (new Date(p.ucSubmittedDate).getTime() - new Date(effectiveStart).getTime()) / 86400000;
@@ -106,6 +119,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
 
     res.json({
       dailyCounts,
+      recentCompletions: recentCompletions.sort((a, b) => b.date.localeCompare(a.date)),
       completionsThisWeek,
       completionsThisMonth,
       avgTasksPerDay: Math.round((completions.length / activeDays) * 10) / 10,
@@ -114,6 +128,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
       avgDaysToReject: avg(rejectTimes),
       rejectionsByUtility,
       totalCompletions: completions.length,
+      totalUcProjects: ucRequiredProjects.length,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

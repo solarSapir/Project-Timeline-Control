@@ -1,19 +1,24 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Activity, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { CompletionsDrilldown } from "./CompletionsDrilldown";
+
+interface CompletionEntry {
+  date: string;
+  staffName: string;
+  actionType: string;
+  projectName: string;
+  toStatus: string | null;
+}
 
 interface UcKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
+  recentCompletions: CompletionEntry[];
   completionsThisWeek: number;
   completionsThisMonth: number;
   avgTasksPerDay: number;
@@ -22,9 +27,11 @@ interface UcKpiStats {
   avgDaysToReject: number | null;
   rejectionsByUtility: Record<string, number>;
   totalCompletions: number;
+  totalUcProjects: number;
 }
 
 export function UcKpiSection() {
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
   const { data: stats, isLoading } = useQuery<UcKpiStats>({
     queryKey: ["/api/uc/kpi-stats"],
   });
@@ -59,8 +66,7 @@ export function UcKpiSection() {
       const total = Object.values(dayEntries).reduce((a, b) => a + b, 0);
       return {
         date: new Date(date + "T12:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
+          month: "short", day: "numeric",
         }),
         completions: total,
       };
@@ -76,12 +82,21 @@ export function UcKpiSection() {
 
   return (
     <div className="space-y-4" data-testid="section-uc-kpi">
-      <h2 className="text-lg font-semibold" data-testid="text-uc-kpi-title">
-        UC Team KPIs
-      </h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold" data-testid="text-uc-kpi-title">
+          UC Team KPIs
+        </h2>
+        <span className="text-xs text-muted-foreground">
+          ({stats.totalUcProjects} projects requiring UC)
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDrilldownOpen(true)}
+          data-testid="card-completions-week"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               This Week
@@ -89,13 +104,10 @@ export function UcKpiSection() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div
-              className="text-2xl font-bold"
-              data-testid="text-uc-completions-week"
-            >
+            <div className="text-2xl font-bold" data-testid="text-uc-completions-week">
               {stats.completionsThisWeek}
             </div>
-            <p className="text-xs text-muted-foreground">completions</p>
+            <p className="text-xs text-muted-foreground">completions · click for details</p>
           </CardContent>
         </Card>
 
@@ -107,10 +119,7 @@ export function UcKpiSection() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div
-              className="text-2xl font-bold"
-              data-testid="text-uc-avg-tasks-day"
-            >
+            <div className="text-2xl font-bold" data-testid="text-uc-avg-tasks-day">
               {stats.avgTasksPerDay}
             </div>
             <p className="text-xs text-muted-foreground">across active days</p>
@@ -125,15 +134,10 @@ export function UcKpiSection() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div
-              className="text-2xl font-bold"
-              data-testid="text-uc-avg-submit"
-            >
+            <div className="text-2xl font-bold" data-testid="text-uc-avg-submit">
               {formatStat(stats.avgDaysToSubmit)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              from project creation
-            </p>
+            <p className="text-xs text-muted-foreground">from project creation</p>
           </CardContent>
         </Card>
 
@@ -145,10 +149,7 @@ export function UcKpiSection() {
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div
-              className="text-2xl font-bold"
-              data-testid="text-uc-avg-decision"
-            >
+            <div className="text-2xl font-bold" data-testid="text-uc-avg-decision">
               {formatStat(stats.avgDaysToApprove)}
             </div>
             <p className="text-xs text-muted-foreground">from submission</p>
@@ -159,35 +160,21 @@ export function UcKpiSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              Daily Completions (Last 30 Days)
-            </CardTitle>
+            <CardTitle className="text-base">Daily Completions (Last 30 Days)</CardTitle>
           </CardHeader>
           <CardContent>
             {dailyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={dailyData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    interval="preserveStartEnd"
-                  />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis allowDecimals={false} />
                   <Tooltip />
-                  <Bar
-                    dataKey="completions"
-                    fill="hsl(33, 93%, 54%)"
-                    name="Completions"
-                    radius={[2, 2, 0, 0]}
-                  />
+                  <Bar dataKey="completions" fill="hsl(33, 93%, 54%)" name="Completions" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div
-                className="flex items-center justify-center h-64 text-muted-foreground"
-                data-testid="text-no-daily-data"
-              >
+              <div className="flex items-center justify-center h-64 text-muted-foreground" data-testid="text-no-daily-data">
                 <p>No completion data yet.</p>
               </div>
             )}
@@ -204,32 +191,26 @@ export function UcKpiSection() {
                 <BarChart data={rejectionData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" allowDecimals={false} />
-                  <YAxis
-                    dataKey="utility"
-                    type="category"
-                    width={120}
-                    tick={{ fontSize: 11 }}
-                  />
+                  <YAxis dataKey="utility" type="category" width={120} tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar
-                    dataKey="count"
-                    fill="hsl(0, 84%, 60%)"
-                    name="Rejections"
-                    radius={[0, 2, 2, 0]}
-                  />
+                  <Bar dataKey="count" fill="hsl(0, 84%, 60%)" name="Rejections" radius={[0, 2, 2, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div
-                className="flex items-center justify-center h-64 text-muted-foreground"
-                data-testid="text-no-rejection-data"
-              >
+              <div className="flex items-center justify-center h-64 text-muted-foreground" data-testid="text-no-rejection-data">
                 <p>No rejection data recorded.</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <CompletionsDrilldown
+        open={drilldownOpen}
+        onOpenChange={setDrilldownOpen}
+        completions={stats.recentCompletions || []}
+        dailyCounts={stats.dailyCounts}
+      />
     </div>
   );
 }
