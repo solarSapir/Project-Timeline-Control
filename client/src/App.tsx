@@ -23,6 +23,18 @@ import InstallCalendar from "@/pages/install-calendar";
 import AllProjectsView from "@/pages/all-projects-view";
 import ErrorLogView from "@/pages/error-log-view";
 import EscalatedTicketsView from "@/pages/escalated-tickets-view";
+import AppLogicIndex from "@/pages/app-logic/AppLogicIndex";
+import SchemaView from "@/pages/app-logic/SchemaView";
+import ApiMapView from "@/pages/app-logic/ApiMapView";
+import UcFlowView from "@/pages/app-logic/flows/UcFlowView";
+import RebateFlowView from "@/pages/app-logic/flows/RebateFlowView";
+import ContractFlowView from "@/pages/app-logic/flows/ContractFlowView";
+import SiteVisitFlowView from "@/pages/app-logic/flows/SiteVisitFlowView";
+import AhjFlowView from "@/pages/app-logic/flows/AhjFlowView";
+import InstallFlowView from "@/pages/app-logic/flows/InstallFlowView";
+import CloseOffFlowView from "@/pages/app-logic/flows/CloseOffFlowView";
+import DashboardFlowView from "@/pages/app-logic/flows/DashboardFlowView";
+import SettingsFlowView from "@/pages/app-logic/flows/SettingsFlowView";
 
 initGlobalErrorHandlers();
 
@@ -52,6 +64,18 @@ function Router() {
         <Route path="/project/:id" component={ProjectProfile} />
         <Route path="/sync" component={SyncView} />
         <Route path="/error-log" component={ErrorLogView} />
+        <Route path="/app-logic" component={AppLogicIndex} />
+        <Route path="/app-logic/schema" component={SchemaView} />
+        <Route path="/app-logic/api" component={ApiMapView} />
+        <Route path="/app-logic/flow/uc" component={UcFlowView} />
+        <Route path="/app-logic/flow/rebates" component={RebateFlowView} />
+        <Route path="/app-logic/flow/contracts" component={ContractFlowView} />
+        <Route path="/app-logic/flow/site-visits" component={SiteVisitFlowView} />
+        <Route path="/app-logic/flow/ahj" component={AhjFlowView} />
+        <Route path="/app-logic/flow/installs" component={InstallFlowView} />
+        <Route path="/app-logic/flow/close-off" component={CloseOffFlowView} />
+        <Route path="/app-logic/flow/dashboard" component={DashboardFlowView} />
+        <Route path="/app-logic/flow/settings" component={SettingsFlowView} />
         <Route component={NotFound} />
       </Switch>
     </>

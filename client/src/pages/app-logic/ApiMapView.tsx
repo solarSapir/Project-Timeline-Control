@@ -1,0 +1,240 @@
+import { useState } from "react";
+import { Link } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Search } from "lucide-react";
+
+interface ApiEndpoint {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  description: string;
+  tables: string[];
+  usedBy: string[];
+}
+
+interface ApiGroup {
+  name: string;
+  file: string;
+  endpoints: ApiEndpoint[];
+}
+
+const apiGroups: ApiGroup[] = [
+  {
+    name: "Asana Sync",
+    file: "server/routes/asana.ts",
+    endpoints: [
+      { method: "GET", path: "/api/asana/sync-status", description: "Get last sync time and cached project GID", tables: [], usedBy: ["Sidebar", "Settings"] },
+      { method: "POST", path: "/api/asana/sync-all", description: "Full sync from Asana Project Manage Team", tables: ["projects"], usedBy: ["Settings", "Sidebar"] },
+      { method: "GET", path: "/api/asana/field-options/:field", description: "Get dropdown options for an Asana custom field", tables: [], usedBy: ["UC", "Rebates", "Contracts", "AHJ", "Installs"] },
+      { method: "GET", path: "/api/hrsp/sync-statuses", description: "Sync HRSP subtask statuses for all projects", tables: ["projects"], usedBy: ["Settings"] },
+    ],
+  },
+  {
+    name: "Projects",
+    file: "server/routes/projects.ts",
+    endpoints: [
+      { method: "GET", path: "/api/projects", description: "Get all projects", tables: ["projects"], usedBy: ["All views"] },
+      { method: "GET", path: "/api/projects/:id", description: "Get single project by ID", tables: ["projects"], usedBy: ["Project Profile"] },
+      { method: "PATCH", path: "/api/projects/:id", description: "Update project fields + push status changes to Asana", tables: ["projects"], usedBy: ["UC", "Rebates", "Contracts", "All views"] },
+    ],
+  },
+  {
+    name: "File Uploads",
+    file: "server/routes/uploads.ts",
+    endpoints: [
+      { method: "POST", path: "/api/projects/:id/hydro-bill", description: "Upload hydro bill image, optionally extract info via OpenAI Vision", tables: ["projects"], usedBy: ["UC"] },
+      { method: "POST", path: "/api/projects/:id/meterbase", description: "Upload meterbase photo, stored locally", tables: ["projects", "project_files"], usedBy: ["UC"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-auth-doc", description: "Upload participation document", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-sld", description: "Upload SLD document", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-roof-pics", description: "Upload roof installation photos", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-panel-nameplate", description: "Upload panel nameplate photo", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-inverter-nameplate", description: "Upload inverter nameplate", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-battery-nameplate", description: "Upload battery nameplate", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-esa-cert", description: "Upload ESA certificate", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-power-doc", description: "Upload power consumption / hydro bill for HRSP", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+    ],
+  },
+  {
+    name: "Project Files",
+    file: "server/routes/files.ts",
+    endpoints: [
+      { method: "GET", path: "/api/projects/:id/files", description: "List all files for a project, optionally filter by category", tables: ["project_files"], usedBy: ["Project Profile", "UC", "Rebates"] },
+      { method: "POST", path: "/api/projects/:id/files", description: "Upload a file with category, uploadedBy, notes", tables: ["project_files"], usedBy: ["UC Approval/Rejection", "All views"] },
+      { method: "GET", path: "/api/projects/:id/files/:fileId/download", description: "Download a specific file", tables: ["project_files"], usedBy: ["Project Profile"] },
+      { method: "DELETE", path: "/api/projects/:id/files/:fileId", description: "Delete a file", tables: ["project_files"], usedBy: ["Project Profile"] },
+    ],
+  },
+  {
+    name: "HRSP Invoice",
+    file: "server/routes/hrsp-invoice.ts",
+    endpoints: [
+      { method: "POST", path: "/api/projects/:id/hrsp-invoice", description: "Generate HRSP invoice PDF", tables: ["projects", "hrsp_config"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-paid-invoice", description: "Generate paid invoice PDF with install date", tables: ["projects", "hrsp_config"], usedBy: ["Rebates"] },
+      { method: "GET", path: "/api/projects/hrsp-invoice/sample", description: "Download sample invoice PDF (no project data)", tables: ["hrsp_config"], usedBy: ["Settings"] },
+    ],
+  },
+  {
+    name: "UC Workflow",
+    file: "server/routes/uc-workflow.ts",
+    endpoints: [
+      { method: "POST", path: "/api/uc/complete-action", description: "Log a UC workflow completion (status change or follow-up)", tables: ["uc_completions"], usedBy: ["UC"] },
+      { method: "GET", path: "/api/uc/completions", description: "Get all UC completions, with optional staff/date filters", tables: ["uc_completions"], usedBy: ["UC", "Dashboard"] },
+      { method: "GET", path: "/api/uc/kpi-stats", description: "Calculate UC KPIs: tasks/day, time-to-submit, rejections by utility", tables: ["uc_completions", "projects"], usedBy: ["Dashboard"] },
+      { method: "GET", path: "/api/uc/workflow-rules", description: "Get configurable UC workflow rules", tables: ["uc_workflow_rules"], usedBy: ["UC", "Settings"] },
+      { method: "PUT", path: "/api/uc/workflow-rules", description: "Update UC workflow rules (batch upsert)", tables: ["uc_workflow_rules"], usedBy: ["Settings"] },
+    ],
+  },
+  {
+    name: "Rebate Workflow",
+    file: "server/routes/rebate-workflow.ts",
+    endpoints: [
+      { method: "POST", path: "/api/rebate/complete-action", description: "Log a rebate workflow completion", tables: ["rebate_completions"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/rebate/push-followup", description: "Push follow-up date and log completion", tables: ["rebate_completions"], usedBy: ["Rebates"] },
+      { method: "GET", path: "/api/rebate/completions", description: "Get rebate completions with optional filters", tables: ["rebate_completions"], usedBy: ["Rebates"] },
+      { method: "GET", path: "/api/rebate/kpi-stats", description: "Calculate rebate KPIs: submit time, approval time, rejection rate", tables: ["rebate_completions", "projects"], usedBy: ["Dashboard"] },
+    ],
+  },
+  {
+    name: "Escalation",
+    file: "server/routes/escalation.ts",
+    endpoints: [
+      { method: "GET", path: "/api/escalation-tickets", description: "Get all escalation tickets, optional viewType filter", tables: ["escalation_tickets"], usedBy: ["All views", "Sidebar"] },
+      { method: "POST", path: "/api/escalation-tickets", description: "Create escalation ticket with 48h hide period", tables: ["escalation_tickets"], usedBy: ["All views"] },
+      { method: "PATCH", path: "/api/escalation-tickets/:id/respond", description: "Manager responds to ticket", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "PATCH", path: "/api/escalation-tickets/:id/resolve", description: "Resolve a ticket", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+    ],
+  },
+  {
+    name: "Dashboard",
+    file: "server/routes/dashboard.ts",
+    endpoints: [
+      { method: "GET", path: "/api/dashboard/stats", description: "Get dashboard stats: totals, overdue, on-track, breakdowns", tables: ["projects"], usedBy: ["Dashboard"] },
+    ],
+  },
+  {
+    name: "Workflow Config",
+    file: "server/routes/workflow.ts",
+    endpoints: [
+      { method: "GET", path: "/api/workflow-config", description: "Get all stage workflow configurations", tables: ["workflow_config"], usedBy: ["Settings", "Gantt"] },
+      { method: "PUT", path: "/api/workflow-config", description: "Update workflow stage configuration", tables: ["workflow_config"], usedBy: ["Settings"] },
+    ],
+  },
+  {
+    name: "HRSP Config",
+    file: "server/routes.ts (inline)",
+    endpoints: [
+      { method: "GET", path: "/api/hrsp-config", description: "Get HRSP document requirements and invoice template", tables: ["hrsp_config"], usedBy: ["Rebates", "Settings"] },
+      { method: "PUT", path: "/api/hrsp-config", description: "Update HRSP config (required docs, invoice template)", tables: ["hrsp_config"], usedBy: ["Settings"] },
+    ],
+  },
+  {
+    name: "Error Logs",
+    file: "server/routes/error-logs.ts",
+    endpoints: [
+      { method: "GET", path: "/api/error-logs", description: "Get all error logs", tables: ["error_logs"], usedBy: ["Error Log"] },
+      { method: "POST", path: "/api/error-logs", description: "Submit a frontend error with breadcrumbs", tables: ["error_logs"], usedBy: ["Error Logger (auto)"] },
+      { method: "PATCH", path: "/api/error-logs/:id/resolve", description: "Mark error as resolved", tables: ["error_logs"], usedBy: ["Error Log"] },
+      { method: "DELETE", path: "/api/error-logs", description: "Clear all error logs", tables: ["error_logs"], usedBy: ["Error Log"] },
+    ],
+  },
+  {
+    name: "Misc (inline routes)",
+    file: "server/routes.ts",
+    endpoints: [
+      { method: "PUT", path: "/api/deadlines", description: "Upsert a project deadline", tables: ["project_deadlines"], usedBy: ["Settings", "Gantt"] },
+      { method: "GET", path: "/api/deadlines", description: "Get all project deadlines", tables: ["project_deadlines"], usedBy: ["Dashboard", "Project Profile"] },
+      { method: "GET", path: "/api/install-schedules", description: "Get all install schedules", tables: ["install_schedule"], usedBy: ["Install Calendar"] },
+      { method: "PUT", path: "/api/install-schedules", description: "Upsert install schedule entry", tables: ["install_schedule"], usedBy: ["Install Calendar"] },
+      { method: "GET", path: "/api/subtasks/:gid/stories", description: "Fetch Asana subtask comments", tables: [], usedBy: ["UC", "Rebates"] },
+      { method: "GET", path: "/api/subtasks/:gid/attachments", description: "Fetch Asana subtask attachments", tables: [], usedBy: ["UC", "Rebates"] },
+      { method: "POST", path: "/api/subtasks/:gid/comment", description: "Post comment to Asana subtask", tables: [], usedBy: ["UC", "Rebates"] },
+      { method: "POST", path: "/api/task-actions", description: "Create a task action (follow-up, status change)", tables: ["task_actions"], usedBy: ["All views"] },
+      { method: "GET", path: "/api/task-actions/:viewType", description: "Get task actions for a view", tables: ["task_actions"], usedBy: ["All views"] },
+      { method: "GET", path: "/api/task-actions/:viewType/follow-ups", description: "Get follow-up actions due today", tables: ["task_actions"], usedBy: ["All views"] },
+    ],
+  },
+];
+
+const methodColors: Record<string, string> = {
+  GET: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  POST: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  PUT: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  PATCH: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  DELETE: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
+
+export default function ApiMapView() {
+  const [search, setSearch] = useState("");
+
+  const filteredGroups = apiGroups.map((g) => ({
+    ...g,
+    endpoints: g.endpoints.filter((e) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return e.path.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)
+        || e.tables.some((t) => t.includes(q)) || e.usedBy.some((u) => u.toLowerCase().includes(q));
+    }),
+  })).filter((g) => g.endpoints.length > 0);
+
+  const totalEndpoints = apiGroups.reduce((sum, g) => sum + g.endpoints.length, 0);
+
+  return (
+    <div className="p-6 space-y-6 max-w-5xl" data-testid="page-api-map">
+      <div className="flex items-center gap-3">
+        <Link href="/app-logic">
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" data-testid="button-back-api">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            App Logic
+          </Button>
+        </Link>
+        <h1 className="text-lg font-semibold">API Route Map</h1>
+        <span className="text-xs text-muted-foreground">{totalEndpoints} endpoints</span>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search routes, tables, views..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+          data-testid="input-search-api"
+        />
+      </div>
+
+      {filteredGroups.map((group) => (
+        <Card key={group.name} data-testid={`card-api-group-${group.name.toLowerCase().replace(/[\s\/()]+/g, '-')}`}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">{group.name}</CardTitle>
+              <span className="text-[10px] text-muted-foreground font-mono">{group.file}</span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {group.endpoints.map((ep, i) => (
+              <div key={i} className="flex items-start gap-2 py-1.5 border-b last:border-0 border-border/50">
+                <Badge className={`${methodColors[ep.method]} text-[10px] px-1.5 py-0 font-mono min-w-[42px] justify-center`}>
+                  {ep.method}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <code className="text-[11px] font-mono text-foreground">{ep.path}</code>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{ep.description}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {ep.tables.map((t) => (
+                      <span key={t} className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono">{t}</span>
+                    ))}
+                    {ep.usedBy.map((u) => (
+                      <span key={u} className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">{u}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}

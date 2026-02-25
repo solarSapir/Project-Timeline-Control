@@ -59,6 +59,37 @@ Solar PM is a project management application designed for solar installation com
 - `uc_workflow_rules` — configurable UC workflow rules with triggerAction, hideDays, requiresFiles, requiresNotes, autoEscalate, label, description, enabled
 - `rebate_completions` — logs rebate workflow actions with projectId, staffName, actionType (status_change/follow_up_push), fromStatus, toStatus, notes, hideDays, followUpDate, completedAt
 
+### App Logic Documentation Section
+Internal visual documentation at `/app-logic` with interactive reactflow diagrams. Library: `reactflow` + `@dagrejs/dagre`.
+
+**Pages & Files:**
+- `client/src/pages/app-logic/AppLogicIndex.tsx` — Landing page with navigation cards
+- `client/src/pages/app-logic/SchemaView.tsx` — Database schema diagram (14 tables, color-coded by domain)
+- `client/src/pages/app-logic/ApiMapView.tsx` — Searchable API route map (all endpoints grouped by feature)
+- `client/src/pages/app-logic/flows/UcFlowView.tsx` — UC Applications logic flow
+- `client/src/pages/app-logic/flows/RebateFlowView.tsx` — Rebates logic flow
+- `client/src/pages/app-logic/flows/ContractFlowView.tsx` — Contracts logic flow
+- `client/src/pages/app-logic/flows/SiteVisitFlowView.tsx` — Site Visits logic flow
+- `client/src/pages/app-logic/flows/AhjFlowView.tsx` — AHJ/Permitting logic flow
+- `client/src/pages/app-logic/flows/InstallFlowView.tsx` — Install Coordination logic flow
+- `client/src/pages/app-logic/flows/CloseOffFlowView.tsx` — Close-off logic flow
+- `client/src/pages/app-logic/flows/DashboardFlowView.tsx` — Dashboard logic flow
+- `client/src/pages/app-logic/flows/SettingsFlowView.tsx` — Settings logic flow
+
+**Shared Components:**
+- `client/src/components/app-logic/FlowNavigation.tsx` — Tab bar for switching between flow views
+- `client/src/components/app-logic/FlowNode.tsx` — Custom reactflow node with typed color-coding (data/filter/action/dialog/api/component/logic)
+
+**Schema Diagram Domains (color-coded):**
+- Core (blue): users, projects, project_deadlines
+- Workflow (green): task_actions, install_schedule, workflow_config
+- Documents (purple): project_files, hrsp_config
+- Escalation (amber): escalation_tickets
+- KPI (orange): uc_completions, uc_workflow_rules, rebate_completions
+- System (gray): error_logs
+
+**Maintenance Convention:** Whenever a feature is added or modified, update the corresponding App Logic flow diagram and schema view in the same session. For new tables, add to SchemaView.tsx. For new endpoints, add to ApiMapView.tsx. For new UI logic, update or create the relevant flow view. This keeps the documentation accurate as the app evolves.
+
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories. Text comments still posted to Asana; file uploads now stored locally.
 - **Replit Connector**: Used for secure authentication and connection to Asana (connection:conn_asana_01KJ87H9ZADXMNKS3AVDTX4CKY).

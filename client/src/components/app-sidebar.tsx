@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   Bug,
   AlertTriangle,
+  GitBranch,
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,6 +66,7 @@ const settingsNav = [
 
 const itNav = [
   { title: "Error Log", url: "/error-log", icon: Bug },
+  { title: "App Logic", url: "/app-logic", icon: GitBranch },
 ];
 
 export function AppSidebar() {
