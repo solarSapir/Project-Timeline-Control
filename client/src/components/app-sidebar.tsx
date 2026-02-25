@@ -18,6 +18,7 @@ import {
   Settings,
   PanelLeftClose,
   Bug,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,10 +34,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import logoIcon from "@assets/Untitled_design_(4)_1771966965058.png";
+import type { EscalationTicket } from "@shared/schema";
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -44,6 +47,7 @@ const mainNav = [
 ];
 
 const viewNav = [
+  { title: "Escalated Tickets", url: "/escalated", icon: AlertTriangle },
   { title: "UC Applications", url: "/uc", icon: Zap },
   { title: "Rebates", url: "/payments", icon: Gift },
   { title: "Payment Method", url: "/contracts", icon: CreditCard },
@@ -73,6 +77,12 @@ export function AppSidebar() {
     queryKey: ['/api/asana/sync-status'],
     refetchInterval: 30000,
   });
+
+  const { data: escalationTickets } = useQuery<EscalationTicket[]>({
+    queryKey: ['/api/escalation-tickets'],
+    refetchInterval: 60000,
+  });
+  const openTicketCount = (escalationTickets || []).filter(t => t.status === 'open' || t.status === 'responded').length;
 
   const handleQuickSync = async () => {
     setSyncing(true);
@@ -151,7 +161,12 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild data-active={location === item.url}>
                     <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <span className="flex-1">{item.title}</span>
+                      {item.url === "/escalated" && openTicketCount > 0 && (
+                        <Badge variant="destructive" className="h-5 min-w-[20px] text-[10px] px-1.5 justify-center" data-testid="badge-escalation-count">
+                          {openTicketCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

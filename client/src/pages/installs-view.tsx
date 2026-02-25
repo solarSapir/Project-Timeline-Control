@@ -19,6 +19,8 @@ import { STAGE_LABELS, type Project } from "@shared/schema";
 import ScheduleDialog from "@/components/installs/ScheduleDialog";
 import { useQuery } from "@tanstack/react-query";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 
 const taskIcons: Record<string, typeof Wrench> = {
   "Equipment Arrival": Truck,
@@ -161,6 +163,7 @@ export default function InstallsView() {
                             {p.installTeamStage}
                           </span>
                         )}
+                        <EscalationBadge projectId={p.id} />
                       </div>
 
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -221,6 +224,7 @@ export default function InstallsView() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      <EscalationDialog projectId={p.id} projectName={p.name} viewType="installs" />
                       <Button
                         size="sm"
                         variant={expandedProjectId === p.id ? "secondary" : "ghost"}

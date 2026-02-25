@@ -38,6 +38,8 @@ Solar PM is a project management application designed for solar installation com
 - **Auto-Complete on 100% Complete**: When rebate status is changed to "100% complete...", the HRSP subtask is automatically marked as completed in Asana.
 - **Local File Storage System**: All file uploads (hydro bills, HRSP docs, contract documents, site visit photos, follow-up screenshots) are stored locally on the server filesystem at `data/uploads/{projectId}/{category}/` instead of being uploaded to Asana. Text comments are still posted to Asana. Asana attachments remain viewable (read-only). Each project has organized folders by team tab: UC, Rebates, Contract, Site Visit, AHJ, Install Coordination, Payment, Close Off.
 - **Project Documents Section**: The project profile page includes a Documents section with folder tabs for all 8 categories, file upload/download/delete per folder, file count badges, and a SharePoint quick link extracted from Asana custom fields for legacy clients.
+- **Escalated Tickets System**: Staff can flag any project as "stuck" via the "I'm Stuck" button on all project cards (UC, Contracts, Site Visits, AHJ, Installs, Payments, Close Off). Creates an escalation ticket with a 48-hour hide period. Projects with open tickets are hidden from view lists for 48h, then reappear. Managers respond/resolve tickets from the Escalated Tickets page (`/escalated`). EscalationBadge shows inline response status on cards. Sidebar shows red badge with open ticket count. Routes in `server/routes/escalation.ts`, UI in `client/src/pages/escalated-tickets-view.tsx` and `client/src/components/shared/`.
+- **Split Follow-Up Fields**: All follow-up dialogs (UC, Contract, Rebate) use two required fields: "What has been done" and "Next Steps", combined as `Action Taken:\n{done}\n\nNext Steps:\n{nextSteps}` when posting to Asana.
 
 ### Database Tables
 - `users`
@@ -49,6 +51,7 @@ Solar PM is a project management application designed for solar installation com
 - `error_logs`
 - `hrsp_config`
 - `project_files` — tracks uploaded files with projectId, category, fileName, storedName, mimeType, fileSize, uploadedBy, notes
+- `escalation_tickets` — tracks escalated project tickets with projectId, viewType, createdBy, issue, status (open/responded/resolved), managerResponse, respondedBy, respondedAt, resolvedAt, hideUntil (48h from creation), createdAt
 
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories. Text comments still posted to Asana; file uploads now stored locally.

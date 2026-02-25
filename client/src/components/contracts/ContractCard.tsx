@@ -10,6 +10,8 @@ import { DueIndicator } from "@/components/uc/DueIndicator";
 import { ContractFollowUpDialog } from "./ContractFollowUpDialog";
 import { ContractActions } from "./ContractActions";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 
 interface ContractCardProps {
   project: Project;
@@ -70,6 +72,7 @@ export function ContractCard({
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getInstallStageBadgeClass(p.installTeamStage)}`} data-testid={`badge-stage-${p.id}`}>
                 {getInstallStageLabel(p.installTeamStage)}
               </span>
+              <EscalationBadge projectId={p.id} />
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 ${
                 p.paymentMethod
                   ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300"
@@ -115,6 +118,7 @@ export function ContractCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            <EscalationDialog projectId={p.id} projectName={p.name} viewType="contracts" />
             <Button
               size="sm"
               variant={isExpanded ? "secondary" : "ghost"}

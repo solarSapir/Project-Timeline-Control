@@ -21,6 +21,8 @@ import { isAhjComplete, isVisitComplete, getStatusBadgeColor } from "@/utils/sta
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
 import { AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 
 function getExpectedAhjDueDate(svCompletionDate: string | null): string | null {
   if (!svCompletionDate) return null;
@@ -159,6 +161,7 @@ export default function AHJView() {
                           {p.ahjStatus}
                         </span>
                       )}
+                      <EscalationBadge projectId={p.id} />
                     </div>
 
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -201,6 +204,7 @@ export default function AHJView() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <EscalationDialog projectId={p.id} projectName={p.name} viewType="ahj" />
                     <Button
                       size="sm"
                       variant={expandedProjectId === p.id ? "secondary" : "ghost"}

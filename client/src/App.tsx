@@ -22,6 +22,7 @@ import ProjectProfile from "@/pages/project-profile";
 import InstallCalendar from "@/pages/install-calendar";
 import AllProjectsView from "@/pages/all-projects-view";
 import ErrorLogView from "@/pages/error-log-view";
+import EscalatedTicketsView from "@/pages/escalated-tickets-view";
 
 initGlobalErrorHandlers();
 
@@ -37,6 +38,7 @@ function Router() {
       <NavigationTracker />
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/escalated" component={EscalatedTicketsView} />
         <Route path="/uc" component={UCView} />
         <Route path="/contracts" component={ContractsView} />
         <Route path="/contract-creation" component={ContractCreationView} />

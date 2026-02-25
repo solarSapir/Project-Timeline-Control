@@ -22,6 +22,8 @@ import { useAsanaFieldOptions } from "@/hooks/use-asana-field-options";
 import SiteVisitPhotosDialog from "@/components/site-visits/SiteVisitPhotosDialog";
 import { DueIndicator } from "@/components/uc/DueIndicator";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 
 function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisitDueDate: string | null }): string | null {
   if (!project.contractDueDate) return project.siteVisitDueDate || null;
@@ -159,6 +161,7 @@ export default function SiteVisitsView() {
                           {p.siteVisitStatus}
                         </span>
                       )}
+                      <EscalationBadge projectId={p.id} />
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                       {p.province && <span>{p.province}</span>}
@@ -176,6 +179,7 @@ export default function SiteVisitsView() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <EscalationDialog projectId={p.id} projectName={p.name} viewType="site_visits" />
                     <Button
                       size="sm"
                       variant={expandedProjectId === p.id ? "secondary" : "ghost"}

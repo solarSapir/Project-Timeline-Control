@@ -1,7 +1,7 @@
 import { eq, and, lte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles,
+  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -11,6 +11,7 @@ import {
   type ErrorLog, type InsertErrorLog,
   type HrspConfig,
   type ProjectFile, type InsertProjectFile,
+  type EscalationTicket, type InsertEscalationTicket,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -52,6 +53,11 @@ export interface IStorage {
   getProjectFile(id: string): Promise<ProjectFile | undefined>;
   createProjectFile(data: InsertProjectFile): Promise<ProjectFile>;
   deleteProjectFile(id: string): Promise<boolean>;
+
+  getEscalationTickets(filters?: { status?: string; viewType?: string; projectId?: string }): Promise<EscalationTicket[]>;
+  getEscalationTicket(id: string): Promise<EscalationTicket | undefined>;
+  createEscalationTicket(data: InsertEscalationTicket): Promise<EscalationTicket>;
+  updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date }>): Promise<EscalationTicket | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -282,6 +288,38 @@ export class DatabaseStorage implements IStorage {
   async deleteProjectFile(id: string): Promise<boolean> {
     const result = await db.delete(projectFiles).where(eq(projectFiles.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async getEscalationTickets(filters?: { status?: string; viewType?: string; projectId?: string }): Promise<EscalationTicket[]> {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(escalationTickets.status, filters.status));
+    if (filters?.viewType) conditions.push(eq(escalationTickets.viewType, filters.viewType));
+    if (filters?.projectId) conditions.push(eq(escalationTickets.projectId, filters.projectId));
+
+    if (conditions.length > 0) {
+      return db.select().from(escalationTickets)
+        .where(and(...conditions))
+        .orderBy(desc(escalationTickets.createdAt));
+    }
+    return db.select().from(escalationTickets).orderBy(desc(escalationTickets.createdAt));
+  }
+
+  async getEscalationTicket(id: string): Promise<EscalationTicket | undefined> {
+    const [ticket] = await db.select().from(escalationTickets).where(eq(escalationTickets.id, id));
+    return ticket;
+  }
+
+  async createEscalationTicket(data: InsertEscalationTicket): Promise<EscalationTicket> {
+    const [ticket] = await db.insert(escalationTickets).values(data).returning();
+    return ticket;
+  }
+
+  async updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date }>): Promise<EscalationTicket | undefined> {
+    const [ticket] = await db.update(escalationTickets)
+      .set(data)
+      .where(eq(escalationTickets.id, id))
+      .returning();
+    return ticket;
   }
 }
 

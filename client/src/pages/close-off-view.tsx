@@ -17,6 +17,8 @@ import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
 import type { Project } from "@shared/schema";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 
 function getCloseOffDueDate(project: Project): string | null {
   if (!project.installStartDate) return project.closeOffDueDate || null;
@@ -126,6 +128,7 @@ export default function CloseOffView() {
                       {p.province && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" data-testid={`badge-province-${p.id}`}>{p.province}</span>
                       )}
+                      <EscalationBadge projectId={p.id} />
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                       {p.installStartDate && <span data-testid={`text-install-date-${p.id}`}>Installed {formatShortDate(p.installStartDate)}</span>}
@@ -146,6 +149,7 @@ export default function CloseOffView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <EscalationDialog projectId={p.id} projectName={p.name} viewType="close_off" />
                     {!complete && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>Set Close-off</Button>}
                     <TaskActionDialog projectId={p.id} projectName={p.name} viewType="close_off" />
                   </div>

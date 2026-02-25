@@ -19,7 +19,8 @@ interface ContractFollowUpDialogProps {
 
 export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollowUpDialogProps) {
   const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [actionDone, setActionDone] = useState("");
+  const [nextSteps, setNextSteps] = useState("");
   const [completedBy, setCompletedBy] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -36,10 +37,19 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
       toast({ title: "Please enter your name", variant: "destructive" });
       return;
     }
+    if (!actionDone.trim()) {
+      toast({ title: "Please describe what has been done", variant: "destructive" });
+      return;
+    }
+    if (!nextSteps.trim()) {
+      toast({ title: "Please describe the next steps", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
+      const combinedNotes = `Action Taken:\n${actionDone.trim()}\n\nNext Steps:\n${nextSteps.trim()}`;
       const formData = new FormData();
-      formData.append('notes', notes);
+      formData.append('notes', combinedNotes);
       formData.append('completedBy', completedBy);
       formData.append('viewType', 'contracts');
       if (screenshot) {
@@ -57,7 +67,8 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
       toast({ title: "Contract follow-up posted to Asana timeline" });
       setOpen(false);
-      setNotes("");
+      setActionDone("");
+      setNextSteps("");
       setCompletedBy("");
       setScreenshot(null);
     } catch (error: unknown) {
@@ -102,8 +113,12 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
               <Input id="contractCompletedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-contract-followup-name" />
             </div>
             <div>
-              <Label htmlFor="contractNotes">Follow-up Notes</Label>
-              <Textarea id="contractNotes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What was communicated? Any updates from the customer?" data-testid="input-contract-followup-notes" />
+              <Label htmlFor="contractActionDone">What has been done</Label>
+              <Textarea id="contractActionDone" value={actionDone} onChange={(e) => setActionDone(e.target.value)} placeholder="Describe the action you took..." rows={3} data-testid="input-contract-followup-action-done" />
+            </div>
+            <div>
+              <Label htmlFor="contractNextSteps">Next Steps</Label>
+              <Textarea id="contractNextSteps" value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} placeholder="What needs to happen next?" rows={3} data-testid="input-contract-followup-next-steps" />
             </div>
             <div>
               <Label htmlFor="contractScreenshot">Screenshot (optional)</Label>
@@ -115,9 +130,6 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
                   </p>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Upload proof of follow-up — this will be attached to the Asana project timeline.
-              </p>
             </div>
             <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-contract-followup">
               {submitting ? "Posting to Asana..." : "Submit Follow-Up & Post to Asana"}

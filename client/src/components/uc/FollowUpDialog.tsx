@@ -11,7 +11,8 @@ import type { Project } from "@shared/schema";
 
 export function FollowUpDialog({ project }: { project: Project }) {
   const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [actionDone, setActionDone] = useState("");
+  const [nextSteps, setNextSteps] = useState("");
   const [completedBy, setCompletedBy] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,10 +25,19 @@ export function FollowUpDialog({ project }: { project: Project }) {
       toast({ title: "Please enter your name", variant: "destructive" });
       return;
     }
+    if (!actionDone.trim()) {
+      toast({ title: "Please describe what has been done", variant: "destructive" });
+      return;
+    }
+    if (!nextSteps.trim()) {
+      toast({ title: "Please describe the next steps", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
+      const combinedNotes = `Action Taken:\n${actionDone.trim()}\n\nNext Steps:\n${nextSteps.trim()}`;
       const formData = new FormData();
-      formData.append('notes', notes);
+      formData.append('notes', combinedNotes);
       formData.append('completedBy', completedBy);
       formData.append('viewType', 'uc');
       if (screenshot) formData.append('screenshot', screenshot);
@@ -45,7 +55,8 @@ export function FollowUpDialog({ project }: { project: Project }) {
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions'] });
       toast({ title: "Follow-up posted to Asana timeline" });
       setOpen(false);
-      setNotes("");
+      setActionDone("");
+      setNextSteps("");
       setCompletedBy("");
       setScreenshot(null);
     } catch (error: unknown) {
@@ -81,8 +92,12 @@ export function FollowUpDialog({ project }: { project: Project }) {
             <Input id="completedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-followup-name" />
           </div>
           <div>
-            <Label htmlFor="notes">Follow-up Notes</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What did you follow up on?" data-testid="input-followup-notes" />
+            <Label htmlFor="actionDone">What has been done</Label>
+            <Textarea id="actionDone" value={actionDone} onChange={(e) => setActionDone(e.target.value)} placeholder="Describe the action you took for this task..." rows={3} data-testid="input-followup-action-done" />
+          </div>
+          <div>
+            <Label htmlFor="nextSteps">Next Steps</Label>
+            <Textarea id="nextSteps" value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} placeholder="What needs to happen next?" rows={3} data-testid="input-followup-next-steps" />
           </div>
           <div>
             <Label htmlFor="screenshot">Screenshot (optional)</Label>

@@ -9,6 +9,8 @@ import { DueIndicator } from "./DueIndicator";
 import { HydroInfoSection } from "./HydroInfoSection";
 import { FollowUpDialog } from "./FollowUpDialog";
 import { SubtaskPanel } from "./SubtaskPanel";
+import { EscalationDialog } from "@/components/shared/EscalationDialog";
+import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import type { Project } from "@shared/schema";
 
 export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpand, onExpand, onStatusChange }: {
@@ -51,6 +53,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
                   {ucTeam}
                 </span>
               )}
+              <EscalationBadge projectId={project.id} />
             </div>
 
             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
@@ -89,6 +92,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
               </SelectContent>
             </Select>
             {isSubmitted && <FollowUpDialog project={project} />}
+            <EscalationDialog projectId={project.id} projectName={project.name} viewType="uc" />
             <Button
               size="sm"
               variant={isExpanded ? "secondary" : "ghost"}

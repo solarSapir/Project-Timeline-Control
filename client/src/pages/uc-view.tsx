@@ -11,7 +11,7 @@ import { getDaysUntilDue, daysSince } from "@/utils/dates";
 import { isUcComplete } from "@/utils/stages";
 import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
 import { UCProjectCard } from "@/components/uc/UCProjectCard";
-import type { Project } from "@shared/schema";
+import type { Project, EscalationTicket } from "@shared/schema";
 
 export default function UCView() {
   const [filter, setFilter] = useState("needs_action");
@@ -22,8 +22,22 @@ export default function UCView() {
 
   const { data: projects, isLoading } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
   const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({ queryKey: ['/api/asana/field-options/ucStatus'] });
+  const { data: escalationTickets } = useQuery<EscalationTicket[]>({ queryKey: ['/api/escalation-tickets'] });
 
   const statusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
+
+  const openEscalations = new Map<string, EscalationTicket>();
+  (escalationTickets || []).forEach(t => {
+    if ((t.status === 'open' || t.status === 'responded') && t.viewType === 'uc') {
+      openEscalations.set(t.projectId, t);
+    }
+  });
+
+  const isHiddenByEscalation = (projectId: string) => {
+    const ticket = openEscalations.get(projectId);
+    if (!ticket || !ticket.hideUntil) return false;
+    return ticket.status === 'open' && new Date(ticket.hideUntil) > new Date();
+  };
 
   const installProjects = (projects || []).filter((p) =>
     p.installType?.toLowerCase() === 'install' &&
@@ -31,8 +45,12 @@ export default function UCView() {
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
+  const escalatedCount = installProjects.filter(p => openEscalations.has(p.id)).length;
+
   const filtered = installProjects.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter === "escalated") return openEscalations.has(p.id);
+    if (filter !== "all" && filter !== "escalated" && isHiddenByEscalation(p.id)) return false;
     if (filter === "needs_action") return !isUcComplete(p.ucStatus);
     if (filter === "completed") return isUcComplete(p.ucStatus);
     if (filter === "submitted") return p.ucStatus?.toLowerCase() === 'submitted';
@@ -114,6 +132,7 @@ export default function UCView() {
           <SelectContent>
             <SelectItem value="needs_action">Needs Action ({totalNeedAction})</SelectItem>
             <SelectItem value="submitted">Submitted ({totalSubmitted})</SelectItem>
+            {escalatedCount > 0 && <SelectItem value="escalated">Escalated ({escalatedCount})</SelectItem>}
             <SelectItem value="completed">Completed ({totalCompleted})</SelectItem>
             <SelectItem value="all">All</SelectItem>
             {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -143,6 +162,7 @@ export default function UCView() {
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             {filter === "completed" ? <><CheckCircle2 className="h-3.5 w-3.5" /> Completed ({sortedFiltered.length})</>
             : filter === "submitted" ? <><Clock className="h-3.5 w-3.5" /> Submitted ({sortedFiltered.length})</>
+            : filter === "escalated" ? <><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Escalated ({sortedFiltered.length})</>
             : filter === "needs_action" ? <><AlertTriangle className="h-3.5 w-3.5" /> Action Required ({sortedFiltered.length})</>
             : <>All ({sortedFiltered.length})</>}
           </p>

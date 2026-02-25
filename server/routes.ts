@@ -17,6 +17,7 @@ import { dashboardRouter } from "./routes/dashboard";
 import { errorLogsRouter } from "./routes/error-logs";
 import { hrspInvoiceRouter } from "./routes/hrsp-invoice";
 import { filesRouter } from "./routes/files";
+import { escalationRouter } from "./routes/escalation";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
@@ -32,6 +33,7 @@ export async function registerRoutes(
   app.use("/api/error-logs", errorLogsRouter);
   app.use("/api/projects", hrspInvoiceRouter);
   app.use("/api/projects", filesRouter);
+  app.use("/api", escalationRouter);
 
   app.get("/api/hrsp-config", async (_req, res) => {
     try {

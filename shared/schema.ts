@@ -307,6 +307,43 @@ export const FILE_CATEGORY_LABELS: Record<string, string> = {
   close_off: "Close Off",
 };
 
+export const escalationTickets = pgTable("escalation_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  viewType: text("view_type").notNull(),
+  createdBy: text("created_by").notNull(),
+  issue: text("issue").notNull(),
+  status: text("status").notNull().default("open"),
+  managerResponse: text("manager_response"),
+  respondedBy: text("responded_by"),
+  respondedAt: timestamp("responded_at"),
+  resolvedAt: timestamp("resolved_at"),
+  hideUntil: timestamp("hide_until"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEscalationTicketSchema = createInsertSchema(escalationTickets).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type EscalationTicket = typeof escalationTickets.$inferSelect;
+export type InsertEscalationTicket = z.infer<typeof insertEscalationTicketSchema>;
+
+export const ESCALATION_VIEW_TYPES = [
+  "uc", "contracts", "payments", "ahj", "installs", "site_visits", "close_off",
+] as const;
+
+export const ESCALATION_VIEW_LABELS: Record<string, string> = {
+  uc: "UC Applications",
+  contracts: "Contracts",
+  payments: "Rebates",
+  ahj: "AHJ / Permitting",
+  installs: "Install Coordination",
+  site_visits: "Site Visits",
+  close_off: "Close-off",
+};
+
 export const HRSP_PRE_APPROVAL_STATUSES = [
   "New/ Check if needed",
   "In-progress",
