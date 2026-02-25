@@ -77,6 +77,7 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow(),
   lastUnpausedDate: text("last_unpaused_date"),
   ucConnectionFee: text("uc_connection_fee"),
+  ucMeterbaseUrl: text("uc_meterbase_url"),
 });
 
 export const projectDeadlines = pgTable("project_deadlines", {

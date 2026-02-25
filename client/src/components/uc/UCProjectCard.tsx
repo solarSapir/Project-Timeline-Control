@@ -7,6 +7,7 @@ import { FolderOpen, Maximize2 } from "lucide-react";
 import { Link } from "wouter";
 import { DueIndicator } from "./DueIndicator";
 import { HydroInfoSection } from "./HydroInfoSection";
+import { UcDocChecklist } from "./UcDocChecklist";
 import { FollowUpDialog } from "./FollowUpDialog";
 import { SubtaskPanel } from "./SubtaskPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
@@ -80,6 +81,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
             )}
 
             <HydroInfoSection project={project} />
+            <UcDocChecklist project={project} />
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">

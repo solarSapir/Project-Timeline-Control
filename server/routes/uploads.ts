@@ -157,6 +157,25 @@ uploadsRouter.post("/:id/hydro-bill", upload.single('hydroBill'), async (req, re
   }
 });
 
+uploadsRouter.post("/:id/meterbase", upload.single('meterbase'), async (req, res) => {
+  try {
+    const projectId = req.params.id as string;
+    const project = await storage.getProject(projectId);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+    if (!req.file) return res.status(400).json({ message: "File is required" });
+
+    const savedFile = await saveFileLocally(projectId, 'uc', req.file.buffer, `METERBASE - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Meterbase photo upload');
+    const localUrl = getDownloadUrl(projectId, savedFile.id);
+    const updated = await storage.updateProject(projectId, { ucMeterbaseUrl: localUrl });
+
+    res.json({ project: updated, fileId: savedFile.id, message: "Meterbase photo uploaded" });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Meterbase] Upload error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
 uploadsRouter.post("/:id/contract-documents", upload.fields([
   { name: 'contract', maxCount: 1 },
   { name: 'proposal', maxCount: 1 },
