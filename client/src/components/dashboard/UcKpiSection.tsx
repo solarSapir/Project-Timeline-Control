@@ -15,6 +15,7 @@ interface CompletionEntry {
   actionType: string;
   projectName: string;
   toStatus: string | null;
+  notes: string | null;
 }
 
 interface UcKpiStats {
