@@ -123,9 +123,10 @@ projectsRouter.patch("/:id", async (req, res) => {
     if (newUcStatus && ucClosedStatuses.some(s => newUcStatus.includes(s)) && !ucClosedStatuses.some(s => oldUcStatus.includes(s))) {
       try {
         const allSubtasks = await fetchSubtasksForTask(project.asanaGid!);
-        const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) =>
-          (st.name as string)?.toLowerCase().includes('tasks for uc team') && !st.completed
-        );
+        const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
+          const name = ((st.name as string) || '').toLowerCase();
+          return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate') && !st.completed;
+        });
         for (const st of ucSubtasks) {
           await completeAsanaTask(st.gid as string);
         }
@@ -192,12 +193,15 @@ projectsRouter.get("/:id/uc-subtasks", async (req, res) => {
     const project = await storage.getProject(req.params.id);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
     const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
-    const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) =>
-      (st.name as string)?.toLowerCase().includes('tasks for uc team')
-    );
+    const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
+      const name = ((st.name as string) || '').toLowerCase();
+      return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate');
+    });
     ucSubtasks.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const aDate = (a.name as string)?.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
-      const bDate = (b.name as string)?.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
+      const aName = (a.name as string) || '';
+      const bName = (b.name as string) || '';
+      const aDate = aName.match(/(\d{4}-\d{2}-\d{2})/)?.[1] || aName.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
+      const bDate = bName.match(/(\d{4}-\d{2}-\d{2})/)?.[1] || bName.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)?.[1] || '';
       if (aDate && bDate) {
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       }
@@ -215,9 +219,10 @@ projectsRouter.post("/:id/complete-uc-subtasks", async (req, res) => {
     const project = await storage.getProject(req.params.id);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
     const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
-    const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) =>
-      (st.name as string)?.toLowerCase().includes('tasks for uc team') && !st.completed
-    );
+    const ucSubtasks = allSubtasks.filter((st: Record<string, unknown>) => {
+      const name = ((st.name as string) || '').toLowerCase();
+      return name.includes('uc') && !name.includes('install') && !name.includes('hrsp') && !name.includes('rebate') && !st.completed;
+    });
     for (const st of ucSubtasks) {
       await completeAsanaTask(st.gid as string);
     }
