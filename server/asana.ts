@@ -278,6 +278,51 @@ export async function fetchTaskStories(taskGid: string): Promise<any[]> {
   return data?.data || [];
 }
 
+function parseStatusChangeText(text: string, fieldName: string): { fromStatus: string | null; toStatus: string } | null {
+  const fieldIdx = text.toLowerCase().indexOf(fieldName.toLowerCase());
+  if (fieldIdx === -1) return null;
+  const afterField = text.substring(fieldIdx + fieldName.length).trim();
+  const stripped = afterField.replace(/^\.?\s*/, '');
+
+  if (stripped.toLowerCase().startsWith('from ')) {
+    const rest = stripped.substring(5);
+    const lastToIdx = rest.lastIndexOf(' to ');
+    if (lastToIdx === -1) return null;
+    const fromStatus = rest.substring(0, lastToIdx).trim();
+    const toStatus = rest.substring(lastToIdx + 4).trim();
+    return toStatus ? { fromStatus, toStatus } : null;
+  }
+
+  if (stripped.toLowerCase().startsWith('to ')) {
+    const toStatus = stripped.substring(3).trim();
+    return toStatus ? { fromStatus: null, toStatus } : null;
+  }
+
+  return null;
+}
+
+export function findAllStatusChangesInStories(stories: any[], fieldName: string): { date: string; user: string; fromStatus: string | null; toStatus: string; text: string }[] {
+  const changes: { date: string; user: string; fromStatus: string | null; toStatus: string; text: string }[] = [];
+  const fieldLower = fieldName.toLowerCase();
+  for (const story of stories) {
+    if (story.resource_subtype === 'enum_custom_field_changed' || story.resource_subtype === 'custom_field_changed') {
+      const text = story.text || '';
+      if (!text.toLowerCase().includes(fieldLower)) continue;
+      const parsed = parseStatusChangeText(text, fieldName);
+      if (parsed) {
+        changes.push({
+          date: story.created_at || '',
+          user: story.created_by?.name || 'Unknown',
+          fromStatus: parsed.fromStatus,
+          toStatus: parsed.toStatus,
+          text,
+        });
+      }
+    }
+  }
+  return changes;
+}
+
 export function findStatusChangeInStories(stories: any[], fieldName: string, targetStatus: string): { date: string; user: string } | null {
   for (let i = stories.length - 1; i >= 0; i--) {
     const story = stories[i];

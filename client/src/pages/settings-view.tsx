@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi, Database } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
@@ -29,10 +29,37 @@ function formatSyncTime(iso: string): string {
   });
 }
 
+interface BackfillResult {
+  created: number;
+  skipped: number;
+  errors: number;
+  totalProjects: number;
+}
+
 export default function SyncView() {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [backfilling, setBackfilling] = useState<string | null>(null);
+  const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
+
+  const handleBackfill = async (type: "uc" | "rebate") => {
+    setBackfilling(type);
+    setBackfillResult(null);
+    try {
+      const res = await apiRequest("POST", `/api/${type}/backfill`);
+      const data: BackfillResult = await res.json();
+      setBackfillResult(data);
+      queryClient.invalidateQueries({ queryKey: [`/api/${type}/kpi-stats`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/${type}/completions`] });
+      toast({ title: `${type.toUpperCase()} backfill: ${data.created} records created from Asana history` });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast({ title: "Backfill failed", description: message, variant: "destructive" });
+    } finally {
+      setBackfilling(null);
+    }
+  };
 
   const { data: syncStatus } = useQuery<SyncStatus>({
     queryKey: ['/api/asana/sync-status'],
@@ -90,6 +117,40 @@ export default function SyncView() {
             <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200">
               <CheckCircle2 className="h-4 w-4" />
               <span className="text-sm" data-testid="text-sync-result">Successfully synced {syncResult.synced} projects</span>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="KPI Data Backfill" icon={<Database className="h-4 w-4" />} defaultOpen={false} testId="section-backfill">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Populate UC and Rebate KPI data from Asana project history. This reads status change events from Asana task timelines and creates completion records. Projects that already have records are skipped. Safe to run multiple times.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={() => handleBackfill("uc")} disabled={backfilling !== null} variant="outline" data-testid="button-backfill-uc">
+              {backfilling === "uc" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Backfilling UC...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Backfill UC KPIs</>
+              )}
+            </Button>
+            <Button onClick={() => handleBackfill("rebate")} disabled={backfilling !== null} variant="outline" data-testid="button-backfill-rebate">
+              {backfilling === "rebate" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Backfilling Rebates...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Backfill Rebate KPIs</>
+              )}
+            </Button>
+          </div>
+          {backfillResult && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-sm" data-testid="text-backfill-result">
+                Created {backfillResult.created} records from {backfillResult.totalProjects} projects
+                {backfillResult.skipped > 0 && ` (${backfillResult.skipped} already had data)`}
+                {backfillResult.errors > 0 && ` — ${backfillResult.errors} errors`}
+              </span>
             </div>
           )}
         </div>

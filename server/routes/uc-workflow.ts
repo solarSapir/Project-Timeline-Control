@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { DEFAULT_UC_WORKFLOW_RULES } from "@shared/schema";
+import { fetchTaskStories, findAllStatusChangesInStories } from "../asana";
 
 export const ucWorkflowRouter = Router();
 
@@ -182,6 +183,84 @@ ucWorkflowRouter.put("/workflow-rules", async (req, res) => {
     res.json(results);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+ucWorkflowRouter.post("/backfill", async (req, res) => {
+  try {
+    const projects = await storage.getProjects();
+    const ucProjects = projects.filter(p =>
+      p.asanaGid &&
+      p.installType?.toLowerCase() === "install" &&
+      (!p.propertySector || p.propertySector.toLowerCase() === "residential")
+    );
+
+    const existingCompletions = await storage.getUcCompletions({});
+    const existingProjectIds = new Set(existingCompletions.map(c => c.projectId));
+
+    let created = 0;
+    let skipped = 0;
+    let errors = 0;
+    const batchSize = 5;
+
+    for (let i = 0; i < ucProjects.length; i += batchSize) {
+      const batch = ucProjects.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (project) => {
+        if (existingProjectIds.has(project.id)) {
+          skipped++;
+          return;
+        }
+
+        try {
+          const stories = await fetchTaskStories(project.asanaGid!);
+          const changes = findAllStatusChangesInStories(stories, 'UC TEAM STATUS');
+
+          for (const change of changes) {
+            await storage.createUcCompletion({
+              projectId: project.id,
+              staffName: change.user,
+              actionType: "status_change",
+              fromStatus: change.fromStatus,
+              toStatus: change.toStatus,
+              notes: `Backfilled from Asana: ${change.text}`,
+              hideDays: null,
+              completedAt: change.date ? new Date(change.date) : undefined,
+            });
+            created++;
+          }
+
+          if (changes.length === 0 && project.ucStatus && !["not required", "n/a"].includes(project.ucStatus.toLowerCase())) {
+            await storage.createUcCompletion({
+              projectId: project.id,
+              staffName: "System",
+              actionType: "status_change",
+              fromStatus: null,
+              toStatus: project.ucStatus,
+              notes: `Backfilled: current status from Asana sync`,
+              hideDays: null,
+            });
+            created++;
+          }
+        } catch (err: unknown) {
+          errors++;
+          console.error(`[UC Backfill] Error for project ${project.name}:`, err instanceof Error ? err.message : String(err));
+        }
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    res.json({
+      message: "UC backfill complete",
+      totalProjects: ucProjects.length,
+      created,
+      skipped,
+      errors,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[UC Backfill] Error:", msg);
     res.status(500).json({ message: msg });
   }
 });

@@ -66,7 +66,7 @@ export interface IStorage {
   createEscalationTicket(data: InsertEscalationTicket): Promise<EscalationTicket>;
   updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date }>): Promise<EscalationTicket | undefined>;
 
-  createUcCompletion(data: InsertUcCompletion): Promise<UcCompletion>;
+  createUcCompletion(data: InsertUcCompletion & { completedAt?: Date }): Promise<UcCompletion>;
   getUcCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<UcCompletion[]>;
   getUcCompletionsByProject(projectId: string): Promise<UcCompletion[]>;
 
@@ -76,7 +76,7 @@ export interface IStorage {
   getRebateWorkflowRules(): Promise<RebateWorkflowRule[]>;
   upsertRebateWorkflowRule(data: InsertRebateWorkflowRule): Promise<RebateWorkflowRule>;
 
-  createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion>;
+  createRebateCompletion(data: InsertRebateCompletion & { completedAt?: Date }): Promise<RebateCompletion>;
   getRebateCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<RebateCompletion[]>;
   getRebateCompletionsByProject(projectId: string): Promise<RebateCompletion[]>;
 
@@ -358,8 +358,10 @@ export class DatabaseStorage implements IStorage {
     return ticket;
   }
 
-  async createUcCompletion(data: InsertUcCompletion): Promise<UcCompletion> {
-    const [completion] = await db.insert(ucCompletions).values(data).returning();
+  async createUcCompletion(data: InsertUcCompletion & { completedAt?: Date }): Promise<UcCompletion> {
+    const { completedAt, ...rest } = data;
+    const values = completedAt ? { ...rest, completedAt } : rest;
+    const [completion] = await db.insert(ucCompletions).values(values).returning();
     return completion;
   }
 
@@ -419,8 +421,10 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion> {
-    const [completion] = await db.insert(rebateCompletions).values(data).returning();
+  async createRebateCompletion(data: InsertRebateCompletion & { completedAt?: Date }): Promise<RebateCompletion> {
+    const { completedAt, ...rest } = data;
+    const values = completedAt ? { ...rest, completedAt } : rest;
+    const [completion] = await db.insert(rebateCompletions).values(values).returning();
     return completion;
   }
 

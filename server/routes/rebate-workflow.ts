@@ -2,6 +2,7 @@ import { Router } from "express";
 import { storage } from "../storage";
 import { format, addDays } from "date-fns";
 import { DEFAULT_REBATE_WORKFLOW_RULES } from "@shared/schema";
+import { fetchTaskStories, findAllStatusChangesInStories } from "../asana";
 
 export const rebateWorkflowRouter = Router();
 
@@ -210,6 +211,86 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+rebateWorkflowRouter.post("/backfill", async (req, res) => {
+  try {
+    const projects = await storage.getProjects();
+    const rebateProjects = projects.filter(p =>
+      p.asanaGid &&
+      p.installType?.toLowerCase() === "install" &&
+      (!p.propertySector || p.propertySector.toLowerCase() === "residential")
+    );
+
+    const existingCompletions = await storage.getRebateCompletions({});
+    const existingProjectIds = new Set(existingCompletions.map(c => c.projectId));
+
+    let created = 0;
+    let skipped = 0;
+    let errors = 0;
+    const batchSize = 5;
+
+    for (let i = 0; i < rebateProjects.length; i += batchSize) {
+      const batch = rebateProjects.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (project) => {
+        if (existingProjectIds.has(project.id)) {
+          skipped++;
+          return;
+        }
+
+        try {
+          const stories = await fetchTaskStories(project.asanaGid!);
+          const changes = findAllStatusChangesInStories(stories, 'GRANTS STATUS');
+
+          for (const change of changes) {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: change.user,
+              actionType: "status_change",
+              fromStatus: change.fromStatus,
+              toStatus: change.toStatus,
+              notes: `Backfilled from Asana: ${change.text}`,
+              hideDays: null,
+              followUpDate: null,
+              completedAt: change.date ? new Date(change.date) : undefined,
+            });
+            created++;
+          }
+
+          if (changes.length === 0 && project.rebateStatus && project.rebateStatus.toLowerCase() !== "not required") {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: "System",
+              actionType: "status_change",
+              fromStatus: null,
+              toStatus: project.rebateStatus,
+              notes: `Backfilled: current status from Asana sync`,
+              hideDays: null,
+              followUpDate: null,
+            });
+            created++;
+          }
+        } catch (err: unknown) {
+          errors++;
+          console.error(`[Rebate Backfill] Error for project ${project.name}:`, err instanceof Error ? err.message : String(err));
+        }
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    res.json({
+      message: "Rebate backfill complete",
+      totalProjects: rebateProjects.length,
+      created,
+      skipped,
+      errors,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Rebate Backfill] Error:", msg);
     res.status(500).json({ message: msg });
   }
 });
