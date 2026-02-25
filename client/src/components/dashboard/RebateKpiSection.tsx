@@ -8,7 +8,7 @@ import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "
 
 interface RebateKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
-  recentCompletions: { date: string; staffName: string; actionType: string; projectName: string; toStatus: string | null }[];
+  recentCompletions: { date: string; time: string; staffName: string; actionType: string; projectName: string; toStatus: string | null }[];
   completionsThisWeek: number;
   completionsThisMonth: number;
   avgTasksPerDay: number;

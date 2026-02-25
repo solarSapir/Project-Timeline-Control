@@ -10,6 +10,7 @@ import { CompletionsDrilldown } from "./CompletionsDrilldown";
 
 interface CompletionEntry {
   date: string;
+  time: string;
   staffName: string;
   actionType: string;
   projectName: string;

@@ -8,6 +8,7 @@ import {
 
 interface CompletionEntry {
   date: string;
+  time: string;
   staffName: string;
   actionType: string;
   projectName: string;
@@ -34,6 +35,13 @@ const ACTION_COLORS: Record<string, string> = {
 function formatDate(dateStr: string): string {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
     weekday: "short", month: "short", day: "numeric",
+  });
+}
+
+function formatTime(isoStr: string): string {
+  if (!isoStr) return '';
+  return new Date(isoStr).toLocaleTimeString("en-US", {
+    hour: "numeric", minute: "2-digit", hour12: true,
   });
 }
 
@@ -136,8 +144,13 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
                 </Badge>
               </div>
               <div className="space-y-1 ml-2 border-l-2 border-muted pl-3">
-                {groupedByDate[date].map((c, i) => (
+                {[...groupedByDate[date]].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map((c, i) => (
                   <div key={i} className="flex items-center gap-2 text-[12px]" data-testid={`drilldown-entry-${date}-${i}`}>
+                    {c.time && (
+                      <span className="text-[10px] text-muted-foreground/60 font-mono w-[62px] flex-shrink-0" data-testid={`text-time-${date}-${i}`}>
+                        {formatTime(c.time)}
+                      </span>
+                    )}
                     <Badge
                       variant={c.actionType === "status_change" ? "default" : "outline"}
                       className="text-[9px] px-1.5 py-0"
