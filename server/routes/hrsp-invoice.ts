@@ -160,9 +160,10 @@ hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
     const fileName = `HRSP_Invoice_${quoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     let viewUrl = "generated";
-    if (project.asanaGid) {
+    const uploadTarget = project.hrspSubtaskGid || project.asanaGid;
+    if (uploadTarget) {
       try {
-        const result = await uploadAttachmentToTask(project.asanaGid, pdfBuffer, fileName, "application/pdf");
+        const result = await uploadAttachmentToTask(uploadTarget, pdfBuffer, fileName, "application/pdf");
         const attachmentData = (result as Record<string, unknown>).data || result;
         const data = attachmentData as Record<string, unknown>;
         viewUrl = (data.view_url || data.download_url || data.permanent_url || "generated") as string;
@@ -204,9 +205,10 @@ hrspInvoiceRouter.post("/:id/hrsp-paid-invoice", async (req, res) => {
     const fileName = `HRSP_PAID_Invoice_${project.hrspQuoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     let viewUrl = "generated";
-    if (project.asanaGid) {
+    const paidUploadTarget = project.hrspSubtaskGid || project.asanaGid;
+    if (paidUploadTarget) {
       try {
-        const result = await uploadAttachmentToTask(project.asanaGid, pdfBuffer, fileName, "application/pdf");
+        const result = await uploadAttachmentToTask(paidUploadTarget, pdfBuffer, fileName, "application/pdf");
         const attachmentData = (result as Record<string, unknown>).data || result;
         const data = attachmentData as Record<string, unknown>;
         viewUrl = (data.view_url || data.download_url || data.permanent_url || "generated") as string;
@@ -255,7 +257,8 @@ function createUploadHandler(endpoint: string, fieldName: string, asanaPrefix: s
       if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
       if (!req.file) return res.status(400).json({ message: "File is required" });
 
-      const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `${asanaPrefix} - ${req.file.originalname}`, req.file.mimetype);
+      const target = project.hrspSubtaskGid || project.asanaGid;
+      const result = await uploadAttachmentToTask(target, req.file.buffer, `${asanaPrefix} - ${req.file.originalname}`, req.file.mimetype);
       const attachmentData = (result as Record<string, unknown>).data || result;
       const data = attachmentData as Record<string, unknown>;
       const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;

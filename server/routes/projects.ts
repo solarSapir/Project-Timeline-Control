@@ -59,6 +59,15 @@ projectsRouter.patch("/:id", async (req, res) => {
     }
 
     if (req.body.rebateStatus && req.body.rebateStatus !== project.rebateStatus) {
+      const rebateLower = req.body.rebateStatus.toLowerCase();
+      const rebateFollowUpStatuses = ['in-progress', 'submitted'];
+      if (rebateFollowUpStatuses.some(s => rebateLower.includes(s))) {
+        const oldLower = (project.rebateStatus || '').toLowerCase();
+        if (!rebateFollowUpStatuses.some(s => oldLower.includes(s))) {
+          req.body.rebateSubmittedDate = new Date().toISOString();
+        }
+      }
+
       if (project.hrspSubtaskGid) {
         try {
           await updateSubtaskField(project.hrspSubtaskGid, 'grants status', req.body.rebateStatus);

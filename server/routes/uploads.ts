@@ -22,18 +22,37 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
     const project = await storage.getProject(projectId);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
 
-    const { notes, completedBy, viewType } = req.body;
+    const { notes, completedBy, viewType, subtaskGid } = req.body;
     const isContract = viewType === 'contracts';
-    const commentPrefix = isContract ? 'Contract Follow-up' : 'UC Follow-up';
+    const isRebate = viewType === 'payments';
+    const isUc = !isContract && !isRebate;
+    const commentPrefix = isRebate ? 'Rebate Follow-up' : isContract ? 'Contract Follow-up' : 'UC Follow-up';
     const commentText = `${commentPrefix} by ${completedBy || 'Team'}:\n${notes || 'Follow-up completed'}`;
 
-    await postCommentToTask(project.asanaGid, commentText);
+    let targetGid = subtaskGid || '';
+    if (!targetGid && isRebate && project.hrspSubtaskGid) {
+      targetGid = project.hrspSubtaskGid;
+    }
+    if (!targetGid && isUc && project.asanaGid) {
+      try {
+        const subs = await fetchSubtasksForTask(project.asanaGid);
+        const ucSub = subs.find((s: Record<string, unknown>) =>
+          (s.name as string)?.toLowerCase().includes('tasks for uc team') && !s.completed
+        ) || subs.find((s: Record<string, unknown>) =>
+          (s.name as string)?.toLowerCase().includes('tasks for uc team')
+        );
+        if (ucSub) targetGid = ucSub.gid as string;
+      } catch { /* fall through to main task */ }
+    }
+    if (!targetGid) targetGid = project.asanaGid;
+
+    await postCommentToTask(targetGid, commentText);
 
     if (req.file) {
-      await uploadAttachmentToTask(project.asanaGid, req.file.buffer, req.file.originalname, req.file.mimetype);
+      await uploadAttachmentToTask(targetGid, req.file.buffer, req.file.originalname, req.file.mimetype);
     }
 
-    const followUpDays = isContract ? 1 : 7;
+    const followUpDays = isRebate ? 5 : isContract ? 1 : 7;
     const action = await storage.createTaskAction({
       projectId: projectId,
       viewType: viewType || 'uc',
@@ -43,7 +62,7 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
       followUpDate: format(addDays(new Date(), followUpDays), 'yyyy-MM-dd'),
     });
 
-    res.json({ success: true, action, message: `${commentPrefix} posted to Asana timeline` });
+    res.json({ success: true, action, message: `${commentPrefix} posted to Asana` });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Follow-up error:", error);

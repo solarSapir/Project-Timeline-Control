@@ -47,6 +47,7 @@ export const projects = pgTable("projects", {
   hrspStatus: text("hrsp_status"),
   hrspDueDate: date("hrsp_due_date"),
   hrspSubtaskGid: text("hrsp_subtask_gid"),
+  rebateSubmittedDate: text("rebate_submitted_date"),
   hrspMissing: boolean("hrsp_missing").default(false),
   installTeamStage: text("install_team_stage"),
   propertySector: text("property_sector"),

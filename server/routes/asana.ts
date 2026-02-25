@@ -149,6 +149,19 @@ async function syncProjectFromAsana(projectGid: string) {
       }
     }
 
+    if (task.gid) {
+      const existing = await storage.getProjectByAsanaGid(task.gid);
+      const rebateFollowUp = ['in-progress', 'submitted'];
+      const newStatusInFollowUp = mapped.rebateStatus && rebateFollowUp.some(s => (mapped.rebateStatus as string).toLowerCase().includes(s));
+      if (existing?.rebateSubmittedDate && newStatusInFollowUp) {
+        mapped.rebateSubmittedDate = existing.rebateSubmittedDate;
+      } else if (!existing?.rebateSubmittedDate && newStatusInFollowUp) {
+        mapped.rebateSubmittedDate = new Date().toISOString();
+      } else {
+        mapped.rebateSubmittedDate = null;
+      }
+    }
+
     const project = await storage.upsertProject(mapped as Parameters<typeof storage.upsertProject>[0]);
 
     if (project.hydroBillUrl && !project.hrspPowerConsumptionUrl) {

@@ -7,12 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, AlertTriangle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, AlertTriangle, AlertCircle, Maximize2, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getDaysUntilDue } from "@/utils/dates";
-import { HrspSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { getDaysUntilDue, daysSince } from "@/utils/dates";
 import { HrspChecklist } from "@/components/hrsp/HrspChecklist";
+import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import type { Project } from "@shared/schema";
 
 function HrspInfo({ project }: { project: Project }) {
@@ -59,11 +59,17 @@ function HrspInfo({ project }: { project: Project }) {
   );
 }
 
+function needsRebateFollowUp(p: Project): boolean {
+  const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
+  if (!['in-progress', 'submitted'].some(s => status.includes(s))) return false;
+  const days = daysSince(p.rebateSubmittedDate);
+  return days !== null && days >= 5;
+}
 
 export default function PaymentsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [modalProject, setModalProject] = useState<Project | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<Project[]>({
@@ -89,7 +95,7 @@ export default function PaymentsView() {
   const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p));
 
   const hasHrspIssue = (p: Project) => {
-    const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
+    const isLdOn = isRebateEligible(p);
     if (!isLdOn) return false;
     if (p.hrspMissing) return true;
     const isComplete = p.hrspStatus?.toLowerCase().includes('complete') || p.hrspStatus?.toLowerCase().includes('not required');
@@ -104,6 +110,7 @@ export default function PaymentsView() {
     }
     if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
     if (filter === "hrsp_issues") return hasHrspIssue(p);
+    if (filter === "needs_followup") return needsRebateFollowUp(p);
     if (filter !== "all" && p.rebateStatus !== filter) return false;
     return true;
   });
@@ -113,6 +120,7 @@ export default function PaymentsView() {
   ).length;
 
   const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
+  const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p)).length;
 
   const handleRebateStatus = async (projectId: string, status: string) => {
     try {
@@ -130,7 +138,7 @@ export default function PaymentsView() {
     if (lower.includes('new') || lower.includes('check')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
     if (lower.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
     if (lower.includes('in-progress') || lower.includes('submitted')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
-    return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    return "bg-muted text-muted-foreground";
   };
 
   if (isLoading) {
@@ -151,6 +159,12 @@ export default function PaymentsView() {
             <Badge variant="destructive" data-testid="badge-hrsp-issues-count">
               <AlertCircle className="h-3 w-3 mr-1" />
               {hrspIssueCount} HRSP issue{hrspIssueCount > 1 ? 's' : ''}
+            </Badge>
+          )}
+          {followUpCount > 0 && (
+            <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300" data-testid="badge-followup-count">
+              <MessageSquare className="h-3 w-3 mr-1" />
+              {followUpCount} need follow-up
             </Badge>
           )}
           {needsAttention > 0 && (
@@ -175,6 +189,7 @@ export default function PaymentsView() {
           <SelectContent>
             <SelectItem value="all">All Projects</SelectItem>
             <SelectItem value="needs_attention">Needs Attention</SelectItem>
+            <SelectItem value="needs_followup">Needs Follow-Up</SelectItem>
             <SelectItem value="hrsp_issues">HRSP Issues (ON Load Displacement)</SelectItem>
             <SelectItem value="not_required">Not Required</SelectItem>
             {rebateStatusOptions.map(s => (
@@ -192,6 +207,10 @@ export default function PaymentsView() {
         <div className="space-y-3">
           {[...filtered]
             .sort((a: Project, b: Project) => {
+              const aFollowUp = needsRebateFollowUp(a);
+              const bFollowUp = needsRebateFollowUp(b);
+              if (aFollowUp && !bFollowUp) return -1;
+              if (!aFollowUp && bFollowUp) return 1;
               const aIssue = hasHrspIssue(a);
               const bIssue = hasHrspIssue(b);
               if (aIssue && !bIssue) return -1;
@@ -199,8 +218,9 @@ export default function PaymentsView() {
               return 0;
             })
             .map((p: Project) => {
-            const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
+            const isLdOn = isRebateEligible(p);
             const hrspIssue = hasHrspIssue(p);
+            const followUp = needsRebateFollowUp(p);
 
             const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
             const isHrspFallback = !p.rebateStatus && isLdOn && !!p.hrspStatus;
@@ -208,7 +228,7 @@ export default function PaymentsView() {
             return (
               <Card
                 key={p.id}
-                className={`transition-colors ${hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
+                className={`transition-colors ${followUp ? "border-l-4 border-l-amber-400" : hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">
@@ -241,6 +261,12 @@ export default function PaymentsView() {
                         <span>UC Team: {p.ucTeam || 'N/A'}</span>
                         <span>·</span>
                         <span>PM: {p.pmStatus || 'N/A'}</span>
+                        {followUp && (
+                          <>
+                            <span>·</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">follow-up needed</span>
+                          </>
+                        )}
                       </div>
 
                       {isLdOn && <HrspInfo project={p} />}
@@ -260,28 +286,28 @@ export default function PaymentsView() {
                       </Select>
                       <Button
                         size="sm"
-                        variant={expandedProjectId === p.id ? "secondary" : "ghost"}
+                        variant="ghost"
                         className="h-7 text-xs gap-1 px-2"
-                        onClick={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
-                        data-testid={`button-expand-${p.id}`}
+                        onClick={() => setModalProject(p)}
+                        data-testid={`button-focus-${p.id}`}
                       >
-                        {expandedProjectId === p.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {expandedProjectId === p.id ? "Collapse" : "Expand"}
+                        <Maximize2 className="h-3 w-3" />
+                        Focus
                       </Button>
                     </div>
                   </div>
-
-                  {expandedProjectId === p.id && (
-                    <div className="mt-3 pt-3 border-t">
-                      <HrspSubtaskPanel projectId={p.id} />
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
       )}
+
+      <RebateProjectModal
+        project={modalProject}
+        open={!!modalProject}
+        onOpenChange={(open) => { if (!open) setModalProject(null); }}
+      />
     </div>
   );
 }

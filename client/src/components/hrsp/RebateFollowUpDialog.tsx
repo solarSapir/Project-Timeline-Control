@@ -9,15 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Upload } from "lucide-react";
 import type { Project } from "@shared/schema";
 
-export function FollowUpDialog({ project }: { project: Project }) {
+export function RebateFollowUpDialog({ project }: { project: Project }) {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [completedBy, setCompletedBy] = useState("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
-
-  if (project.ucStatus?.toLowerCase() !== 'submitted') return null;
 
   const handleSubmit = async () => {
     if (!completedBy.trim()) {
@@ -29,7 +27,10 @@ export function FollowUpDialog({ project }: { project: Project }) {
       const formData = new FormData();
       formData.append('notes', notes);
       formData.append('completedBy', completedBy);
-      formData.append('viewType', 'uc');
+      formData.append('viewType', 'payments');
+      if (project.hrspSubtaskGid) {
+        formData.append('subtaskGid', project.hrspSubtaskGid);
+      }
       if (screenshot) formData.append('screenshot', screenshot);
 
       const res = await fetch(`/api/projects/${project.id}/follow-up`, {
@@ -43,7 +44,7 @@ export function FollowUpDialog({ project }: { project: Project }) {
 
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions'] });
-      toast({ title: "Follow-up posted to Asana timeline" });
+      toast({ title: "Rebate follow-up posted to HRSP subtask" });
       setOpen(false);
       setNotes("");
       setCompletedBy("");
@@ -59,41 +60,43 @@ export function FollowUpDialog({ project }: { project: Project }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-followup-${project.id}`}>
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-rebate-followup-${project.id}`}>
           <MessageSquare className="h-3 w-3" />
           Follow Up
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>UC Follow-Up - {project.name}</DialogTitle>
-          <DialogDescription>Post a follow-up note to the Asana project timeline.</DialogDescription>
+          <DialogTitle>Rebate Follow-Up - {project.name}</DialogTitle>
+          <DialogDescription>Post a follow-up note to the HRSP subtask on Asana.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {project.ucSubmittedDate && (
-            <p className="text-sm text-muted-foreground">
-              Submitted on {new Date(project.ucSubmittedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              {project.ucSubmittedBy && ` by ${project.ucSubmittedBy}`}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+            Status: {project.rebateStatus || project.hrspStatus || 'Unknown'}
+            {project.rebateSubmittedDate && (
+              <span className="ml-1">
+                (since {new Date(project.rebateSubmittedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })})
+              </span>
+            )}
+          </p>
           <div>
             <Label htmlFor="completedBy">Your Name</Label>
-            <Input id="completedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-followup-name" />
+            <Input id="completedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-rebate-followup-name" />
           </div>
           <div>
             <Label htmlFor="notes">Follow-up Notes</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What did you follow up on?" data-testid="input-followup-notes" />
+            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What did you follow up on?" data-testid="input-rebate-followup-notes" />
           </div>
           <div>
             <Label htmlFor="screenshot">Screenshot (optional)</Label>
-            <Input id="screenshot" type="file" accept="image/*" className="mt-1" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} data-testid="input-followup-screenshot" />
+            <Input id="screenshot" type="file" accept="image/*" className="mt-1" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} data-testid="input-rebate-followup-screenshot" />
             {screenshot && (
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 <Upload className="h-3 w-3" /> {screenshot.name} ({(screenshot.size / 1024).toFixed(0)} KB)
               </p>
             )}
           </div>
-          <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-followup">
+          <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-rebate-followup">
             {submitting ? "Posting to Asana..." : "Submit Follow-Up & Post to Asana"}
           </Button>
         </div>
