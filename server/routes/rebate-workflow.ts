@@ -214,6 +214,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
       completionsThisMonth,
       avgTasksPerDay: Math.round((completions.length / activeDays) * 10) / 10,
       avgDaysToSubmit: avg(submitTimes),
+      submitTimeDetails: submitTimeDetails.sort((a, b) => b.submittedDate.localeCompare(a.submittedDate)),
       avgDaysToApproval: avg(approvalTimes),
       avgDaysCloseOffToSubmit: avg(closeOffSubmitTimes),
       rejectionCount,

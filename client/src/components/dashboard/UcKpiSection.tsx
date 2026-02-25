@@ -8,6 +8,7 @@ import {
 import { Activity, TrendingUp, Clock, CheckCircle2, Timer } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
+import { DecisionTimeDrilldown } from "./DecisionTimeDrilldown";
 
 interface CompletionEntry {
   date: string;
@@ -28,6 +29,16 @@ interface SubmitTimeEntry {
   month: string;
 }
 
+interface DecisionTimeEntry {
+  projectName: string;
+  projectId: string;
+  submittedDate: string;
+  decisionDate: string;
+  decision: string;
+  days: number;
+  month: string;
+}
+
 interface UcKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
   recentCompletions: CompletionEntry[];
@@ -36,6 +47,8 @@ interface UcKpiStats {
   avgTasksPerDay: number;
   avgDaysToSubmit: number | null;
   submitTimeDetails: SubmitTimeEntry[];
+  avgDaysToDecision: number | null;
+  decisionTimeDetails: DecisionTimeEntry[];
   avgDaysToApprove: number | null;
   avgDaysToReject: number | null;
   avgDaysToClose: number | null;
@@ -48,6 +61,7 @@ interface UcKpiStats {
 export function UcKpiSection() {
   const [drilldownOpen, setDrilldownOpen] = useState(false);
   const [submitDrilldownOpen, setSubmitDrilldownOpen] = useState(false);
+  const [decisionDrilldownOpen, setDecisionDrilldownOpen] = useState(false);
   const { data: stats, isLoading } = useQuery<UcKpiStats>({
     queryKey: ["/api/uc/kpi-stats"],
   });
@@ -161,7 +175,11 @@ export function UcKpiSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDecisionDrilldownOpen(true)}
+          data-testid="card-avg-decision"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Days to Decision
@@ -170,9 +188,9 @@ export function UcKpiSection() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-avg-decision">
-              {formatStat(stats.avgDaysToApprove)}
+              {formatStat(stats.avgDaysToDecision)}
             </div>
-            <p className="text-xs text-muted-foreground">from submission</p>
+            <p className="text-xs text-muted-foreground">from submission · click for details</p>
           </CardContent>
         </Card>
 
@@ -254,6 +272,13 @@ export function UcKpiSection() {
         onOpenChange={setSubmitDrilldownOpen}
         details={stats.submitTimeDetails || []}
         overallAvg={stats.avgDaysToSubmit}
+      />
+
+      <DecisionTimeDrilldown
+        open={decisionDrilldownOpen}
+        onOpenChange={setDecisionDrilldownOpen}
+        details={stats.decisionTimeDetails || []}
+        overallAvg={stats.avgDaysToDecision}
       />
     </div>
   );

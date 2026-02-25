@@ -89,7 +89,8 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
 
     const submitTimes: number[] = [];
     const submitTimeDetails: { projectName: string; projectId: string; createdDate: string; submittedDate: string; days: number; month: string }[] = [];
-    const approveTimes: number[] = [];
+    const decisionTimes: number[] = [];
+    const decisionTimeDetails: { projectName: string; projectId: string; submittedDate: string; decisionDate: string; decision: string; days: number; month: string }[] = [];
     const rejectTimes: number[] = [];
     const closeOffTimes: number[] = [];
     const rejectionsByUtility: Record<string, number> = {};
@@ -114,14 +115,30 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
 
       const projCompletions = completions.filter(c => c.projectId === p.id);
       const submitEntry = projCompletions.find(c => c.toStatus?.toLowerCase() === 'submitted');
-      const approveEntry = projCompletions.find(c => c.toStatus?.toLowerCase() === 'approved');
+      const approveEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase()?.includes('approved'));
       const rejectEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase()?.includes('reject'));
       const closeOffEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase()?.includes('close off'));
       const closedEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase() === 'closed');
 
-      if (submitEntry?.completedAt && approveEntry?.completedAt) {
-        const days = (new Date(approveEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000;
-        if (days >= 0) approveTimes.push(days);
+      if (submitEntry?.completedAt) {
+        const decisionEntry = approveEntry || rejectEntry;
+        if (decisionEntry?.completedAt) {
+          const days = Math.round(((new Date(decisionEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000) * 10) / 10;
+          if (days >= 0 && days < 365) {
+            decisionTimes.push(days);
+            const decDate = new Date(decisionEntry.completedAt);
+            const isApproved = decisionEntry === approveEntry;
+            decisionTimeDetails.push({
+              projectName: p.name || 'Unknown',
+              projectId: p.id,
+              submittedDate: new Date(submitEntry.completedAt).toISOString().split('T')[0],
+              decisionDate: decDate.toISOString().split('T')[0],
+              decision: isApproved ? 'Approved' : 'Rejected',
+              days,
+              month: `${decDate.getFullYear()}-${String(decDate.getMonth() + 1).padStart(2, '0')}`,
+            });
+          }
+        }
       }
       if (submitEntry?.completedAt && rejectEntry?.completedAt) {
         const days = (new Date(rejectEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000;
@@ -152,7 +169,9 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
       avgTasksPerDay: Math.round((completions.length / activeDays) * 10) / 10,
       avgDaysToSubmit: avg(submitTimes),
       submitTimeDetails: submitTimeDetails.sort((a, b) => b.submittedDate.localeCompare(a.submittedDate)),
-      avgDaysToApprove: avg(approveTimes),
+      avgDaysToDecision: avg(decisionTimes),
+      decisionTimeDetails: decisionTimeDetails.sort((a, b) => b.decisionDate.localeCompare(a.decisionDate)),
+      avgDaysToApprove: avg(decisionTimes.length > 0 ? decisionTimes : []),
       avgDaysToReject: avg(rejectTimes),
       avgDaysToClose: avg(closeOffTimes),
       closeOffPending,

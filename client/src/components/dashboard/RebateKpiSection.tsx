@@ -7,6 +7,16 @@ import {
 } from "recharts";
 import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
+import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
+
+interface SubmitTimeEntry {
+  projectName: string;
+  projectId: string;
+  createdDate: string;
+  submittedDate: string;
+  days: number;
+  month: string;
+}
 
 interface RebateKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
@@ -15,6 +25,7 @@ interface RebateKpiStats {
   completionsThisMonth: number;
   avgTasksPerDay: number;
   avgDaysToSubmit: number | null;
+  submitTimeDetails: SubmitTimeEntry[];
   avgDaysToApproval: number | null;
   avgDaysCloseOffToSubmit: number | null;
   rejectionCount: number;
@@ -25,6 +36,7 @@ interface RebateKpiStats {
 
 export function RebateKpiSection() {
   const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [submitDrilldownOpen, setSubmitDrilldownOpen] = useState(false);
   const { data: stats, isLoading } = useQuery<RebateKpiStats>({
     queryKey: ["/api/rebate/kpi-stats"],
   });
@@ -105,7 +117,11 @@ export function RebateKpiSection() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-rebate-avg-submit">
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setSubmitDrilldownOpen(true)}
+          data-testid="card-rebate-avg-submit"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Avg Days to Submit</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -114,7 +130,7 @@ export function RebateKpiSection() {
             <div className="text-2xl font-bold" data-testid="text-rebate-avg-submit">
               {formatStat(stats.avgDaysToSubmit)}
             </div>
-            <p className="text-xs text-muted-foreground">from project creation</p>
+            <p className="text-xs text-muted-foreground">from project creation · click for details</p>
           </CardContent>
         </Card>
 
@@ -188,6 +204,13 @@ export function RebateKpiSection() {
         onOpenChange={setDrilldownOpen}
         completions={stats.recentCompletions || []}
         dailyCounts={stats.dailyCounts}
+      />
+
+      <SubmitTimeDrilldown
+        open={submitDrilldownOpen}
+        onOpenChange={setSubmitDrilldownOpen}
+        details={stats.submitTimeDetails || []}
+        overallAvg={stats.avgDaysToSubmit}
       />
     </div>
   );
