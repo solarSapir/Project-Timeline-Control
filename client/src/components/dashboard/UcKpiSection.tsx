@@ -46,7 +46,7 @@ export function UcKpiSection() {
     );
   }
 
-  if (!stats || stats.totalCompletions === 0) {
+  if (!stats) {
     return null;
   }
 
