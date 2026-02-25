@@ -433,7 +433,7 @@ export function mapAsanaTaskToProject(task: any) {
     province: extractCustomFieldValue(task, 'province'),
     asanaDueDate: task.due_on || null,
     paymentMethod: extractCustomFieldValue(task, 'how will the customer pay') || extractCustomFieldValue(task, 'payment'),
-    rebateStatus: extractCustomFieldValue(task, 'grants status') || extractCustomFieldValue(task, 'rebate'),
+    rebateStatus: null,
     contractStatus: extractCustomFieldValue(task, 'contractor'),
     siteVisitStatus: extractCustomFieldValue(task, 'site visit'),
     ucTeam: extractUcTeamValue(task),

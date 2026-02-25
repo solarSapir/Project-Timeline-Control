@@ -71,7 +71,12 @@ async function syncProjectFromAsana(projectGid: string) {
     const provinceLower = (mapped.province as string | null)?.toLowerCase() || '';
     const isLoadDisplacementOntario = ucTeamLower.includes('load displacement') && provinceLower.includes('ontario');
 
-    if (isLoadDisplacementOntario && task.gid) {
+    const grantsTeamField = (task.custom_fields || []).find((f: any) =>
+      f.name?.toLowerCase().includes('grants and loan team')
+    );
+    const hasGrantsTeam = grantsTeamField?.enum_value?.name?.toLowerCase() === 'yes' || grantsTeamField?.display_value?.toLowerCase() === 'yes';
+
+    if ((isLoadDisplacementOntario || hasGrantsTeam) && task.gid) {
       try {
         const subtasks = await fetchSubtasksForTask(task.gid);
         const hrsp = findHrspSubtask(subtasks);
@@ -79,12 +84,19 @@ async function syncProjectFromAsana(projectGid: string) {
           mapped.hrspSubtaskGid = hrsp.gid;
           mapped.hrspStatus = hrsp.status;
           mapped.hrspMissing = false;
-        } else {
+          if (hrsp.status) {
+            mapped.rebateStatus = hrsp.status;
+          }
+        } else if (isLoadDisplacementOntario) {
           mapped.hrspSubtaskGid = null;
           mapped.hrspStatus = null;
           mapped.hrspMissing = true;
+        } else {
+          mapped.hrspSubtaskGid = null;
+          mapped.hrspStatus = null;
+          mapped.hrspMissing = false;
         }
-        if (mapped.projectCreatedDate) {
+        if (isLoadDisplacementOntario && mapped.projectCreatedDate) {
           mapped.hrspDueDate = format(addDays(new Date(mapped.projectCreatedDate as string), 14), 'yyyy-MM-dd');
         }
       } catch (err: unknown) {

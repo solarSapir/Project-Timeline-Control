@@ -6,11 +6,12 @@ import {
   fetchSubtasksForTask,
   createSubtaskForTask,
   completeAsanaTask,
+  updateSubtaskField,
 } from "../asana";
 
 export const projectsRouter = Router();
 
-const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'rebateStatus', 'installTeamStage'];
+const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'installTeamStage'];
 
 projectsRouter.get("/", async (_req, res) => {
   try {
@@ -53,6 +54,31 @@ projectsRouter.patch("/:id", async (req, res) => {
               return res.status(400).json({ message: `Failed to update Asana: ${msg}` });
             }
           }
+        }
+      }
+    }
+
+    if (req.body.rebateStatus && req.body.rebateStatus !== project.rebateStatus) {
+      if (project.hrspSubtaskGid) {
+        try {
+          await updateSubtaskField(project.hrspSubtaskGid, 'grants status', req.body.rebateStatus);
+          req.body.hrspStatus = req.body.rebateStatus;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Failed to update HRSP subtask for ${project.name}:`, msg);
+          return res.status(400).json({ message: `Failed to update Asana: ${msg}` });
+        }
+      } else if (project.asanaGid && project.asanaCustomFields) {
+        try {
+          const asanaFields = project.asanaCustomFields as Record<string, unknown>[];
+          await updateAsanaTaskField(project.asanaGid, asanaFields, 'rebateStatus', req.body.rebateStatus);
+        } catch (asanaErr: unknown) {
+          const msg = asanaErr instanceof Error ? asanaErr.message : String(asanaErr);
+          if (!msg.includes('Could not find Asana custom field')) {
+            console.error(`Failed to update Asana rebateStatus for ${project.name}:`, msg);
+            return res.status(400).json({ message: `Failed to update Asana: ${msg}` });
+          }
+          console.warn(`Skipping parent Asana sync for rebateStatus on ${project.name}: field not available`);
         }
       }
     }
