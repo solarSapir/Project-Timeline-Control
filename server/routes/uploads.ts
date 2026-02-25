@@ -29,20 +29,48 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
     let targetGid = subtaskGid || '';
     if (!targetGid && isRebate && project.hrspSubtaskGid) {
       targetGid = project.hrspSubtaskGid;
+      console.log(`[Follow-up] Rebate: using HRSP subtask ${targetGid} for ${project.name}`);
     }
     if (!targetGid && isUc && project.asanaGid) {
       try {
         const subs = await fetchSubtasksForTask(project.asanaGid);
+        console.log(`[Follow-up] UC: found ${subs.length} subtasks for ${project.name}: ${subs.map((s: Record<string, unknown>) => `"${s.name}" (${s.gid}, completed=${s.completed})`).join(', ')}`);
         const isUcSub = (s: Record<string, unknown>) =>
           ((s.name as string) || '').toLowerCase().includes('uc');
         const ucSub = subs.find((s: Record<string, unknown>) => isUcSub(s) && !s.completed)
           || subs.find((s: Record<string, unknown>) => isUcSub(s));
-        if (ucSub) targetGid = ucSub.gid as string;
-      } catch { /* fall through to main task */ }
+        if (ucSub) {
+          targetGid = ucSub.gid as string;
+          console.log(`[Follow-up] UC: matched UC subtask "${(ucSub as Record<string, unknown>).name}" (${targetGid})`);
+        } else if (subs.length > 0) {
+          const latestSub = subs[subs.length - 1] as Record<string, unknown>;
+          targetGid = latestSub.gid as string;
+          console.log(`[Follow-up] UC: no UC-named subtask found, using latest subtask "${latestSub.name}" (${targetGid})`);
+        }
+      } catch (err) {
+        console.error(`[Follow-up] UC subtask fetch failed for ${project.name}:`, err);
+      }
     }
-    if (!targetGid) targetGid = project.asanaGid;
+    if (!targetGid && isContract && project.asanaGid) {
+      try {
+        const subs = await fetchSubtasksForTask(project.asanaGid);
+        if (subs.length > 0) {
+          const latestSub = subs[subs.length - 1] as Record<string, unknown>;
+          targetGid = latestSub.gid as string;
+          console.log(`[Follow-up] Contract: using latest subtask "${latestSub.name}" (${targetGid})`);
+        }
+      } catch (err) {
+        console.error(`[Follow-up] Contract subtask fetch failed for ${project.name}:`, err);
+      }
+    }
+    if (!targetGid) {
+      targetGid = project.asanaGid;
+      console.log(`[Follow-up] Fallback: using main task ${targetGid} for ${project.name}`);
+    }
 
+    console.log(`[Follow-up] Posting comment to ${targetGid} for ${project.name} (viewType=${viewType})`);
     await postCommentToTask(targetGid, commentText);
+    console.log(`[Follow-up] Comment posted successfully to ${targetGid}`);
 
     if (req.file) {
       const categoryMap: Record<string, string> = { contracts: 'contract', payments: 'rebates', uc: 'uc' };
@@ -90,17 +118,35 @@ uploadsRouter.post("/:id/status-note", async (req, res) => {
     if (viewType === "uc") {
       try {
         const subs = await fetchSubtasksForTask(project.asanaGid);
-        const ucSub = subs.find((s: Record<string, unknown>) =>
-          ((s.name as string) || '').toLowerCase().includes('uc') && !s.completed
-        ) || subs.find((s: Record<string, unknown>) =>
-          ((s.name as string) || '').toLowerCase().includes('uc')
-        );
-        if (ucSub) targetGid = ucSub.gid as string;
-      } catch { /* fall through to main task */ }
+        console.log(`[Status-note] UC: found ${subs.length} subtasks for ${project.name}`);
+        const isUcSub = (s: Record<string, unknown>) =>
+          ((s.name as string) || '').toLowerCase().includes('uc');
+        const ucSub = subs.find((s: Record<string, unknown>) => isUcSub(s) && !s.completed)
+          || subs.find((s: Record<string, unknown>) => isUcSub(s));
+        if (ucSub) {
+          targetGid = (ucSub as Record<string, unknown>).gid as string;
+        } else if (subs.length > 0) {
+          targetGid = (subs[subs.length - 1] as Record<string, unknown>).gid as string;
+          console.log(`[Status-note] UC: no UC-named subtask, using latest subtask (${targetGid})`);
+        }
+      } catch (err) {
+        console.error(`[Status-note] UC subtask fetch failed:`, err);
+      }
     } else if (viewType === "payments" && project.hrspSubtaskGid) {
       targetGid = project.hrspSubtaskGid;
+    } else if (["ahj", "site_visit", "contracts", "close_off", "install"].includes(viewType)) {
+      try {
+        const subs = await fetchSubtasksForTask(project.asanaGid);
+        if (subs.length > 0) {
+          targetGid = (subs[subs.length - 1] as Record<string, unknown>).gid as string;
+          console.log(`[Status-note] ${viewType}: using latest subtask (${targetGid})`);
+        }
+      } catch (err) {
+        console.error(`[Status-note] subtask fetch failed for ${viewType}:`, err);
+      }
     }
 
+    console.log(`[Status-note] Posting to ${targetGid} for ${project.name} (${viewType})`);
     await postCommentToTask(targetGid, commentText);
 
     await storage.createTaskAction({
