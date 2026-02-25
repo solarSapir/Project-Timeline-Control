@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
+import { DueIndicator } from "@/components/uc/DueIndicator";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +16,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
 import { useTaskActions } from "@/hooks/use-task-actions";
 import { useAsanaFieldOptions } from "@/hooks/use-asana-field-options";
-import { getDaysUntilDue } from "@/utils/dates";
+import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { isAhjComplete, isVisitComplete } from "@/utils/stages";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
@@ -139,26 +140,71 @@ export default function AHJView() {
           const expectedDays = getDaysUntilDue(p.expectedAhjDue);
           const isOverdue = !p.ahjComplete && targetDays !== null && targetDays < 0;
           return (
-            <Card key={p.id} className={p.ahjComplete ? "border-green-300 dark:border-green-800" : isOverdue ? "border-red-300 dark:border-red-800" : p.isLate ? "border-amber-300 dark:border-amber-800" : ""} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-3 px-4 space-y-2">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 flex-wrap"><Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link><StatusBadge status={p.ahjStatus} /></div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap"><span className="text-xs text-muted-foreground">{p.province || 'No province'}</span><span className="text-xs text-muted-foreground">UC: {p.ucStatus || 'N/A'}</span><span className="text-xs text-muted-foreground">Site Visit: {p.siteVisitStatus || 'N/A'}{p.svComplete && <CheckCircle2 className="inline h-3 w-3 ml-1 text-green-600" />}</span></div>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {p.targetAhjDue && <Badge variant={isOverdue ? "destructive" : "outline"} className="text-xs flex items-center gap-1" data-testid={`badge-target-due-${p.id}`}><Clock className="h-3 w-3" />Target: {new Date(p.targetAhjDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{isOverdue && ` (${Math.abs(targetDays!)}d overdue)`}</Badge>}
-                      {p.svComplete && p.expectedAhjDue && <Badge className={`text-xs flex items-center gap-1 ${p.isLate ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : expectedDays !== null && expectedDays <= 5 ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300" : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"}`} data-testid={`badge-expected-due-${p.id}`}><Clock className="h-3 w-3" />Expected: {new Date(p.expectedAhjDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{expectedDays !== null && <span>({expectedDays < 0 ? `${Math.abs(expectedDays)}d overdue` : `${expectedDays}d left`})</span>}{p.isLate && <span className="font-semibold ml-1">LATE</span>}</Badge>}
-                      {!p.svComplete && <Badge variant="outline" className="text-xs flex items-center gap-1 bg-gray-50 dark:bg-gray-900" data-testid={`badge-waiting-sv-${p.id}`}><Camera className="h-3 w-3" />Waiting on site visit</Badge>}
-                      {p.svComplete && p.svCompDate && <Badge variant="outline" className="text-xs flex items-center gap-1" data-testid={`badge-sv-completed-${p.id}`}><CheckCircle2 className="h-3 w-3" />Site visit done: {new Date(p.svCompDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Badge>}
+            <Card
+              key={p.id}
+              className={`transition-colors ${p.ahjComplete ? "border-l-4 border-l-green-400" : isOverdue ? "border-l-4 border-l-red-400" : p.isLate ? "border-l-4 border-l-amber-400" : ""}`}
+              data-testid={`card-project-${p.id}`}
+            >
+              <CardContent className="py-3 px-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>
+                        {p.name}
+                      </Link>
+                      <StatusBadge status={p.ahjStatus} />
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      {p.province && <span>{p.province}</span>}
+                      {p.province && <span>·</span>}
+                      <span>UC: {p.ucStatus || 'N/A'}</span>
+                      <span>·</span>
+                      <span>SV: {p.siteVisitStatus || 'N/A'}{p.svComplete && <CheckCircle2 className="inline h-3 w-3 ml-0.5 text-green-600" />}</span>
+                      {p.targetAhjDue && !p.ahjComplete && <span>·</span>}
+                      <DueIndicator dueDate={p.targetAhjDue} completed={p.ahjComplete} />
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {p.targetAhjDue && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isOverdue ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"}`} data-testid={`badge-target-due-${p.id}`}>
+                          <Clock className="inline h-3 w-3 mr-0.5" />Target: {formatShortDate(p.targetAhjDue)}{isOverdue && ` (${Math.abs(targetDays!)}d overdue)`}
+                        </span>
+                      )}
+                      {p.svComplete && p.expectedAhjDue && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${p.isLate ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : expectedDays !== null && expectedDays <= 5 ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300" : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"}`} data-testid={`badge-expected-due-${p.id}`}>
+                          <Clock className="inline h-3 w-3 mr-0.5" />Expected: {formatShortDate(p.expectedAhjDue)}{expectedDays !== null && <span> ({expectedDays < 0 ? `${Math.abs(expectedDays)}d overdue` : `${expectedDays}d left`})</span>}{p.isLate && <span className="font-semibold ml-1">LATE</span>}
+                        </span>
+                      )}
+                      {!p.svComplete && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" data-testid={`badge-waiting-sv-${p.id}`}>
+                          <Camera className="inline h-3 w-3 mr-0.5" />Waiting site visit
+                        </span>
+                      )}
+                      {p.svComplete && p.svCompDate && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" data-testid={`badge-sv-completed-${p.id}`}>
+                          <CheckCircle2 className="inline h-3 w-3 mr-0.5" />SV done: {formatShortDate(p.svCompDate)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Checkbox checked={!!p.permitPaymentCollected} disabled data-testid={`checkbox-permit-payment-${p.id}`} />
+                      <span className="text-[11px] text-muted-foreground">$1,500 deposit collected (includes P.eng fee)</span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 min-w-[200px]">
-                    <Select value={p.ahjStatus || ''} onValueChange={(v) => handleStatusChange(p.id, v)}><SelectTrigger className="h-8 text-xs w-full" data-testid={`select-ahj-status-${p.id}`}><SelectValue placeholder="Change status" /></SelectTrigger><SelectContent>{statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Select value={p.ahjStatus || ''} onValueChange={(v) => handleStatusChange(p.id, v)}>
+                      <SelectTrigger className="h-7 text-xs w-[160px]" data-testid={`select-ahj-status-${p.id}`}>
+                        <SelectValue placeholder="Change status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     <TaskActionDialog projectId={p.id} projectName={p.name} viewType="ahj" />
                   </div>
-                </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2"><Checkbox checked={!!p.permitPaymentCollected} disabled data-testid={`checkbox-permit-payment-${p.id}`} /><span className="text-xs text-muted-foreground">$1,500 deposit collected (includes P.eng fee)</span></div>
                 </div>
               </CardContent>
             </Card>

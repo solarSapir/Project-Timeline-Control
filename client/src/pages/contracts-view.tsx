@@ -3,23 +3,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
+import { DueIndicator } from "@/components/uc/DueIndicator";
+import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, CreditCard, AlertTriangle, CalendarClock } from "lucide-react";
+import { Search, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-function getDaysUntilDue(dueDate: string | null) {
-  if (!dueDate) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate);
-  const diff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
-}
+import type { Project } from "@shared/schema";
 
 function getPaymentDueDate(projectCreatedDate: string | null) {
   if (!projectCreatedDate) return null;
@@ -28,43 +21,12 @@ function getPaymentDueDate(projectCreatedDate: string | null) {
   return created.toISOString().split('T')[0];
 }
 
-function PaymentDueBadge({ projectCreatedDate }: { projectCreatedDate: string | null }) {
-  const dueDate = getPaymentDueDate(projectCreatedDate);
-  const daysLeft = getDaysUntilDue(dueDate);
-  if (daysLeft === null || !dueDate) return null;
-
-  const formattedDate = new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  if (daysLeft < 0) {
-    return (
-      <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid="badge-payment-overdue">
-        <CalendarClock className="h-3 w-3" />
-        {Math.abs(daysLeft)}d overdue ({formattedDate})
-      </Badge>
-    );
-  }
-  if (daysLeft <= 3) {
-    return (
-      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-xs flex items-center gap-1" data-testid="badge-payment-due-soon">
-        <CalendarClock className="h-3 w-3" />
-        Due in {daysLeft}d ({formattedDate})
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-xs flex items-center gap-1" data-testid="badge-payment-due">
-      <CalendarClock className="h-3 w-3" />
-      Due {formattedDate}
-    </Badge>
-  );
-}
-
 export default function ContractsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("needs_attention");
   const { toast } = useToast();
 
-  const { data: projects, isLoading } = useQuery<any[]>({
+  const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
   });
 
@@ -74,20 +36,20 @@ export default function ContractsView() {
 
   const paymentMethodOptions = Array.isArray(paymentOptions) ? paymentOptions.map(o => o.name) : [];
 
-  const installProjects = (projects || []).filter((p: any) =>
+  const installProjects = (projects || []).filter((p: Project) =>
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
-  const filtered = installProjects.filter((p: any) => {
+  const filtered = installProjects.filter((p: Project) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "needs_attention") return !p.paymentMethod;
     if (filter === "confirmed") return !!p.paymentMethod;
     return true;
   });
 
-  const sortedFiltered = [...filtered].sort((a: any, b: any) => {
+  const sortedFiltered = [...filtered].sort((a: Project, b: Project) => {
     if (!a.paymentMethod && b.paymentMethod) return -1;
     if (a.paymentMethod && !b.paymentMethod) return 1;
     const aDue = getPaymentDueDate(a.projectCreatedDate);
@@ -99,8 +61,8 @@ export default function ContractsView() {
     return aDays - bDays;
   });
 
-  const needsAttentionCount = installProjects.filter((p: any) => !p.paymentMethod).length;
-  const overdueCount = installProjects.filter((p: any) => {
+  const needsAttentionCount = installProjects.filter((p: Project) => !p.paymentMethod).length;
+  const overdueCount = installProjects.filter((p: Project) => {
     if (p.paymentMethod) return false;
     const dueDate = getPaymentDueDate(p.projectCreatedDate);
     const days = getDaysUntilDue(dueDate);
@@ -112,8 +74,8 @@ export default function ContractsView() {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { paymentMethod: method });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({ title: "Payment method updated in Asana" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     }
   };
 
@@ -164,38 +126,45 @@ export default function ContractsView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedFiltered.map((p: any) => {
-            const isOverdue = !p.paymentMethod && getDaysUntilDue(getPaymentDueDate(p.projectCreatedDate)) !== null && getDaysUntilDue(getPaymentDueDate(p.projectCreatedDate))! < 0;
+          {sortedFiltered.map((p: Project) => {
+            const paymentDueDate = getPaymentDueDate(p.projectCreatedDate);
+            const isOverdue = !p.paymentMethod && getDaysUntilDue(paymentDueDate) !== null && getDaysUntilDue(paymentDueDate)! < 0;
             return (
-              <Card key={p.id} className={isOverdue ? "border-red-300 dark:border-red-800" : ""} data-testid={`card-project-${p.id}`}>
+              <Card
+                key={p.id}
+                className={`transition-colors ${isOverdue ? "border-l-4 border-l-red-400" : ""}`}
+                data-testid={`card-project-${p.id}`}
+              >
                 <CardContent className="py-3 px-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
-                      <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
-                        {p.projectCreatedDate && (
-                          <span className="text-xs text-muted-foreground">Created: {new Date(p.projectCreatedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                        )}
-                        {!p.paymentMethod && (
-                          <PaymentDueBadge projectCreatedDate={p.projectCreatedDate} />
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-project-${p.id}`}>
+                          {p.name}
+                        </Link>
+                        {p.paymentMethod ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400" data-testid={`badge-payment-method-${p.id}`}>
+                            {p.paymentMethod}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400" data-testid={`badge-no-payment-${p.id}`}>
+                            No payment method
+                          </span>
                         )}
                       </div>
+
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                        {p.province && <span>{p.province}</span>}
+                        {p.province && p.projectCreatedDate && <span>·</span>}
+                        {p.projectCreatedDate && <span>Created {formatShortDate(p.projectCreatedDate)}</span>}
+                        {(p.province || p.projectCreatedDate) && paymentDueDate && !p.paymentMethod && <span>·</span>}
+                        {!p.paymentMethod && <DueIndicator dueDate={paymentDueDate} completed={!!p.paymentMethod} />}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {p.paymentMethod ? (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid={`badge-payment-method-${p.id}`}>
-                          <CreditCard className="h-3 w-3 mr-1" />
-                          {p.paymentMethod}
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs" data-testid={`badge-no-payment-${p.id}`}>
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          No payment method
-                        </Badge>
-                      )}
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Select value={p.paymentMethod || ''} onValueChange={(v) => handlePaymentMethod(p.id, v)}>
-                        <SelectTrigger className="w-[220px] h-8 text-xs" data-testid={`select-payment-method-${p.id}`}>
+                        <SelectTrigger className="w-[180px] h-7 text-xs" data-testid={`select-payment-method-${p.id}`}>
                           <SelectValue placeholder="Set payment method" />
                         </SelectTrigger>
                         <SelectContent>

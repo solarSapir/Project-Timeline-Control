@@ -1,26 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/status-badge";
 import { TaskActionDialog } from "@/components/task-action-dialog";
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Gift, AlertTriangle, CalendarClock, AlertCircle } from "lucide-react";
+import { Search, AlertTriangle, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getDaysUntilDue } from "@/utils/dates";
+import type { Project } from "@shared/schema";
 
-function getDaysUntilDue(dueDate: string | null) {
-  if (!dueDate) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const due = new Date(dueDate);
-  return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function HrspBadge({ project }: { project: any }) {
+function HrspInfo({ project }: { project: Project }) {
   const isLoadDisplacementOntario =
     project.ucTeam?.toLowerCase().includes('load displacement') &&
     project.province?.toLowerCase().includes('ontario');
@@ -29,10 +22,12 @@ function HrspBadge({ project }: { project: any }) {
 
   if (project.hrspMissing) {
     return (
-      <Badge variant="destructive" className="text-xs flex items-center gap-1" data-testid={`badge-hrsp-missing-${project.id}`}>
-        <AlertCircle className="h-3 w-3" />
-        HRSP subtask missing — needs review
-      </Badge>
+      <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+        <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
+        <span className="text-red-600 dark:text-red-400 font-medium" data-testid={`text-hrsp-missing-${project.id}`}>
+          HRSP subtask missing — needs review
+        </span>
+      </div>
     );
   }
 
@@ -43,35 +38,31 @@ function HrspBadge({ project }: { project: any }) {
   const isLate = !isComplete && daysLeft !== null && daysLeft < 0;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Badge
-        className={
-          isComplete
-            ? "text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-            : isLate
-              ? "text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-              : "text-xs bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-        }
-        data-testid={`badge-hrsp-status-${project.id}`}
-      >
+    <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+      <span className={
+        isComplete
+          ? "text-green-700 dark:text-green-400"
+          : isLate
+            ? "text-red-600 dark:text-red-400 font-medium"
+            : "text-muted-foreground"
+      } data-testid={`text-hrsp-status-${project.id}`}>
         HRSP: {project.hrspStatus}
-      </Badge>
+      </span>
       {isLate && (
-        <Badge variant="destructive" className="text-xs flex items-center gap-1">
-          <CalendarClock className="h-3 w-3" />
-          HRSP {Math.abs(daysLeft!)}d overdue
-        </Badge>
+        <span className="text-red-600 dark:text-red-400 font-medium">
+          — {Math.abs(daysLeft!)}d overdue
+        </span>
       )}
     </div>
   );
 }
 
-function HrspStatusSelect({ project, hrspOptions, onUpdate }: { project: any; hrspOptions: string[]; onUpdate: (projectId: string, status: string) => void }) {
+function HrspStatusSelect({ project, hrspOptions, onUpdate }: { project: Project; hrspOptions: string[]; onUpdate: (projectId: string, status: string) => void }) {
   if (!project.hrspSubtaskGid) return null;
 
   return (
     <Select value={project.hrspStatus || ''} onValueChange={(v) => onUpdate(project.id, v)}>
-      <SelectTrigger className="w-[220px] h-8 text-xs" data-testid={`select-hrsp-status-${project.id}`}>
+      <SelectTrigger className="w-[180px] h-7 text-xs" data-testid={`select-hrsp-status-${project.id}`}>
         <SelectValue placeholder="Set HRSP status" />
       </SelectTrigger>
       <SelectContent>
@@ -88,7 +79,7 @@ export default function PaymentsView() {
   const [filter, setFilter] = useState("all");
   const { toast } = useToast();
 
-  const { data: projects, isLoading } = useQuery<any[]>({
+  const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
   });
 
@@ -98,19 +89,19 @@ export default function PaymentsView() {
 
   const rebateStatusOptions = Array.isArray(rebateOptions) ? rebateOptions.map(o => o.name) : [];
 
-  const allInstallProjects = (projects || []).filter((p: any) =>
+  const allInstallProjects = (projects || []).filter((p: Project) =>
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
-  const isRebateEligible = (p: any) =>
+  const isRebateEligible = (p: Project) =>
     p.ucTeam?.toLowerCase().includes('load displacement') &&
     p.province?.toLowerCase().includes('ontario');
 
-  const installProjects = allInstallProjects.filter((p: any) => isRebateEligible(p));
+  const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p));
 
-  const firstHrspSubtaskGid = installProjects.find((p: any) => p.hrspSubtaskGid)?.hrspSubtaskGid;
+  const firstHrspSubtaskGid = installProjects.find((p: Project) => p.hrspSubtaskGid)?.hrspSubtaskGid;
 
   const { data: hrspOptionsData } = useQuery<{ gid: string; name: string }[]>({
     queryKey: ['/api/hrsp/field-options', firstHrspSubtaskGid],
@@ -125,50 +116,54 @@ export default function PaymentsView() {
       await apiRequest("PATCH", `/api/hrsp/${projectId}`, { status });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({ title: "HRSP status updated in Asana" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     }
   };
 
-  const filtered = installProjects.filter((p: any) => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "needs_attention") {
-      return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
-    }
-    if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
-    if (filter === "hrsp_issues") {
-      const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
-      if (!isLdOn) return false;
-      if (p.hrspMissing) return true;
-      const isComplete = p.hrspStatus?.toLowerCase().includes('complete') || p.hrspStatus?.toLowerCase().includes('not required');
-      if (!isComplete && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0) return true;
-      return false;
-    }
-    if (filter !== "all" && p.rebateStatus !== filter) return false;
-    return true;
-  });
-
-  const needsAttention = installProjects.filter((p: any) =>
-    !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
-  ).length;
-
-  const hrspIssueCount = installProjects.filter((p: any) => {
+  const hasHrspIssue = (p: Project) => {
     const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
     if (!isLdOn) return false;
     if (p.hrspMissing) return true;
     const isComplete = p.hrspStatus?.toLowerCase().includes('complete') || p.hrspStatus?.toLowerCase().includes('not required');
     if (!isComplete && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0) return true;
     return false;
-  }).length;
+  };
+
+  const filtered = installProjects.filter((p: Project) => {
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter === "needs_attention") {
+      return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
+    }
+    if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
+    if (filter === "hrsp_issues") return hasHrspIssue(p);
+    if (filter !== "all" && p.rebateStatus !== filter) return false;
+    return true;
+  });
+
+  const needsAttention = installProjects.filter((p: Project) =>
+    !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
+  ).length;
+
+  const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
 
   const handleRebateStatus = async (projectId: string, status: string) => {
     try {
       await apiRequest("PATCH", `/api/projects/${projectId}`, { rebateStatus: status });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({ title: "Rebate status updated in Asana" });
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     }
+  };
+
+  const getRebateStatusColor = (status: string) => {
+    const lower = status.toLowerCase();
+    if (lower.includes('not required')) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+    if (lower.includes('new') || lower.includes('check')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+    if (lower.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    if (lower.includes('in-progress') || lower.includes('submitted')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+    return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
   };
 
   if (isLoading) {
@@ -229,82 +224,64 @@ export default function PaymentsView() {
       ) : (
         <div className="space-y-3">
           {[...filtered]
-            .sort((a: any, b: any) => {
-              const aHrspIssue = a.hrspMissing || (!a.hrspStatus?.toLowerCase().includes('complete') && !a.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(a.hrspDueDate) !== null && getDaysUntilDue(a.hrspDueDate)! < 0);
-              const bHrspIssue = b.hrspMissing || (!b.hrspStatus?.toLowerCase().includes('complete') && !b.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(b.hrspDueDate) !== null && getDaysUntilDue(b.hrspDueDate)! < 0);
-              if (aHrspIssue && !bHrspIssue) return -1;
-              if (!aHrspIssue && bHrspIssue) return 1;
+            .sort((a: Project, b: Project) => {
+              const aIssue = hasHrspIssue(a);
+              const bIssue = hasHrspIssue(b);
+              if (aIssue && !bIssue) return -1;
+              if (!aIssue && bIssue) return 1;
               return 0;
             })
-            .map((p: any) => {
+            .map((p: Project) => {
             const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
-            const hasHrspIssue = isLdOn && (p.hrspMissing || (!p.hrspStatus?.toLowerCase().includes('complete') && !p.hrspStatus?.toLowerCase().includes('not required') && getDaysUntilDue(p.hrspDueDate) !== null && getDaysUntilDue(p.hrspDueDate)! < 0));
+            const hrspIssue = hasHrspIssue(p);
+
+            const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
+            const isHrspFallback = !p.rebateStatus && isLdOn && !!p.hrspStatus;
+
             return (
               <Card
                 key={p.id}
-                className={hasHrspIssue ? "border-red-300 dark:border-red-800" : ""}
+                className={`transition-colors ${hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-project-${p.id}`}>
+                          {p.name}
+                        </Link>
                         {isLdOn && (
-                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-300" data-testid={`badge-ld-on-${p.id}`}>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300" data-testid={`badge-ld-on-${p.id}`}>
                             Load Displacement - ON
-                          </Badge>
+                          </span>
+                        )}
+                        {displayStatus && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getRebateStatusColor(displayStatus)}`} data-testid={`badge-rebate-status-${p.id}`}>
+                            {isHrspFallback ? `HRSP: ${displayStatus}` : displayStatus}
+                          </span>
+                        )}
+                        {!displayStatus && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground" data-testid={`badge-no-rebate-${p.id}`}>
+                            No rebate status
+                          </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{p.province || 'No province'}</span>
-                        <span className="text-xs text-muted-foreground">UC Team: {p.ucTeam || 'N/A'}</span>
-                        <span className="text-xs text-muted-foreground">PM: {p.pmStatus || 'N/A'}</span>
+
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                        <span>{p.province || 'No province'}</span>
+                        <span>·</span>
+                        <span>UC Team: {p.ucTeam || 'N/A'}</span>
+                        <span>·</span>
+                        <span>PM: {p.pmStatus || 'N/A'}</span>
                       </div>
-                      {isLdOn && p.rebateStatus && (
-                        <div className="mt-2">
-                          <HrspBadge project={p} />
-                        </div>
-                      )}
-                      {isLdOn && !p.rebateStatus && p.hrspMissing && (
-                        <div className="mt-2">
-                          <HrspBadge project={p} />
-                        </div>
-                      )}
+
+                      {isLdOn && <HrspInfo project={p} />}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {(() => {
-                        const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
-                        if (displayStatus) {
-                          const isHrspFallback = !p.rebateStatus && isLdOn && p.hrspStatus;
-                          return (
-                            <Badge
-                              className={
-                                displayStatus.toLowerCase().includes('not required')
-                                  ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                                  : displayStatus.toLowerCase().includes('new') || displayStatus.toLowerCase().includes('check')
-                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                                    : displayStatus.toLowerCase().includes('complete')
-                                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                      : displayStatus.toLowerCase().includes('in-progress') || displayStatus.toLowerCase().includes('submitted')
-                                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                              }
-                              data-testid={`badge-rebate-status-${p.id}`}
-                            >
-                              <Gift className="h-3 w-3 mr-1" />
-                              {isHrspFallback ? `HRSP: ${displayStatus}` : displayStatus}
-                            </Badge>
-                          );
-                        }
-                        return (
-                          <Badge variant="outline" className="text-xs" data-testid={`badge-no-rebate-${p.id}`}>
-                            No rebate status
-                          </Badge>
-                        );
-                      })()}
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
-                        <SelectTrigger className="w-[200px] h-8 text-xs" data-testid={`select-rebate-status-${p.id}`}>
+                        <SelectTrigger className="w-[180px] h-7 text-xs" data-testid={`select-rebate-status-${p.id}`}>
                           <SelectValue placeholder="Set rebate status" />
                         </SelectTrigger>
                         <SelectContent>

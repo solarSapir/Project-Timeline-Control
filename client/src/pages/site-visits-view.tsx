@@ -15,12 +15,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
-import { getDaysUntilDue } from "@/utils/dates";
+import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { isVisitComplete, isVisitBooked } from "@/utils/stages";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
 import { useAsanaFieldOptions } from "@/hooks/use-asana-field-options";
 import SiteVisitPhotosDialog from "@/components/site-visits/SiteVisitPhotosDialog";
+import { DueIndicator } from "@/components/uc/DueIndicator";
 
 function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisitDueDate: string | null }): string | null {
   if (!project.contractDueDate) return project.siteVisitDueDate || null;
@@ -136,22 +137,63 @@ export default function SiteVisitsView() {
           const booked = isVisitBooked(p.siteVisitStatus);
           const isOverdue = !complete && !booked && daysLeft !== null && daysLeft < 0;
           return (
-            <Card key={p.id} className={complete ? "border-green-300 dark:border-green-800" : isOverdue ? "border-red-300 dark:border-red-800" : booked ? "border-blue-300 dark:border-blue-800" : ""} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-3 px-4"><div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="flex items-center gap-2 flex-wrap"><Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link><StatusBadge status={p.siteVisitStatus} /></div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap"><span className="text-xs text-muted-foreground">{p.province || 'No province'}</span><span className="text-xs text-muted-foreground">UC: {p.ucStatus || 'N/A'}</span><span className="text-xs text-muted-foreground">Contract: {p.installTeamStage || 'N/A'}</span></div>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {dueDate && <Badge variant={isOverdue ? "destructive" : daysLeft !== null && daysLeft <= 3 ? "default" : "outline"} className={`text-xs flex items-center gap-1 ${!isOverdue && daysLeft !== null && daysLeft <= 3 ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : ""}`} data-testid={`badge-due-${p.id}`}><Clock className="h-3 w-3" />{isOverdue ? `${Math.abs(daysLeft!)}d overdue` : daysLeft !== null && daysLeft <= 3 ? `Due in ${daysLeft}d` : `Due ${new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}</Badge>}
-                    {p.siteVisitDate && <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50 dark:bg-blue-950" data-testid={`badge-visit-date-${p.id}`}><CalendarIcon className="h-3 w-3" />Visit: {format(new Date(p.siteVisitDate), 'MMM d, yyyy')}</Badge>}
+            <Card
+              key={p.id}
+              className={`transition-colors ${
+                complete ? "border-l-4 border-l-green-400" :
+                isOverdue ? "border-l-4 border-l-red-400" :
+                booked ? "border-l-4 border-l-blue-400" : ""
+              }`}
+              data-testid={`card-project-${p.id}`}
+            >
+              <CardContent className="py-3 px-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>
+                        {p.name}
+                      </Link>
+                      <StatusBadge status={p.siteVisitStatus} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      {p.province && <span>{p.province}</span>}
+                      {p.province && p.ucStatus && <span>·</span>}
+                      {p.ucStatus && <span>UC: {p.ucStatus}</span>}
+                      {(p.province || p.ucStatus) && p.installTeamStage && <span>·</span>}
+                      {p.installTeamStage && <span>{p.installTeamStage}</span>}
+                      {(p.province || p.ucStatus || p.installTeamStage) && dueDate && !complete && <span>·</span>}
+                      <DueIndicator dueDate={dueDate} completed={complete} />
+                    </div>
+                    {p.siteVisitDate && (
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        Visit: {formatShortDate(p.siteVisitDate)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Select value={p.siteVisitStatus || ''} onValueChange={(v) => handleStatus(p.id, v)}>
+                      <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-site-visit-status-${p.id}`}>
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" data-testid={`button-set-visit-date-${p.id}`}>
+                          <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                          {p.siteVisitDate ? format(new Date(p.siteVisitDate), 'MMM d') : "Visit Date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={p.siteVisitDate ? new Date(p.siteVisitDate) : undefined} onSelect={(d) => handleDate(p.id, d)} />
+                      </PopoverContent>
+                    </Popover>
+                    <SiteVisitPhotosDialog projectId={p.id} projectName={p.name} siteVisitStatus={p.siteVisitStatus} />
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 min-w-[200px]">
-                  <Select value={p.siteVisitStatus || ''} onValueChange={(v) => handleStatus(p.id, v)}><SelectTrigger className="h-8 text-xs w-full" data-testid={`select-site-visit-status-${p.id}`}><SelectValue placeholder="Status" /></SelectTrigger><SelectContent>{statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
-                  <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="text-xs w-full" data-testid={`button-set-visit-date-${p.id}`}><CalendarIcon className="h-3.5 w-3.5 mr-1" />{p.siteVisitDate ? format(new Date(p.siteVisitDate), 'MMM d, yyyy') : "Set Visit Date"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={p.siteVisitDate ? new Date(p.siteVisitDate) : undefined} onSelect={(d) => handleDate(p.id, d)} /></PopoverContent></Popover>
-                  <SiteVisitPhotosDialog projectId={p.id} projectName={p.name} siteVisitStatus={p.siteVisitStatus} />
-                </div>
-              </div></CardContent>
+              </CardContent>
             </Card>
           );
         })}</div>

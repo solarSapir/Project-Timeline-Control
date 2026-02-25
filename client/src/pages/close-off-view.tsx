@@ -4,16 +4,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TaskActionDialog } from "@/components/task-action-dialog";
-import { StatusBadge } from "@/components/status-badge";
+import { DueIndicator } from "@/components/uc/DueIndicator";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, CheckCircle2, Mail, Camera, FileText, CalendarClock, AlertTriangle, Clock, Lock } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, Clock, Lock } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
-import { getDaysUntilDue } from "@/utils/dates";
+import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
 import type { Project } from "@shared/schema";
@@ -117,27 +117,38 @@ export default function CloseOffView() {
           const complete = isFullyComplete(p);
           const isOverdue = daysLeft !== null && daysLeft < 0 && !complete;
           return (
-            <Card key={p.id} className={complete ? "border-green-300 dark:border-green-800" : isOverdue ? "border-red-300 dark:border-red-800" : ""} data-testid={`card-project-${p.id}`}>
-              <CardContent className="py-4 px-4 space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 flex-wrap"><Link href={`/project/${p.id}`} className="font-medium hover:underline cursor-pointer text-primary" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>{p.province && <span className="text-xs text-muted-foreground">{p.province}</span>}</div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {dueDate && <Badge className={`text-xs flex items-center gap-1 ${complete ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : isOverdue ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" : daysLeft !== null && daysLeft <= 3 ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"}`} data-testid={`badge-due-${p.id}`}><CalendarClock className="h-3 w-3" />{complete ? "Complete" : isOverdue ? `${Math.abs(daysLeft!)}d overdue` : `Due in ${daysLeft}d`} ({new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</Badge>}
-                      {p.installStartDate ? <Badge variant="outline" className="text-xs" data-testid={`badge-install-date-${p.id}`}>Installed: {new Date(p.installStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Badge> : <Badge variant="outline" className="text-xs text-muted-foreground border-dashed" data-testid={`badge-no-install-date-${p.id}`}>No install date set</Badge>}
+            <Card key={p.id} className={`transition-colors border-l-4 ${complete ? "border-l-green-400" : isOverdue ? "border-l-red-400" : "border-l-transparent"}`} data-testid={`card-project-${p.id}`}>
+              <CardContent className="py-3 px-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-profile-${p.id}`}>{p.name}</Link>
+                      {p.province && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" data-testid={`badge-province-${p.id}`}>{p.province}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      {p.installStartDate && <span data-testid={`text-install-date-${p.id}`}>Installed {formatShortDate(p.installStartDate)}</span>}
+                      {!p.installStartDate && <span data-testid={`text-no-install-date-${p.id}`}>No install date</span>}
+                      {dueDate && !complete && <span>·</span>}
+                      <DueIndicator dueDate={dueDate} completed={complete} />
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                      <span data-testid={`text-uc-status-${p.id}`}>UC: {p.ucStatus?.toLowerCase().includes('closed') ? <span className="text-green-600 dark:text-green-400 font-medium">Closed</span> : <span>{p.ucStatus || 'Pending'}</span>}</span>
+                      <span>·</span>
+                      <span data-testid={`text-ahj-status-${p.id}`}>AHJ: {p.ahjStatus?.toLowerCase().includes('closed') ? <span className="text-green-600 dark:text-green-400 font-medium">Closed</span> : <span>{p.ahjStatus || 'Pending'}</span>}</span>
+                      <span>·</span>
+                      <span data-testid={`text-photos-status-${p.id}`}>Photos: Pending</span>
+                      <span>·</span>
+                      <span data-testid={`text-final-payment-${p.id}`}>Payment: {p.finalPaymentCollected ? <span className="text-green-600 dark:text-green-400 font-medium">Collected</span> : 'Pending'}</span>
+                      <span>·</span>
+                      <span data-testid={`text-marketing-status-${p.id}`}>Marketing: Pending</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {!complete && <Button size="sm" variant="outline" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>Set Close-off</Button>}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!complete && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>Set Close-off</Button>}
                     <TaskActionDialog projectId={p.id} projectName={p.name} viewType="close_off" />
                   </div>
-                </div>
-                <div className="flex items-center gap-4 flex-wrap text-xs">
-                  <div className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">UC:</span><StatusBadge status={p.ucStatus} /></div>
-                  <div className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">AHJ:</span><StatusBadge status={p.ahjStatus} /></div>
-                  <div className="flex items-center gap-1.5"><Camera className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">Photos:</span><span data-testid={`text-photos-status-${p.id}`}>Pending</span></div>
-                  <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">Final Payment:</span><span className={p.finalPaymentCollected ? "text-green-600 font-medium" : ""} data-testid={`text-final-payment-${p.id}`}>{p.finalPaymentCollected ? "Collected" : "Pending"}</span></div>
-                  <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">Marketing notified:</span><span data-testid={`text-marketing-status-${p.id}`}>Pending</span></div>
                 </div>
               </CardContent>
             </Card>
