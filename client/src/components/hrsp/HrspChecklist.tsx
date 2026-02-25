@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { HrspInvoiceDialog } from "./HrspInvoiceDialog";
 import { HrspPaidInvoiceDialog } from "./HrspPaidInvoiceDialog";
 import type { Project, HrspRequiredDocument } from "@shared/schema";
-import { HRSP_PRE_APPROVAL_STATUSES, HRSP_PREAPPROVED_STATUS } from "@shared/schema";
+import { HRSP_PRE_APPROVAL_STATUSES, HRSP_POST_APPROVAL_STATUSES } from "@shared/schema";
 
 function CheckItem({ done, label, grayed, children }: { done: boolean; label: string; grayed?: boolean; children?: React.ReactNode }) {
   const textClass = grayed
@@ -145,8 +145,7 @@ export function HrspChecklist({ project }: { project: Project }) {
 
   const allDocs = config?.requiredDocuments || [];
   const status = project.hrspStatus || "";
-  const isPreApproval = HRSP_PRE_APPROVAL_STATUSES.some(s => status.includes(s)) || !status;
-  const isPreApproved = status.includes(HRSP_PREAPPROVED_STATUS) || status.toLowerCase().includes("pre approved");
+  const isPostApproval = HRSP_POST_APPROVAL_STATUSES.some(s => status.toLowerCase().includes(s.toLowerCase()));
 
   const preDocs = allDocs.filter(d => d.phase === "pre" && d.enabled);
   const closeoffDocs = allDocs.filter(d => d.phase === "closeoff" && d.enabled);
@@ -154,19 +153,19 @@ export function HrspChecklist({ project }: { project: Project }) {
   const preCompleted = preDocs.filter(d => getDocStatus(d.key, project).done).length;
   const closeoffCompleted = closeoffDocs.filter(d => getDocStatus(d.key, project).done).length;
 
-  const showCloseoff = isPreApproved || closeoffDocs.some(d => getDocStatus(d.key, project).done);
+  const showCloseoff = isPostApproval || closeoffDocs.some(d => getDocStatus(d.key, project).done);
 
   return (
     <div className="mt-2 space-y-2" data-testid={`hrsp-checklist-${project.id}`}>
       <div className="space-y-1">
         <div className="flex items-center gap-1.5 mb-1">
-          {isPreApproved ? (
+          {isPostApproval ? (
             <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
           ) : null}
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-            {isPreApproved ? "Pre-Approval" : `Pre-Approval (${preCompleted}/${preDocs.length})`}
+            {isPostApproval ? "Pre-Approval" : `Pre-Approval (${preCompleted}/${preDocs.length})`}
           </span>
-          {isPreApproved && (
+          {isPostApproval && (
             <span className="text-[9px] px-1 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">Approved</span>
           )}
         </div>
@@ -176,8 +175,8 @@ export function HrspChecklist({ project }: { project: Project }) {
 
           if (doc.key === "invoice") {
             return (
-              <CheckItem key={doc.key} done={isPreApproved || done} label={label} grayed={isPreApproved}>
-                {!isPreApproved && <HrspInvoiceDialog project={project} />}
+              <CheckItem key={doc.key} done={isPostApproval || done} label={label} grayed={isPostApproval}>
+                {!isPostApproval && <HrspInvoiceDialog project={project} />}
               </CheckItem>
             );
           }
@@ -187,15 +186,15 @@ export function HrspChecklist({ project }: { project: Project }) {
               key={doc.key}
               docKey={doc.key}
               project={project}
-              done={isPreApproved || done}
+              done={isPostApproval || done}
               label={label}
-              grayed={isPreApproved}
+              grayed={isPostApproval}
             />
           );
         })}
       </div>
 
-      {(showCloseoff || isPreApproved) && closeoffDocs.length > 0 && (
+      {(showCloseoff || isPostApproval) && closeoffDocs.length > 0 && (
         <div className="space-y-1 pt-1 border-t border-border/50">
           <div className="flex items-center gap-1.5 mb-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">

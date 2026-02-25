@@ -276,7 +276,11 @@ export const HRSP_PRE_APPROVAL_STATUSES = [
   "Submitted",
 ];
 
-export const HRSP_PREAPPROVED_STATUS = "Complete - (Pre approved, waiting for job to complete)";
+export const HRSP_POST_APPROVAL_STATUSES = [
+  "Complete - (Pre approved, waiting for job to complete)",
+  "Close-off",
+  "100% complete",
+];
 
 export const UC_STATUSES = [
   "New Application",
