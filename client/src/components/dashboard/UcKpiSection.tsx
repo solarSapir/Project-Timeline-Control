@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import { Activity, TrendingUp, Clock, CheckCircle2, Timer } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
+import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
 
 interface CompletionEntry {
   date: string;
@@ -18,6 +19,15 @@ interface CompletionEntry {
   notes: string | null;
 }
 
+interface SubmitTimeEntry {
+  projectName: string;
+  projectId: string;
+  createdDate: string;
+  submittedDate: string;
+  days: number;
+  month: string;
+}
+
 interface UcKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
   recentCompletions: CompletionEntry[];
@@ -25,6 +35,7 @@ interface UcKpiStats {
   completionsThisMonth: number;
   avgTasksPerDay: number;
   avgDaysToSubmit: number | null;
+  submitTimeDetails: SubmitTimeEntry[];
   avgDaysToApprove: number | null;
   avgDaysToReject: number | null;
   avgDaysToClose: number | null;
@@ -36,6 +47,7 @@ interface UcKpiStats {
 
 export function UcKpiSection() {
   const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [submitDrilldownOpen, setSubmitDrilldownOpen] = useState(false);
   const { data: stats, isLoading } = useQuery<UcKpiStats>({
     queryKey: ["/api/uc/kpi-stats"],
   });
@@ -130,7 +142,11 @@ export function UcKpiSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setSubmitDrilldownOpen(true)}
+          data-testid="card-avg-submit"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Days to Submit
@@ -141,7 +157,7 @@ export function UcKpiSection() {
             <div className="text-2xl font-bold" data-testid="text-uc-avg-submit">
               {formatStat(stats.avgDaysToSubmit)}
             </div>
-            <p className="text-xs text-muted-foreground">from project creation</p>
+            <p className="text-xs text-muted-foreground">from project creation · click for details</p>
           </CardContent>
         </Card>
 
@@ -231,6 +247,13 @@ export function UcKpiSection() {
         onOpenChange={setDrilldownOpen}
         completions={stats.recentCompletions || []}
         dailyCounts={stats.dailyCounts}
+      />
+
+      <SubmitTimeDrilldown
+        open={submitDrilldownOpen}
+        onOpenChange={setSubmitDrilldownOpen}
+        details={stats.submitTimeDetails || []}
+        overallAvg={stats.avgDaysToSubmit}
       />
     </div>
   );

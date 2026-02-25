@@ -88,6 +88,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
     const completionsThisMonth = completions.filter(c => c.completedAt && new Date(c.completedAt) >= monthAgo).length;
 
     const submitTimes: number[] = [];
+    const submitTimeDetails: { projectName: string; projectId: string; createdDate: string; submittedDate: string; days: number; month: string }[] = [];
     const approveTimes: number[] = [];
     const rejectTimes: number[] = [];
     const closeOffTimes: number[] = [];
@@ -96,8 +97,19 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
     for (const p of ucRequiredProjects) {
       const effectiveStart = p.lastUnpausedDate || p.projectCreatedDate;
       if (effectiveStart && p.ucSubmittedDate) {
-        const days = (new Date(p.ucSubmittedDate).getTime() - new Date(effectiveStart).getTime()) / 86400000;
-        if (days >= 0 && days < 365) submitTimes.push(days);
+        const days = Math.round(((new Date(p.ucSubmittedDate).getTime() - new Date(effectiveStart).getTime()) / 86400000) * 10) / 10;
+        if (days >= 0 && days < 365) {
+          submitTimes.push(days);
+          const subDate = new Date(p.ucSubmittedDate);
+          submitTimeDetails.push({
+            projectName: p.name || 'Unknown',
+            projectId: p.id,
+            createdDate: effectiveStart,
+            submittedDate: p.ucSubmittedDate,
+            days,
+            month: `${subDate.getFullYear()}-${String(subDate.getMonth() + 1).padStart(2, '0')}`,
+          });
+        }
       }
 
       const projCompletions = completions.filter(c => c.projectId === p.id);
@@ -139,6 +151,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
       completionsThisMonth,
       avgTasksPerDay: Math.round((completions.length / activeDays) * 10) / 10,
       avgDaysToSubmit: avg(submitTimes),
+      submitTimeDetails: submitTimeDetails.sort((a, b) => b.submittedDate.localeCompare(a.submittedDate)),
       avgDaysToApprove: avg(approveTimes),
       avgDaysToReject: avg(rejectTimes),
       avgDaysToClose: avg(closeOffTimes),

@@ -155,6 +155,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
     const completionsThisMonth = completions.filter(c => c.completedAt && new Date(c.completedAt) >= monthAgo).length;
 
     const submitTimes: number[] = [];
+    const submitTimeDetails: { projectName: string; projectId: string; createdDate: string; submittedDate: string; days: number; month: string }[] = [];
     const approvalTimes: number[] = [];
     const closeOffSubmitTimes: number[] = [];
     let rejectionCount = 0;
@@ -171,8 +172,19 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
       if (submitEntry) submittedCount++;
 
       if (p.projectCreatedDate && submitEntry?.completedAt) {
-        const days = (new Date(submitEntry.completedAt).getTime() - new Date(p.projectCreatedDate).getTime()) / 86400000;
-        if (days >= 0 && days < 365) submitTimes.push(days);
+        const days = Math.round(((new Date(submitEntry.completedAt).getTime() - new Date(p.projectCreatedDate).getTime()) / 86400000) * 10) / 10;
+        if (days >= 0 && days < 365) {
+          submitTimes.push(days);
+          const subDate = new Date(submitEntry.completedAt);
+          submitTimeDetails.push({
+            projectName: p.name || "Unknown",
+            projectId: p.id,
+            createdDate: p.projectCreatedDate,
+            submittedDate: subDate.toISOString().split("T")[0],
+            days,
+            month: `${subDate.getFullYear()}-${String(subDate.getMonth() + 1).padStart(2, "0")}`,
+          });
+        }
       }
 
       if (submitEntry?.completedAt && approveEntry?.completedAt) {
