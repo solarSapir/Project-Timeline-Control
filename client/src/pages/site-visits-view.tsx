@@ -3,11 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/status-badge";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, MapPin, Calendar as CalendarIcon, CheckCircle2, Clock, AlertTriangle, Lock } from "lucide-react";
+import { Search, MapPin, Calendar as CalendarIcon, CheckCircle2, Clock, AlertTriangle, Lock, FolderOpen } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -16,12 +15,13 @@ import { format } from "date-fns";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
-import { isVisitComplete, isVisitBooked } from "@/utils/stages";
+import { isVisitComplete, isVisitBooked, getStatusBadgeColor } from "@/utils/stages";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_LABELS } from "@shared/schema";
 import { useAsanaFieldOptions } from "@/hooks/use-asana-field-options";
 import SiteVisitPhotosDialog from "@/components/site-visits/SiteVisitPhotosDialog";
 import { DueIndicator } from "@/components/uc/DueIndicator";
+import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 
 function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisitDueDate: string | null }): string | null {
   if (!project.contractDueDate) return project.siteVisitDueDate || null;
@@ -33,6 +33,7 @@ function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisi
 export default function SiteVisitsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("pending");
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { residentialProjects, isLoading } = useProjects();
@@ -153,7 +154,11 @@ export default function SiteVisitsView() {
                       <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>
                         {p.name}
                       </Link>
-                      <StatusBadge status={p.siteVisitStatus} />
+                      {p.siteVisitStatus && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getStatusBadgeColor(p.siteVisitStatus)}`} data-testid={`badge-status-${p.id}`}>
+                          {p.siteVisitStatus}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
                       {p.province && <span>{p.province}</span>}
@@ -171,6 +176,16 @@ export default function SiteVisitsView() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      size="sm"
+                      variant={expandedProjectId === p.id ? "secondary" : "ghost"}
+                      className="h-7 text-xs gap-1 px-2"
+                      onClick={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
+                      data-testid={`button-subtasks-${p.id}`}
+                    >
+                      <FolderOpen className="h-3 w-3" />
+                      Subtasks
+                    </Button>
                     <Select value={p.siteVisitStatus || ''} onValueChange={(v) => handleStatus(p.id, v)}>
                       <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-site-visit-status-${p.id}`}>
                         <SelectValue placeholder="Status" />
@@ -193,6 +208,12 @@ export default function SiteVisitsView() {
                     <SiteVisitPhotosDialog projectId={p.id} projectName={p.name} siteVisitStatus={p.siteVisitStatus} />
                   </div>
                 </div>
+
+                {expandedProjectId === p.id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Site visit" label="Site Visit Subtask" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           );

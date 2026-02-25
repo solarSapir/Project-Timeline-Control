@@ -102,4 +102,19 @@ export function getStageStatus(
   return "in_progress";
 }
 
+/** Get Tailwind color classes for a status badge in compact inline format. */
+export function getStatusBadgeColor(status: string | null): string {
+  if (!status) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+  const lower = status.toLowerCase();
+  if (lower.includes('complete') || lower.includes('approved') || lower.includes('permit issued') || lower.includes('closed'))
+    return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  if (lower.includes('submitted') || lower.includes('in progress') || lower.includes('p.eng') || lower.includes('booked'))
+    return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+  if (lower.includes('rejected') || lower.includes('missing'))
+    return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
+  if (lower.includes('new') || lower.includes('pending') || lower.includes('ready'))
+    return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+  return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+}
+
 export { UC_COMPLETE_STATUSES, AHJ_COMPLETE_STATUSES, CONTRACT_DONE_STATUSES, SV_DONE_STATUSES };

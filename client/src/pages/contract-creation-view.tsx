@@ -12,6 +12,39 @@ import { areDependenciesMet, type WorkflowConfig } from "@/lib/stage-dependencie
 import { ContractCard } from "@/components/contracts/ContractCard";
 import { WaitingDepsCard } from "@/components/contracts/WaitingDepsCard";
 import { getLastFollowUp, findAction, hasAction, filterProjects, sortByDue, computeCounts } from "@/hooks/use-contract-filters";
+import type { Project, TaskAction } from "@shared/schema";
+
+function ContractCardList({ projects, taskActions, updating, onContractSent, onContractSigned, onDepositCollected }: {
+  projects: Project[];
+  taskActions: TaskAction[] | undefined;
+  updating: string | null;
+  onContractSent: (p: Project, c: boolean) => void;
+  onContractSigned: (p: Project, c: boolean) => void;
+  onDepositCollected: (p: Project, c: boolean) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  return (
+    <div className="space-y-3">
+      {projects.map((p) => (
+        <ContractCard
+          key={p.id}
+          project={p}
+          lastFollowUp={getLastFollowUp(taskActions, p.id)}
+          docUploaded={hasAction(taskActions, p.id, 'document_upload')}
+          docUploadAction={findAction(taskActions, p.id, 'document_upload')}
+          approved={hasAction(taskActions, p.id, 'contract_approved')}
+          approvalAction={findAction(taskActions, p.id, 'contract_approved')}
+          updating={updating}
+          isExpanded={expandedId === p.id}
+          onToggleExpand={() => setExpandedId(expandedId === p.id ? null : p.id)}
+          onContractSent={onContractSent}
+          onContractSigned={onContractSigned}
+          onDepositCollected={onDepositCollected}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function ContractCreationView() {
   const [search, setSearch] = useState("");
@@ -95,23 +128,14 @@ export default function ContractCreationView() {
       ) : sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground"><p>{emptyMsg}</p></div>
       ) : (
-        <div className="space-y-3">
-          {sortedFiltered.map((p) => (
-            <ContractCard
-              key={p.id}
-              project={p}
-              lastFollowUp={getLastFollowUp(taskActions, p.id)}
-              docUploaded={hasAction(taskActions, p.id, 'document_upload')}
-              docUploadAction={findAction(taskActions, p.id, 'document_upload')}
-              approved={hasAction(taskActions, p.id, 'contract_approved')}
-              approvalAction={findAction(taskActions, p.id, 'contract_approved')}
-              updating={updating}
-              onContractSent={handleContractSent}
-              onContractSigned={handleContractSigned}
-              onDepositCollected={handleDepositCollected}
-            />
-          ))}
-        </div>
+        <ContractCardList
+          projects={sortedFiltered}
+          taskActions={taskActions}
+          updating={updating}
+          onContractSent={handleContractSent}
+          onContractSigned={handleContractSigned}
+          onDepositCollected={handleDepositCollected}
+        />
       )}
     </div>
   );

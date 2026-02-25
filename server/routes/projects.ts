@@ -4,6 +4,7 @@ import {
   updateAsanaTaskField,
   fetchTaskStories,
   fetchSubtasksForTask,
+  createSubtaskForTask,
   completeAsanaTask,
 } from "../asana";
 
@@ -171,6 +172,79 @@ projectsRouter.post("/:id/complete-uc-subtasks", async (req, res) => {
       await completeAsanaTask(st.gid as string);
     }
     res.json({ message: `Completed ${ucSubtasks.length} UC subtasks` });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+/** Find or create a sub-subtask under "Install Team" subtask */
+projectsRouter.get("/:id/install-team-subtask", async (req, res) => {
+  try {
+    const subtaskName = req.query.name as string;
+    if (!subtaskName) return res.status(400).json({ message: "name query param required" });
+
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
+    let installTeam = topSubtasks.find((st: Record<string, unknown>) =>
+      (st.name as string)?.toLowerCase().includes('install team')
+    );
+
+    if (!installTeam) {
+      installTeam = await createSubtaskForTask(project.asanaGid, "Install Team");
+    }
+
+    const children = await fetchSubtasksForTask(installTeam.gid as string);
+    let target = children.find((st: Record<string, unknown>) =>
+      (st.name as string)?.toLowerCase() === subtaskName.toLowerCase()
+    );
+
+    if (!target) {
+      target = await createSubtaskForTask(installTeam.gid as string, subtaskName);
+    }
+
+    res.json({ gid: target.gid, name: target.name, completed: target.completed || false });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+/** Find all subtasks with "AHJ" in the name */
+projectsRouter.get("/:id/ahj-subtasks", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
+    const ahjSubtasks = allSubtasks.filter((st: Record<string, unknown>) =>
+      (st.name as string)?.toLowerCase().includes('ahj')
+    );
+    res.json(ahjSubtasks);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+/** Get the HRSP subtask detail for expand in rebates view */
+projectsRouter.get("/:id/hrsp-subtask", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    if (project.hrspSubtaskGid) {
+      res.json([{ gid: project.hrspSubtaskGid, name: "Home Renovation Savings Program", completed: false }]);
+    } else {
+      const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
+      const hrsp = allSubtasks.filter((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase().includes('home renovation savings program') ||
+        (st.name as string)?.toLowerCase().includes('hrsp')
+      );
+      res.json(hrsp);
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });

@@ -1,13 +1,15 @@
 import type { Project, TaskAction } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { CheckCircle2, Clock, MessageSquare, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, FolderOpen, MessageSquare, Wallet } from "lucide-react";
 import { isContractSent, isContractSigned, isDepositCollected, isPendingSignature, getInstallStageBadgeClass, getInstallStageLabel } from "@/utils/stages";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { getContractDueDate, getContractSentDate, getContractFollowUpDate } from "./contract-helpers";
 import { DueIndicator } from "@/components/uc/DueIndicator";
 import { ContractFollowUpDialog } from "./ContractFollowUpDialog";
 import { ContractActions } from "./ContractActions";
+import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 
 interface ContractCardProps {
   project: Project;
@@ -17,6 +19,8 @@ interface ContractCardProps {
   approved: boolean;
   approvalAction: TaskAction | null;
   updating: string | null;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
   onContractSent: (project: Project, checked: boolean) => void;
   onContractSigned: (project: Project, checked: boolean) => void;
   onDepositCollected: (project: Project, checked: boolean) => void;
@@ -24,7 +28,7 @@ interface ContractCardProps {
 
 export function ContractCard({
   project: p, lastFollowUp, docUploaded, docUploadAction, approved, approvalAction,
-  updating, onContractSent, onContractSigned, onDepositCollected,
+  updating, isExpanded, onToggleExpand, onContractSent, onContractSigned, onDepositCollected,
 }: ContractCardProps) {
   const contractDueDate = getContractDueDate(p);
   const contractSentAsana = getContractSentDate(p);
@@ -111,6 +115,16 @@ export function ContractCard({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant={isExpanded ? "secondary" : "ghost"}
+              className="h-7 text-xs gap-1 px-2"
+              onClick={onToggleExpand}
+              data-testid={`button-subtasks-${p.id}`}
+            >
+              <FolderOpen className="h-3 w-3" />
+              Subtasks
+            </Button>
             <ContractActions
               project={p}
               docUploaded={docUploaded}
@@ -124,6 +138,12 @@ export function ContractCard({
             />
           </div>
         </div>
+
+        {isExpanded && (
+          <div className="mt-3 pt-3 border-t">
+            <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Contract Creation" label="Contract Subtask" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

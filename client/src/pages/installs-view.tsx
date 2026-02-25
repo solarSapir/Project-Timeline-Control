@@ -1,11 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { TaskActionDialog } from "@/components/task-action-dialog";
-import { StatusBadge } from "@/components/status-badge";
 import { useState } from "react";
-import { Search, Wrench, Calendar as CalendarIcon, Truck, Zap as ZapIcon, ClipboardCheck, Clock, AlertTriangle, Shield } from "lucide-react";
+import { Search, Wrench, Calendar as CalendarIcon, Truck, Zap as ZapIcon, ClipboardCheck, Clock, AlertTriangle, Shield, FolderOpen } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -13,11 +13,12 @@ import { useProjects } from "@/hooks/use-projects";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
 import { useTaskActions } from "@/hooks/use-task-actions";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
-import { isPermitIssued, isAhjComplete } from "@/utils/stages";
+import { isPermitIssued, isAhjComplete, getStatusBadgeColor } from "@/utils/stages";
 import { areDependenciesMet, getUnmetDependencies, STAGE_COMPLETION_CRITERIA, type WorkflowConfig } from "@/lib/stage-dependencies";
 import { STAGE_LABELS, type Project } from "@shared/schema";
 import ScheduleDialog from "@/components/installs/ScheduleDialog";
 import { useQuery } from "@tanstack/react-query";
+import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 
 const taskIcons: Record<string, typeof Wrench> = {
   "Equipment Arrival": Truck,
@@ -35,6 +36,7 @@ function getExpectedInstallDue(ahjCompletionDate: string | null): string | null 
 export default function InstallsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("action-needed");
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
 
   const { residentialProjects, isLoading: projectsLoading } = useProjects();
   const { data: schedules, isLoading: schedulesLoading } = useQuery<{ id: string; projectId: string; taskType: string; scheduledDate: string | null; duration: number | null; installerName: string | null; status: string }[]>({ queryKey: ['/api/install-schedules'] });
@@ -149,7 +151,11 @@ export default function InstallsView() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
-                        <StatusBadge status={p.ahjStatus} />
+                        {p.ahjStatus && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getStatusBadgeColor(p.ahjStatus)}`} data-testid={`badge-status-${p.id}`}>
+                            {p.ahjStatus}
+                          </span>
+                        )}
                         {p.installTeamStage && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                             {p.installTeamStage}
@@ -215,10 +221,26 @@ export default function InstallsView() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant={expandedProjectId === p.id ? "secondary" : "ghost"}
+                        className="h-7 text-xs gap-1 px-2"
+                        onClick={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
+                        data-testid={`button-subtasks-${p.id}`}
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                        Subtasks
+                      </Button>
                       <ScheduleDialog projectId={p.id} projectName={p.name} />
                       <TaskActionDialog projectId={p.id} projectName={p.name} viewType="installs" />
                     </div>
                   </div>
+
+                  {expandedProjectId === p.id && (
+                    <div className="mt-3 pt-3 border-t">
+                      <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Install Coordination" label="Install Subtask" />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
