@@ -13,7 +13,7 @@ const initialNodes: Node[] = [
 
   { id: "sort", type: "flowNode", position: { x: 450, y: 160 }, data: { label: "Sort & Sub-filters", type: "filter", description: "Multiple filter options", items: ["All / Needs Attention / Needs Follow-Up", "HRSP Issues / Not Required", "Follow-up needed → top (amber border)", "HRSP issues → next (red border)"] } },
 
-  { id: "card", type: "flowNode", position: { x: 150, y: 340 }, data: { label: "Rebate Card", type: "component", description: "Each card shows project + HRSP info", items: ["Rebate status badge (from GRANTS STATUS)", "Load Displacement ON badge", "HrspInfo: HRSP subtask status + overdue", "HrspChecklist: document checklist", "Close-off due date (14d from closeOffDate)", "EscalationBadge + EscalationDialog", "Focus button → RebateProjectModal"] } },
+  { id: "card", type: "flowNode", position: { x: 150, y: 340 }, data: { label: "Rebate Card", type: "component", description: "Each card shows project + HRSP info", items: ["Rebate status badge (from GRANTS STATUS)", "Load Displacement ON badge", "HrspInfo: HRSP subtask status + overdue", "HrspChecklist: document checklist", "Close-off due date (14d from closeOffDate)", "Follow Up button → RebateFollowUpDialog", "EscalationBadge + EscalationDialog", "Focus button → RebateProjectModal"] } },
 
   { id: "status-change", type: "flowNode", position: { x: 0, y: 520 }, data: { label: "handleRebateStatus()", type: "action", description: "Status dropdown change handler", items: ["PATCH /api/projects/:id with rebateStatus", "If 'Close-off': also sets rebateCloseOffDate", "If 'Close-off - Submitted': opens CloseOffSubmittedDialog", "If '100% complete': auto-completes HRSP subtask", "Pushes to Asana via backend"] } },
 

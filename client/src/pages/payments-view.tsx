@@ -16,6 +16,7 @@ import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import type { Project } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { RebateFollowUpDialog } from "@/components/hrsp/RebateFollowUpDialog";
 import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 
@@ -332,6 +333,7 @@ export default function PaymentsView() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      <RebateFollowUpDialog project={p} />
                       <EscalationDialog projectId={p.id} projectName={p.name} viewType="payments" />
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
                         <SelectTrigger className="w-[140px] sm:w-[180px] h-7 text-xs" data-testid={`select-rebate-status-${p.id}`}>
