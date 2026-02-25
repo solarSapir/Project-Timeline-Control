@@ -270,7 +270,7 @@ export async function getSubtaskFieldOptions(subtaskGid: string, fieldName: stri
 
 export async function fetchTaskStories(taskGid: string): Promise<any[]> {
   const accessToken = await getAccessToken();
-  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories?opt_fields=created_at,created_by,created_by.name,resource_subtype,text,type`, {
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories?opt_fields=created_at,created_by,created_by.name,resource_subtype,text,type,custom_field,custom_field.name,new_enum_value,new_enum_value.name,old_enum_value,old_enum_value.name`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
   if (!res.ok) return [];
@@ -304,10 +304,28 @@ function parseStatusChangeText(text: string, fieldName: string): { fromStatus: s
 export function findAllStatusChangesInStories(stories: any[], fieldName: string): { date: string; user: string; fromStatus: string | null; toStatus: string; text: string }[] {
   const changes: { date: string; user: string; fromStatus: string | null; toStatus: string; text: string }[] = [];
   const fieldLower = fieldName.toLowerCase();
+  const fieldVariants = [fieldLower, fieldLower + '.'];
   for (const story of stories) {
     if (story.resource_subtype === 'enum_custom_field_changed' || story.resource_subtype === 'custom_field_changed') {
       const text = story.text || '';
-      if (!text.toLowerCase().includes(fieldLower)) continue;
+      const customFieldName = story.custom_field?.name?.toLowerCase() || '';
+      const matchesField = fieldVariants.some(v => customFieldName.includes(v) || customFieldName === v) ||
+                           text.toLowerCase().includes(fieldLower);
+      if (!matchesField) continue;
+
+      const newVal = story.new_enum_value?.name;
+      const oldVal = story.old_enum_value?.name || null;
+      if (newVal) {
+        changes.push({
+          date: story.created_at || '',
+          user: story.created_by?.name || 'Unknown',
+          fromStatus: oldVal,
+          toStatus: newVal,
+          text,
+        });
+        continue;
+      }
+
       const parsed = parseStatusChangeText(text, fieldName);
       if (parsed) {
         changes.push({

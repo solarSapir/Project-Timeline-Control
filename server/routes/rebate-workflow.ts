@@ -230,6 +230,7 @@ rebateWorkflowRouter.post("/backfill", async (req, res) => {
     let created = 0;
     let skipped = 0;
     let errors = 0;
+    let noSubtask = 0;
     const batchSize = 5;
 
     for (let i = 0; i < rebateProjects.length; i += batchSize) {
@@ -240,8 +241,27 @@ rebateWorkflowRouter.post("/backfill", async (req, res) => {
           return;
         }
 
+        const subtaskGid = project.hrspSubtaskGid;
+        if (!subtaskGid) {
+          noSubtask++;
+          if (project.rebateStatus && project.rebateStatus.toLowerCase() !== "not required") {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: "System",
+              actionType: "status_change",
+              fromStatus: null,
+              toStatus: project.rebateStatus,
+              notes: `Backfilled: current status (no subtask history available)`,
+              hideDays: null,
+              followUpDate: null,
+            });
+            created++;
+          }
+          return;
+        }
+
         try {
-          const stories = await fetchTaskStories(project.asanaGid!);
+          const stories = await fetchTaskStories(subtaskGid);
           const changes = findAllStatusChangesInStories(stories, 'GRANTS STATUS');
 
           for (const change of changes) {
@@ -287,6 +307,7 @@ rebateWorkflowRouter.post("/backfill", async (req, res) => {
       created,
       skipped,
       errors,
+      noSubtask,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
