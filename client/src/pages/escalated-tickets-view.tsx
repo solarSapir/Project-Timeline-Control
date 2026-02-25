@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -196,12 +196,7 @@ export default function EscalatedTicketsView() {
   });
 
   if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Escalated Tickets</h1>
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)}
-      </div>
-    );
+    return <PageLoader title="Loading escalated tickets..." />;
   }
 
   return (

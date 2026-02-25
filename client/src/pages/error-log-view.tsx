@@ -5,7 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { trackAction } from "@/lib/error-logger";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
+import { LogoSpinner } from "@/components/ui/logo-spinner";
 import type { ErrorLog } from "@shared/schema";
 import { ErrorLogCard } from "@/components/error-log-card";
 
@@ -89,9 +90,7 @@ export default function ErrorLogView() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <LogoSpinner size="sm" className="py-8" />
       ) : logs.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm" data-testid="text-empty-state">
           No errors found. The system is running cleanly.

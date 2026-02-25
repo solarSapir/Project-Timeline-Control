@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { DueIndicator } from "@/components/uc/DueIndicator";
@@ -80,12 +80,7 @@ export default function ContractsView() {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Payment Method</h1>
-        {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
-      </div>
-    );
+    return <PageLoader title="Loading payments..." />;
   }
 
   return (

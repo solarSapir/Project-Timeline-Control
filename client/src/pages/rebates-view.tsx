@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
@@ -208,12 +208,7 @@ export default function PaymentsView() {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Rebates</h1>
-        {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
-      </div>
-    );
+    return <PageLoader title="Loading rebates..." />;
   }
 
   return (

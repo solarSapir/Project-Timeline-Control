@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -52,15 +52,7 @@ export default function ProjectProfile() {
   });
 
   if (projectLoading || actionsLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32" />)}
-        </div>
-      </div>
-    );
+    return <PageLoader title="Loading project..." />;
   }
 
   if (!project) {

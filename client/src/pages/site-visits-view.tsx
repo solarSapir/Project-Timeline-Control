@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -93,7 +93,7 @@ export default function SiteVisitsView() {
     return d !== null && d < 0;
   }).length;
 
-  if (isLoading) return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">Site Visits</h1>{[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}</div>;
+  if (isLoading) return <PageLoader title="Loading site visits..." />;
 
   return (
     <div className="p-6 space-y-6">

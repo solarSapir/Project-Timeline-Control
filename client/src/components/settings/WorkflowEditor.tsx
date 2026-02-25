@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Loader2, ArrowDown, Save, RotateCcw, Info } from "lucide-react";
+import { LogoSpinner } from "@/components/ui/logo-spinner";
 import { PROJECT_STAGES, STAGE_LABELS } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -123,12 +124,7 @@ export default function WorkflowEditor() {
   const maxDays = useMemo(() => Math.max(...Object.values(cumulativeDays), 1), [cumulativeDays]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading workflow configuration...
-      </div>
-    );
+    return <LogoSpinner size="sm" className="py-8" />;
   }
 
   return (

@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TaskActionDialog } from "@/components/task-action-dialog";
@@ -98,7 +98,7 @@ export default function AHJView() {
     if (project) setStatusChangeInfo({ project, newStatus });
   };
 
-  if (isLoading) return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">AHJ / Permitting</h1>{[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}</div>;
+  if (isLoading) return <PageLoader title="Loading AHJ / permitting..." />;
 
   return (
     <div className="p-6 space-y-6">

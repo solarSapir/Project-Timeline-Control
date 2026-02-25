@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { useState } from "react";
@@ -96,7 +96,7 @@ export default function InstallsView() {
   const scheduledCount = installViewProjects.filter(p => p.hasSchedule).length;
 
   if (projectsLoading || schedulesLoading) {
-    return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">Installation Coordination</h1>{[1,2,3].map(i => <Skeleton key={i} className="h-32" />)}</div>;
+    return <PageLoader title="Loading installations..." />;
   }
 
   return (

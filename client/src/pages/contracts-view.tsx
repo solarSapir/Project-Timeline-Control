@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, FileText, CheckCircle2, AlertTriangle, DollarSign, MessageSquare } from "lucide-react";
@@ -62,12 +62,7 @@ export default function ContractCreationView() {
   const counts = computeCounts(depsMetProjects, taskActions);
 
   if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Contracts</h1>
-        {[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}
-      </div>
-    );
+    return <PageLoader title="Loading contracts..." />;
   }
 
   const emptyMsg = filter === "needs_followup" ? "All pending signatures have been followed up today — check back in 24 hours."

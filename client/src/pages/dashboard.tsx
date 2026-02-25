@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { AlertTriangle, CheckCircle2, Wrench, Zap } from "lucide-react";
 import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
 import { RebateKpiSection } from "@/components/dashboard/RebateKpiSection";
@@ -33,15 +33,7 @@ export default function Dashboard() {
   });
 
   if (statsLoading || projectsLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-28" />)}
-        </div>
-        <Skeleton className="h-80" />
-      </div>
-    );
+    return <PageLoader title="Loading dashboard..." />;
   }
 
   const excludedPmStatuses = ['complete', 'project paused', 'project lost'];

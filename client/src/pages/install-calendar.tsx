@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { computeCalendarProjects, STATUS_STYLES, STATUS_DOT } from "@/utils/install-dates";
@@ -52,7 +52,7 @@ export default function InstallCalendar() {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   if (isLoading) {
-    return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">Install Calendar</h1><Skeleton className="h-[600px]" /></div>;
+    return <PageLoader title="Loading calendar..." />;
   }
 
   const calendarCells = [];

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, FileText, Download, ChevronDown, ChevronRight } from "lucide-react";
+import { LogoSpinner } from "@/components/ui/logo-spinner";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { HrspInvoiceTemplate, HrspRequiredDocument } from "@shared/schema";
@@ -163,11 +164,7 @@ export default function HrspConfigEditor() {
   });
 
   if (isLoading || !template || !docs) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LogoSpinner size="sm" className="p-8" />;
   }
 
   const preDocs = docs.filter(d => d.phase === "pre");

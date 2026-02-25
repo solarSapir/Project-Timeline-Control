@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/ui/logo-spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -98,12 +98,7 @@ export default function UCView() {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">UC Applications</h1>
-        {[1,2,3].map(i => <Skeleton key={i} className="h-16" />)}
-      </div>
-    );
+    return <PageLoader title="Loading UC applications..." />;
   }
 
   const totalNeedAction = installProjects.filter(p => !isUcComplete(p.ucStatus) && !isHiddenByWorkflow(p.id)).length;
