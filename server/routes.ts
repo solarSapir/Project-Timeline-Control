@@ -14,6 +14,7 @@ import { projectsRouter } from "./routes/projects";
 import { uploadsRouter } from "./routes/uploads";
 import { workflowRouter } from "./routes/workflow";
 import { dashboardRouter } from "./routes/dashboard";
+import { errorLogsRouter } from "./routes/error-logs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -25,6 +26,7 @@ export async function registerRoutes(
   app.use("/api/projects", uploadsRouter);
   app.use("/api/workflow-config", workflowRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/error-logs", errorLogsRouter);
 
   app.put("/api/deadlines", async (req, res) => {
     try {

@@ -28,6 +28,8 @@ Solar PM is a project management application designed for solar installation com
 - **Component-Based UI**: Employs a modular frontend structure with reusable components (e.g., `UCProjectCard`, `ContractCard`, `GanttChart`) and shared hooks/utilities to ensure maintainability and enforce code philosophy.
 - **Property Sector Filtering**: All project views are filtered to exclude non-residential projects based on the Asana "Property Sector" custom field.
 
+- **IT / Error Log System**: Automatic frontend error capture with user activity breadcrumbs. Tracks API errors, unhandled exceptions, and unhandled promise rejections. Breadcrumbs record last 20 user actions (navigation, API calls) for debugging context. Viewable at `/error-log` with resolve/clear workflow.
+
 ### Database Tables
 - `users`
 - `projects`
@@ -35,6 +37,7 @@ Solar PM is a project management application designed for solar installation com
 - `task_actions`
 - `install_schedule`
 - `workflow_config`
+- `error_logs`
 
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories.

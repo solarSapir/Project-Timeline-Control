@@ -46,8 +46,12 @@ projectsRouter.patch("/:id", async (req, res) => {
             await updateAsanaTaskField(project.asanaGid, asanaFields, field, req.body[field]);
           } catch (asanaErr: unknown) {
             const msg = asanaErr instanceof Error ? asanaErr.message : String(asanaErr);
-            console.error(`Failed to update Asana field ${field}:`, msg);
-            return res.status(400).json({ message: `Failed to update Asana: ${msg}` });
+            if (msg.includes('Could not find Asana custom field')) {
+              console.warn(`Skipping Asana sync for ${field} on ${project.name}: field not available in this task`);
+            } else {
+              console.error(`Failed to update Asana field ${field}:`, msg);
+              return res.status(400).json({ message: `Failed to update Asana: ${msg}` });
+            }
           }
         }
       }

@@ -1,13 +1,14 @@
-import { eq, and, lte, isNull, or, desc, asc } from "drizzle-orm";
+import { eq, and, lte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig,
+  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
   type TaskAction, type InsertTaskAction,
   type InstallSchedule, type InsertInstallSchedule,
   type WorkflowConfig, type InsertWorkflowConfig,
+  type ErrorLog, type InsertErrorLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -36,6 +37,11 @@ export interface IStorage {
 
   getWorkflowConfigs(): Promise<WorkflowConfig[]>;
   upsertWorkflowConfig(data: InsertWorkflowConfig): Promise<WorkflowConfig>;
+
+  createErrorLog(data: InsertErrorLog): Promise<ErrorLog>;
+  getErrorLogs(filters?: { resolved?: boolean; search?: string }): Promise<ErrorLog[]>;
+  markErrorResolved(id: string, note: string): Promise<ErrorLog | undefined>;
+  clearResolvedErrors(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -186,6 +192,42 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(workflowConfig).values(data).returning();
     return created;
+  }
+  async createErrorLog(data: InsertErrorLog): Promise<ErrorLog> {
+    const [log] = await db.insert(errorLogs).values(data).returning();
+    return log;
+  }
+
+  async getErrorLogs(filters?: { resolved?: boolean; search?: string }): Promise<ErrorLog[]> {
+    const conditions = [];
+    if (filters?.resolved !== undefined) {
+      conditions.push(eq(errorLogs.resolved, filters.resolved));
+    }
+    if (filters?.search) {
+      conditions.push(ilike(errorLogs.errorMessage, `%${filters.search}%`));
+    }
+    if (conditions.length > 0) {
+      return db.select().from(errorLogs)
+        .where(and(...conditions))
+        .orderBy(desc(errorLogs.createdAt))
+        .limit(200);
+    }
+    return db.select().from(errorLogs)
+      .orderBy(desc(errorLogs.createdAt))
+      .limit(200);
+  }
+
+  async markErrorResolved(id: string, note: string): Promise<ErrorLog | undefined> {
+    const [updated] = await db.update(errorLogs)
+      .set({ resolved: true, resolvedNote: note })
+      .where(eq(errorLogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async clearResolvedErrors(): Promise<number> {
+    const result = await db.delete(errorLogs).where(eq(errorLogs.resolved, true));
+    return result.rowCount ?? 0;
   }
 }
 

@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { trackAction, logError } from "./error-logger";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,6 +13,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  trackAction("API Request", { method, url });
+
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -19,7 +22,22 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  try {
+    await throwIfResNotOk(res);
+  } catch (err: unknown) {
+    if (!url.includes("/api/error-logs")) {
+      const message = err instanceof Error ? err.message : String(err);
+      logError(message, {
+        errorSource: "api_error",
+        apiEndpoint: url,
+        apiMethod: method,
+        apiPayload: data ? JSON.stringify(data).substring(0, 2000) : undefined,
+        stackTrace: err instanceof Error ? err.stack : undefined,
+      });
+    }
+    throw err;
+  }
+
   return res;
 }
 

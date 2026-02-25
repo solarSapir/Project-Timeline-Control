@@ -142,6 +142,29 @@ export const insertWorkflowConfigSchema = createInsertSchema(workflowConfig).omi
 export type WorkflowConfig = typeof workflowConfig.$inferSelect;
 export type InsertWorkflowConfig = z.infer<typeof insertWorkflowConfigSchema>;
 
+export const errorLogs = pgTable("error_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  errorMessage: text("error_message").notNull(),
+  errorSource: text("error_source"),
+  pageUrl: text("page_url"),
+  userActions: jsonb("user_actions"),
+  apiEndpoint: text("api_endpoint"),
+  apiMethod: text("api_method"),
+  apiPayload: text("api_payload"),
+  stackTrace: text("stack_trace"),
+  resolved: boolean("resolved").default(false),
+  resolvedNote: text("resolved_note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertErrorLogSchema = createInsertSchema(errorLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ErrorLog = typeof errorLogs.$inferSelect;
+export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
+
 export const UC_STATUSES = [
   "New Application",
   "Missing Information",

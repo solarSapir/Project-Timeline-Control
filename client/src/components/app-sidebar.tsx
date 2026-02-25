@@ -17,6 +17,7 @@ import {
   List,
   Settings,
   PanelLeftClose,
+  Bug,
 } from "lucide-react";
 import {
   Sidebar,
@@ -56,6 +57,10 @@ const viewNav = [
 
 const settingsNav = [
   { title: "Settings", url: "/sync", icon: Settings },
+];
+
+const itNav = [
+  { title: "Error Log", url: "/error-log", icon: Bug },
 ];
 
 export function AppSidebar() {
@@ -160,6 +165,24 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild data-active={location === item.url}>
+                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>IT</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {itNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild data-active={location === item.url}>
                     <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
