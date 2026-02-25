@@ -19,6 +19,8 @@ const initialNodes: Node[] = [
   { id: "followup", type: "flowNode", position: { x: 300, y: 560 }, data: { label: "Follow-Up / Scheduling", type: "action", items: ["POST /api/task-actions (viewType: installs)", "PUT /api/install-schedules for dates", "Install date scheduling"] } },
 
   { id: "files", type: "flowNode", position: { x: 500, y: 380 }, data: { label: "File Uploads", type: "action", items: ["POST /api/projects/:id/files", "Category: install", "Installation photos, documents"] } },
+
+  { id: "escalation", type: "flowNode", position: { x: 500, y: 560 }, data: { label: "Escalation Flow", type: "action", description: "\"I'm Stuck\" → ticket → hide → manager → reappear", items: ["EscalationDialog: staff enters name + issue", "POST /api/escalation-tickets (viewType: installs)", "Project hidden 48h from Needs Action list", "EscalationBadge: red 'Escalated' → green 'Response Available'", "Manager responds on /escalated page", "Staff clicks 'Mark Resolved' → project reappears", "See: Escalated Tickets flow for full lifecycle"] } },
 ];
 
 const initialEdges: Edge[] = [
@@ -28,7 +30,9 @@ const initialEdges: Edge[] = [
   { id: "e4", source: "card", target: "status" },
   { id: "e5", source: "card", target: "followup" },
   { id: "e6", source: "card", target: "files" },
-].map(e => ({ ...e, style: { stroke: "#94a3b8", strokeWidth: 1.5 } }));
+  { id: "e7", source: "card", target: "escalation", label: "I'm Stuck" },
+  { id: "e8", source: "escalation", target: "filter", label: "hides project 48h", style: { strokeDasharray: "5 5" } },
+].map(e => ({ ...e, style: { ...e.style, stroke: "#94a3b8", strokeWidth: 1.5 }, labelStyle: { fontSize: 10, fill: "#94a3b8" } }));
 
 export default function InstallFlowView() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes);

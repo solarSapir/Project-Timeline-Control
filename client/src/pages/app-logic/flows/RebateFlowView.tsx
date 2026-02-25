@@ -28,6 +28,8 @@ const initialNodes: Node[] = [
   { id: "focus-modal", type: "flowNode", position: { x: 600, y: 340 }, data: { label: "RebateProjectModal", type: "dialog", description: "Full project view in modal", items: ["Project details + status info", "HrspChecklist (interactive)", "Follow-up section with dialog", "HRSP subtask stories/comments", "HRSP subtask attachments", "Fetches from /api/subtasks/:gid/*"] } },
 
   { id: "kpi", type: "flowNode", position: { x: 600, y: 520 }, data: { label: "RebateKpiSection (Dashboard)", type: "component", description: "KPI cards on dashboard page", items: ["This Week completions", "Avg Tasks/Day, Avg Days to Submit", "Avg Days to Hear Back, Rejection Rate", "Daily completions bar chart (30 days)", "GET /api/rebate/kpi-stats"] } },
+
+  { id: "escalation", type: "flowNode", position: { x: 600, y: 720 }, data: { label: "Escalation Flow", type: "action", description: "\"I'm Stuck\" → ticket → hide → manager → reappear", items: ["EscalationDialog: staff enters name + issue", "POST /api/escalation-tickets (viewType: payments)", "Project hidden 48h from Needs Action list", "EscalationBadge: red 'Escalated' → green 'Response Available'", "Manager responds on /escalated page", "Staff clicks 'Mark Resolved' → project reappears", "See: Escalated Tickets flow for full lifecycle"] } },
 ];
 
 const initialEdges: Edge[] = [
@@ -42,6 +44,8 @@ const initialEdges: Edge[] = [
   { id: "e8", source: "card", target: "followup" },
   { id: "e9", source: "card", target: "focus-modal" },
   { id: "e10", source: "kpi", target: "data-projects", label: "reads completions", style: { strokeDasharray: "5 5" } },
+  { id: "e12", source: "card", target: "escalation", label: "I'm Stuck" },
+  { id: "e13", source: "escalation", target: "filter", label: "hides project 48h", style: { strokeDasharray: "5 5" } },
 ].map(e => ({ ...e, style: { ...e.style, stroke: "#94a3b8", strokeWidth: 1.5 }, labelStyle: { fontSize: 10, fill: "#94a3b8" } }));
 
 export default function RebateFlowView() {

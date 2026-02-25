@@ -17,6 +17,8 @@ const initialNodes: Node[] = [
   { id: "followup", type: "flowNode", position: { x: 300, y: 540 }, data: { label: "Follow-Up", type: "action", items: ["POST /api/task-actions (viewType: site_visits)", "Sets follow-up date", "Notes posted to Asana"] } },
 
   { id: "files", type: "flowNode", position: { x: 500, y: 360 }, data: { label: "File Uploads", type: "action", items: ["POST /api/projects/:id/files", "Category: site_visit", "Stored locally at data/uploads/"] } },
+
+  { id: "escalation", type: "flowNode", position: { x: 500, y: 540 }, data: { label: "Escalation Flow", type: "action", description: "\"I'm Stuck\" → ticket → hide → manager → reappear", items: ["EscalationDialog: staff enters name + issue", "POST /api/escalation-tickets (viewType: site_visits)", "Project hidden 48h from Needs Action list", "EscalationBadge: red 'Escalated' badge on card", "Manager responds → badge turns green 'Response Available'", "Staff clicks 'Mark Resolved' → project reappears", "See: Escalated Tickets flow for full lifecycle"] } },
 ];
 
 const initialEdges: Edge[] = [
@@ -25,7 +27,9 @@ const initialEdges: Edge[] = [
   { id: "e3", source: "card", target: "status" },
   { id: "e4", source: "card", target: "followup" },
   { id: "e5", source: "card", target: "files" },
-].map(e => ({ ...e, style: { stroke: "#94a3b8", strokeWidth: 1.5 } }));
+  { id: "e6", source: "card", target: "escalation", label: "I'm Stuck" },
+  { id: "e7", source: "escalation", target: "filter", label: "hides project 48h", style: { strokeDasharray: "5 5" } },
+].map(e => ({ ...e, style: { ...e.style, stroke: "#94a3b8", strokeWidth: 1.5 }, labelStyle: { fontSize: 10, fill: "#94a3b8" } }));
 
 export default function SiteVisitFlowView() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes);

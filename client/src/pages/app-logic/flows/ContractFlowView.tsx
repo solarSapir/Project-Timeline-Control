@@ -20,7 +20,9 @@ const initialNodes: Node[] = [
 
   { id: "docs-dialog", type: "flowNode", position: { x: 600, y: 560 }, data: { label: "ContractDocumentsDialog", type: "dialog", description: "Upload contract documents", items: ["POST /api/projects/:id/files (category=contract)", "Multiple file upload", "Files stored locally at data/uploads/"] } },
 
-  { id: "status-change", type: "flowNode", position: { x: 600, y: 360 }, data: { label: "Status Change", type: "action", description: "Change contract status", items: ["PATCH /api/projects/:id with contractStatus", "Pushes to Asana custom field", "Invalidates projects cache"] } },
+  { id: "status-change", type: "flowNode", position: { x: 900, y: 360 }, data: { label: "Status Change", type: "action", description: "Change contract status", items: ["PATCH /api/projects/:id with contractStatus", "Pushes to Asana custom field", "Invalidates projects cache"] } },
+
+  { id: "escalation", type: "flowNode", position: { x: 900, y: 560 }, data: { label: "Escalation Flow", type: "action", description: "\"I'm Stuck\" → ticket → hide → manager → reappear", items: ["EscalationDialog: staff enters name + issue", "POST /api/escalation-tickets (viewType: contracts)", "Project hidden 48h from Needs Action list", "EscalationBadge: red 'Escalated' → green 'Response Available'", "Manager responds on /escalated page", "Staff clicks 'Mark Resolved' → project reappears", "See: Escalated Tickets flow for full lifecycle"] } },
 ];
 
 const initialEdges: Edge[] = [
@@ -31,7 +33,9 @@ const initialEdges: Edge[] = [
   { id: "e5", source: "contract-card", target: "followup-dialog" },
   { id: "e6", source: "contract-card", target: "docs-dialog" },
   { id: "e7", source: "contract-card", target: "status-change" },
-].map(e => ({ ...e, style: { stroke: "#94a3b8", strokeWidth: 1.5 }, labelStyle: { fontSize: 10, fill: "#94a3b8" } }));
+  { id: "e8", source: "contract-card", target: "escalation", label: "I'm Stuck" },
+  { id: "e9", source: "escalation", target: "filter", label: "hides project 48h", style: { strokeDasharray: "5 5" } },
+].map(e => ({ ...e, style: { ...e.style, stroke: "#94a3b8", strokeWidth: 1.5 }, labelStyle: { fontSize: 10, fill: "#94a3b8" } }));
 
 export default function ContractFlowView() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes);

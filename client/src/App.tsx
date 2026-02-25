@@ -35,6 +35,7 @@ import InstallFlowView from "@/pages/app-logic/flows/InstallFlowView";
 import CloseOffFlowView from "@/pages/app-logic/flows/CloseOffFlowView";
 import DashboardFlowView from "@/pages/app-logic/flows/DashboardFlowView";
 import SettingsFlowView from "@/pages/app-logic/flows/SettingsFlowView";
+import EscalatedTicketsFlowView from "@/pages/app-logic/flows/EscalatedTicketsFlowView";
 
 initGlobalErrorHandlers();
 
@@ -76,6 +77,7 @@ function Router() {
         <Route path="/app-logic/flow/close-off" component={CloseOffFlowView} />
         <Route path="/app-logic/flow/dashboard" component={DashboardFlowView} />
         <Route path="/app-logic/flow/settings" component={SettingsFlowView} />
+        <Route path="/app-logic/flow/escalated" component={EscalatedTicketsFlowView} />
         <Route component={NotFound} />
       </Switch>
     </>

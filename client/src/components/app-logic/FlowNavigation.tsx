@@ -10,6 +10,7 @@ const tabs = [
   { label: "AHJ", path: "/app-logic/flow/ahj" },
   { label: "Installs", path: "/app-logic/flow/installs" },
   { label: "Close-off", path: "/app-logic/flow/close-off" },
+  { label: "Escalated", path: "/app-logic/flow/escalated" },
   { label: "Dashboard", path: "/app-logic/flow/dashboard" },
   { label: "Settings", path: "/app-logic/flow/settings" },
 ];

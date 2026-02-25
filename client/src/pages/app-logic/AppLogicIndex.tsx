@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, GitBranch, Server, Zap, Gift, CreditCard, FileText, MapPin, Building2, Wrench, CheckCircle2, LayoutDashboard, Settings } from "lucide-react";
+import { Database, GitBranch, Server, Zap, Gift, CreditCard, FileText, MapPin, Building2, Wrench, CheckCircle2, LayoutDashboard, Settings, AlertTriangle } from "lucide-react";
 
 const flowPages = [
   { title: "UC Applications", url: "/app-logic/flow/uc", icon: Zap, desc: "Status changes, approval/rejection dialogs, hide logic, KPIs" },
@@ -10,6 +10,7 @@ const flowPages = [
   { title: "AHJ / Permitting", url: "/app-logic/flow/ahj", icon: Building2, desc: "Permit status tracking, follow-up logic" },
   { title: "Install Coordination", url: "/app-logic/flow/installs", icon: Wrench, desc: "Install scheduling, team stages, calendar" },
   { title: "Close-off", url: "/app-logic/flow/close-off", icon: CheckCircle2, desc: "Final payments, completion tracking" },
+  { title: "Escalated Tickets", url: "/app-logic/flow/escalated", icon: AlertTriangle, desc: "I'm Stuck lifecycle: create → hide → respond → resolve → reappear" },
   { title: "Dashboard", url: "/app-logic/flow/dashboard", icon: LayoutDashboard, desc: "KPI sections, stats cards, recent projects" },
   { title: "Settings", url: "/app-logic/flow/settings", icon: Settings, desc: "Sync, workflow config, HRSP config, UC rules" },
 ];
@@ -60,7 +61,7 @@ export default function AppLogicIndex() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              9 interactive flow diagrams showing data flow, actions, and wiring per tab.
+              10 interactive flow diagrams showing data flow, actions, and wiring per tab.
             </p>
           </CardContent>
         </Card>
