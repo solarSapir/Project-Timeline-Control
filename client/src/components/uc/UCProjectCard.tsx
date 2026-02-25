@@ -40,7 +40,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
       data-testid={`card-project-${project.id}`}
     >
       <CardContent className="py-3 px-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <Link href={`/project/${project.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-profile-${project.id}`}>
@@ -57,7 +57,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
               <EscalationBadge projectId={project.id} />
             </div>
 
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
               {project.province && <span>{project.province}</span>}
               {project.province && project.projectCreatedDate && <span>·</span>}
               {project.projectCreatedDate && <span>Created {formatShortDate(project.projectCreatedDate)}</span>}
@@ -84,9 +84,9 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
             <UcDocChecklist project={project} />
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={project.ucStatus || ''} onValueChange={(v) => onStatusChange(project.id, v)}>
-              <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-uc-status-${project.id}`}>
+              <SelectTrigger className="w-[140px] sm:w-[160px] h-7 text-xs" data-testid={`select-uc-status-${project.id}`}>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>

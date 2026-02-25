@@ -121,16 +121,16 @@ export default function CloseOffView() {
           return (
             <Card key={p.id} className={`transition-colors border-l-4 ${complete ? "border-l-green-400" : isOverdue ? "border-l-red-400" : "border-l-transparent"}`} data-testid={`card-project-${p.id}`}>
               <CardContent className="py-3 px-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-profile-${p.id}`}>{p.name}</Link>
                       {p.province && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" data-testid={`badge-province-${p.id}`}>{p.province}</span>
                       )}
                       <EscalationBadge projectId={p.id} />
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                       {p.installStartDate && <span data-testid={`text-install-date-${p.id}`}>Installed {formatShortDate(p.installStartDate)}</span>}
                       {!p.installStartDate && <span data-testid={`text-no-install-date-${p.id}`}>No install date</span>}
                       {dueDate && !complete && <span>·</span>}
@@ -148,7 +148,7 @@ export default function CloseOffView() {
                       <span data-testid={`text-marketing-status-${p.id}`}>Marketing: Pending</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <EscalationDialog projectId={p.id} projectName={p.name} viewType="close_off" />
                     {!complete && <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleSetCloseOff(p.id)} data-testid={`button-close-off-${p.id}`}>Set Close-off</Button>}
                     <TaskActionDialog projectId={p.id} projectName={p.name} viewType="close_off" />

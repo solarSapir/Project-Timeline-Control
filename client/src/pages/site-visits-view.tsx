@@ -150,9 +150,9 @@ export default function SiteVisitsView() {
               data-testid={`card-project-${p.id}`}
             >
               <CardContent className="py-3 px-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>
                         {p.name}
                       </Link>
@@ -163,7 +163,7 @@ export default function SiteVisitsView() {
                       )}
                       <EscalationBadge projectId={p.id} />
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                       {p.province && <span>{p.province}</span>}
                       {p.province && p.ucStatus && <span>·</span>}
                       {p.ucStatus && <span>UC: {p.ucStatus}</span>}
@@ -178,7 +178,7 @@ export default function SiteVisitsView() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <EscalationDialog projectId={p.id} projectName={p.name} viewType="site_visits" />
                     <Button
                       size="sm"
@@ -191,7 +191,7 @@ export default function SiteVisitsView() {
                       Subtasks
                     </Button>
                     <Select value={p.siteVisitStatus || ''} onValueChange={(v) => handleStatus(p.id, v)}>
-                      <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-site-visit-status-${p.id}`}>
+                      <SelectTrigger className="w-[140px] sm:w-[160px] h-7 text-xs" data-testid={`select-site-visit-status-${p.id}`}>
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>

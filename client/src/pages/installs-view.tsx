@@ -149,9 +149,9 @@ export default function InstallsView() {
                 !p.permitDone ? "opacity-70" : ""
               }`} data-testid={`card-project-${p.id}`}>
                 <CardContent className="py-3 px-4">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>{p.name}</Link>
                         {p.ahjStatus && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getStatusBadgeColor(p.ahjStatus)}`} data-testid={`badge-status-${p.id}`}>
@@ -166,7 +166,7 @@ export default function InstallsView() {
                         <EscalationBadge projectId={p.id} />
                       </div>
 
-                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                         <span>{p.province || 'No province'}</span>
                         <span>·</span>
                         <span>UC: {p.ucStatus || 'N/A'}</span>
@@ -223,7 +223,7 @@ export default function InstallsView() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <EscalationDialog projectId={p.id} projectName={p.name} viewType="installs" />
                       <Button
                         size="sm"
