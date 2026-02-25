@@ -4,6 +4,10 @@ import * as Asana from 'asana';
 let connectionSettings: any;
 
 export async function getAccessToken() {
+  if (process.env.ASANA_PAT) {
+    return process.env.ASANA_PAT;
+  }
+
   if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
