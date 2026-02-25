@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface EscalationDialogProps {
   projectId: string;
@@ -73,8 +74,12 @@ export function EscalationDialog({ projectId, projectName, viewType }: Escalatio
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{projectName}</p>
           <div>
-            <Label htmlFor="escalationName">Your Name</Label>
-            <Input id="escalationName" value={createdBy} onChange={(e) => setCreatedBy(e.target.value)} placeholder="Enter your name" data-testid="input-escalation-name" />
+            <StaffSelect
+              value={createdBy}
+              onValueChange={setCreatedBy}
+              id="escalationName"
+              testId="select-escalation-name"
+            />
           </div>
           <div>
             <Label htmlFor="escalationIssue">What are you stuck on?</Label>

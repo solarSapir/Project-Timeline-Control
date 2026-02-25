@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface Props {
   open: boolean;
@@ -72,16 +73,12 @@ export function CloseOffSubmittedDialog({ open, onOpenChange, projectId, project
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="closeoff-staff">Your Name</Label>
-            <Input
-              id="closeoff-staff"
-              value={staffName}
-              onChange={(e) => setStaffName(e.target.value)}
-              placeholder="Enter your name"
-              data-testid="input-closeoff-submitted-name"
-            />
-          </div>
+          <StaffSelect
+            value={staffName}
+            onValueChange={setStaffName}
+            id="closeoff-staff"
+            testId="select-closeoff-submitted-name"
+          />
           <div>
             <Label htmlFor="closeoff-screenshot">Submission Screenshot (required)</Label>
             <Input

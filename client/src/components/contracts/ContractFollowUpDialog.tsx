@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { hoursSince } from "@/utils/dates";
 import { isPendingSignature } from "@/utils/stages";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface ContractFollowUpDialogProps {
   project: Project;
@@ -109,8 +110,12 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
               </div>
             )}
             <div>
-              <Label htmlFor="contractCompletedBy">Your Name <span className="text-destructive">*</span></Label>
-              <Input id="contractCompletedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-contract-followup-name" />
+              <StaffSelect
+                value={completedBy}
+                onValueChange={setCompletedBy}
+                id="contractCompletedBy"
+                testId="select-contract-followup-name"
+              />
             </div>
             <div>
               <Label htmlFor="contractActionDone">What has been done <span className="text-destructive">*</span></Label>

@@ -10,6 +10,7 @@ import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface TaskActionDialogProps {
   projectId: string;
@@ -68,12 +69,10 @@ export function TaskActionDialog({ projectId, projectName, viewType, onComplete 
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label>Your Name</Label>
-            <Input
+            <StaffSelect
               value={completedBy}
-              onChange={(e) => setCompletedBy(e.target.value)}
-              placeholder="Enter your name"
-              data-testid="input-completed-by"
+              onValueChange={setCompletedBy}
+              testId="select-completed-by"
             />
           </div>
           <div className="space-y-2">

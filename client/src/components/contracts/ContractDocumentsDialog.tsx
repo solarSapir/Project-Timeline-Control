@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Upload, FileText, FileCheck, Map, CheckCircle2 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface ContractDocumentsDialogProps {
   project: Project;
@@ -84,8 +85,12 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
             Upload the contract, proposal, and site plan for review. All files will be attached to the Asana task with clear labels. Once uploaded, the contract will be reviewed and approved before sending via DocuSign.
           </p>
           <div>
-            <Label htmlFor="docUploadedBy">Your Name</Label>
-            <Input id="docUploadedBy" value={uploadedBy} onChange={(e) => setUploadedBy(e.target.value)} placeholder="Enter your name" data-testid="input-doc-uploaded-by" />
+            <StaffSelect
+              value={uploadedBy}
+              onValueChange={setUploadedBy}
+              id="docUploadedBy"
+              testId="select-doc-uploaded-by"
+            />
           </div>
           <div className="space-y-3 border rounded-md p-3 bg-muted/30">
             <div>

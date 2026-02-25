@@ -8,6 +8,7 @@ import { Camera, ImageIcon } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isVisitComplete } from "@/utils/stages";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface SiteVisitPhotosDialogProps {
   projectId: string;
@@ -66,8 +67,13 @@ export default function SiteVisitPhotosDialog({ projectId, projectName, siteVisi
             Upload photos from the site visit. These will be added to a "Site visit Photos" subtask in Asana along with any notes from the installer.
           </p>
           <div>
-            <Label htmlFor="svCompletedBy">Your Name / Installer Name</Label>
-            <Input id="svCompletedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter name" data-testid="input-sv-photos-name" />
+            <StaffSelect
+              value={completedBy}
+              onValueChange={setCompletedBy}
+              label="Your Name / Installer Name"
+              id="svCompletedBy"
+              testId="select-sv-photos-name"
+            />
           </div>
           <div>
             <Label htmlFor="svNotes">Installer Notes</Label>

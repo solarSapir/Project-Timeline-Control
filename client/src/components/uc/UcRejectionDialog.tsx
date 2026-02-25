@@ -13,6 +13,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Loader2, XCircle } from "lucide-react";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface UcRejectionDialogProps {
   projectId: string;
@@ -128,16 +129,12 @@ export function UcRejectionDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="rejection-name">Your Name</Label>
-            <Input
-              id="rejection-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              data-testid="input-rejection-name"
-            />
-          </div>
+          <StaffSelect
+            value={name}
+            onValueChange={setName}
+            id="rejection-name"
+            testId="select-rejection-name"
+          />
           <div>
             <Label htmlFor="rejection-notes">What happened? (required)</Label>
             <Textarea

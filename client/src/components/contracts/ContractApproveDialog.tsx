@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ShieldCheck } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface ContractApproveDialogProps {
   project: Project;
@@ -71,8 +72,12 @@ export function ContractApproveDialog({ project, hasDocUpload, isApproved }: Con
             Confirm you have reviewed the contract, proposal, and site plan. This will post an approval comment to the Asana task.
           </p>
           <div>
-            <Label htmlFor="approvedBy">Your Name</Label>
-            <Input id="approvedBy" value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} placeholder="Enter your name" data-testid="input-approve-name" />
+            <StaffSelect
+              value={approvedBy}
+              onValueChange={setApprovedBy}
+              id="approvedBy"
+              testId="select-approve-name"
+            />
           </div>
           <div>
             <Label htmlFor="approveNotes">Review Notes (optional)</Label>

@@ -8,6 +8,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Upload } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 export function RebateFollowUpDialog({ project }: { project: Project }) {
   const [open, setOpen] = useState(false);
@@ -91,8 +92,12 @@ export function RebateFollowUpDialog({ project }: { project: Project }) {
             )}
           </p>
           <div>
-            <Label htmlFor="completedBy">Your Name <span className="text-destructive">*</span></Label>
-            <Input id="completedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-rebate-followup-name" />
+            <StaffSelect
+              value={completedBy}
+              onValueChange={setCompletedBy}
+              id="completedBy"
+              testId="select-rebate-followup-name"
+            />
           </div>
           <div>
             <Label htmlFor="actionDone">What has been done <span className="text-destructive">*</span></Label>

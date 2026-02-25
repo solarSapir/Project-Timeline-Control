@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface UcApprovalDialogProps {
   projectId: string;
@@ -114,16 +115,12 @@ export function UcApprovalDialog({ projectId, projectName, onComplete, open, onO
           <DialogDescription>Record the UC approval details and upload supporting documents.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="approval-name">Your Name</Label>
-            <Input
-              id="approval-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              data-testid="input-approval-name"
-            />
-          </div>
+          <StaffSelect
+            value={name}
+            onValueChange={setName}
+            id="approval-name"
+            testId="select-approval-name"
+          />
           <div>
             <Label htmlFor="approval-fee">Hydro Connection Fee</Label>
             <div className="relative">

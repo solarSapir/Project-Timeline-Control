@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { StaffSelect } from "@/components/shared/StaffSelect";
 
 interface StatusChangeDialogProps {
   open: boolean;
@@ -92,13 +93,11 @@ export function StatusChangeDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="sc-name">Your Name <span className="text-destructive">*</span></Label>
-            <Input
-              id="sc-name"
+            <StaffSelect
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              data-testid="input-status-change-name"
+              onValueChange={setName}
+              id="sc-name"
+              testId="select-status-change-name"
             />
           </div>
           <div>
