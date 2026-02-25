@@ -2,14 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { AlertTriangle, CheckCircle2, Wrench, Zap } from "lucide-react";
 import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
-import { STAGE_LABELS, type Project, type ProjectDeadline } from "@shared/schema";
+import { type Project, type ProjectDeadline } from "@shared/schema";
 import { TimelineIndicator, TimelineHealth } from "@/components/timeline-indicator";
 import { StatusBadge } from "@/components/status-badge";
-
-const PIE_COLORS = ["hsl(199, 89%, 48%)", "hsl(142, 71%, 45%)", "hsl(38, 92%, 50%)", "hsl(280, 65%, 60%)", "hsl(0, 84%, 60%)", "hsl(210, 20%, 70%)", "hsl(160, 60%, 45%)"];
 
 interface DashboardStats {
   totalProjects: number;
@@ -41,25 +38,10 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-28" />)}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-80" />
-          <Skeleton className="h-80" />
-        </div>
+        <Skeleton className="h-80" />
       </div>
     );
   }
-
-  const stageData = stats?.stageBreakdown ? Object.entries(stats.stageBreakdown).map(([stage, data]) => ({
-    name: STAGE_LABELS[stage] || stage,
-    overdue: data.overdue,
-    onTrack: data.onTrack,
-    total: data.total,
-  })) : [];
-
-  const ucData = stats?.ucBreakdown ? Object.entries(stats.ucBreakdown).map(([status, count]) => ({
-    name: status,
-    value: count,
-  })) : [];
 
   const excludedPmStatuses = ['complete', 'project paused', 'project lost'];
   const installProjects = (projects || []).filter((p) =>
@@ -123,54 +105,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Stage Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stageData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stageData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="onTrack" fill="hsl(142, 71%, 45%)" name="On Track" stackId="a" />
-                  <Bar dataKey="overdue" fill="hsl(0, 84%, 60%)" name="Overdue" stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground" data-testid="text-no-stage-data">
-                <p>No project data yet. Sync from Asana to get started.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">UC Status Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ucData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={ucData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                    {ucData.map((_, idx) => (
-                      <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground" data-testid="text-no-uc-data">
-                <p>No UC data yet.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <UcKpiSection />
 
       <Card>
         <CardHeader>
@@ -216,8 +151,6 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
-
-      <UcKpiSection />
     </div>
   );
 }
