@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -8,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
+import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
 
 interface SyncStatus {
   lastSyncTime: string | null;
@@ -25,7 +25,6 @@ function formatSyncTime(iso: string): string {
   });
 }
 
-/** Settings page with Asana sync controls and workflow configuration. */
 export default function SyncView() {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
@@ -59,17 +58,11 @@ export default function SyncView() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-semibold" data-testid="text-sync-title">Settings</h1>
       <p className="text-muted-foreground">
-        Manage Asana sync and configure the project workflow timeline.
+        Manage Asana sync, workflow configuration, and HRSP document settings.
       </p>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Sync from Asana
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <CollapsibleSection title="Sync from Asana" icon={<Zap className="h-4 w-4" />} testId="section-sync">
+        <div className="space-y-4">
           <div className="flex items-center gap-4 flex-wrap">
             <Button onClick={handleSync} disabled={syncing} size="lg" data-testid="button-sync">
               {syncing ? (
@@ -91,53 +84,33 @@ export default function SyncView() {
               <span className="text-sm" data-testid="text-sync-result">Successfully synced {syncResult.synced} projects</span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Auto-Sync
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-auto-sync">Active</Badge>
-              <span className="text-sm text-muted-foreground">Every 15 minutes</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              The app automatically syncs all projects from "Project Manage Team" every 15 minutes.
-              An initial sync also runs when the server starts. Any status changes you make in this app
-              are pushed to Asana immediately — the auto-sync pulls any updates made directly in Asana.
-            </p>
+      <CollapsibleSection title="Auto-Sync" icon={<Clock className="h-4 w-4" />} defaultOpen={false} testId="section-auto-sync">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-auto-sync">Active</Badge>
+            <span className="text-sm text-muted-foreground">Every 15 minutes</span>
           </div>
-        </CardContent>
-      </Card>
+          <p className="text-sm text-muted-foreground">
+            The app automatically syncs all projects from "Project Manage Team" every 15 minutes.
+            An initial sync also runs when the server starts. Any status changes you make in this app
+            are pushed to Asana immediately — the auto-sync pulls any updates made directly in Asana.
+          </p>
+        </div>
+      </CollapsibleSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <GitBranch className="h-4 w-4" />
-            Workflow Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WorkflowEditor />
-        </CardContent>
-      </Card>
+      <CollapsibleSection title="Workflow Configuration" icon={<GitBranch className="h-4 w-4" />} defaultOpen={false} testId="section-workflow">
+        <WorkflowEditor />
+      </CollapsibleSection>
 
-      <div className="space-y-1">
-        <h2 className="text-base font-semibold flex items-center gap-2">
-          <FileCheck className="h-4 w-4" />
-          HRSP Document Configuration
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Configure required documents for HRSP rebate applications and update the invoice template.
+      <CollapsibleSection title="HRSP Document Configuration" icon={<FileCheck className="h-4 w-4" />} defaultOpen={false} testId="section-hrsp">
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure required documents for HRSP pre-approval applications and close-off submissions. Update the invoice template used for PDF generation.
         </p>
-      </div>
-      <HrspConfigEditor />
+        <HrspConfigEditor />
+      </CollapsibleSection>
     </div>
   );
 }

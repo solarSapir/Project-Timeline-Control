@@ -16,7 +16,7 @@ import { workflowRouter } from "./routes/workflow";
 import { dashboardRouter } from "./routes/dashboard";
 import { errorLogsRouter } from "./routes/error-logs";
 import { hrspInvoiceRouter } from "./routes/hrsp-invoice";
-import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS } from "@shared/schema";
+import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -34,9 +34,21 @@ export async function registerRoutes(
   app.get("/api/hrsp-config", async (_req, res) => {
     try {
       const config = await storage.getHrspConfig();
+      const savedDocs = config?.requiredDocuments as HrspRequiredDocument[] | undefined;
+
+      let mergedDocs = DEFAULT_HRSP_DOCUMENTS;
+      if (savedDocs && Array.isArray(savedDocs)) {
+        const savedMap = new Map(savedDocs.map(d => [d.key, d]));
+        mergedDocs = DEFAULT_HRSP_DOCUMENTS.map(def => {
+          const saved = savedMap.get(def.key);
+          if (saved) return { ...def, enabled: saved.enabled };
+          return def;
+        });
+      }
+
       res.json({
         invoiceTemplate: config?.invoiceTemplate || DEFAULT_HRSP_INVOICE_TEMPLATE,
-        requiredDocuments: config?.requiredDocuments || DEFAULT_HRSP_DOCUMENTS,
+        requiredDocuments: mergedDocs,
         updatedAt: config?.updatedAt || null,
       });
     } catch (error: unknown) {

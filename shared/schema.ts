@@ -64,6 +64,13 @@ export const projects = pgTable("projects", {
   hrspAuthDocUploadedAt: timestamp("hrsp_auth_doc_uploaded_at"),
   hrspPowerConsumptionUrl: text("hrsp_power_consumption_url"),
   hrspSldUrl: text("hrsp_sld_url"),
+  hrspRoofPicsUrl: text("hrsp_roof_pics_url"),
+  hrspPanelNameplateUrl: text("hrsp_panel_nameplate_url"),
+  hrspInverterNameplateUrl: text("hrsp_inverter_nameplate_url"),
+  hrspBatteryNameplateUrl: text("hrsp_battery_nameplate_url"),
+  hrspEsaCertUrl: text("hrsp_esa_cert_url"),
+  hrspPaidInvoiceUrl: text("hrsp_paid_invoice_url"),
+  hrspInstallDate: text("hrsp_install_date"),
   asanaCustomFields: jsonb("asana_custom_fields"),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -219,6 +226,7 @@ export interface HrspRequiredDocument {
   key: string;
   label: string;
   type: "generate" | "upload" | "auto";
+  phase: "pre" | "closeoff";
   enabled: boolean;
   description?: string;
 }
@@ -250,11 +258,25 @@ export const DEFAULT_HRSP_INVOICE_TEMPLATE: HrspInvoiceTemplate = {
 };
 
 export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
-  { key: "invoice", label: "HRSP Invoice", type: "generate", enabled: true, description: "Auto-generated PDF invoice with equipment specs" },
-  { key: "authorization", label: "Customer Authorization", type: "upload", enabled: true, description: "Signed customer authorization form" },
-  { key: "hydroBill", label: "Hydro Bill / Power Consumption", type: "auto", enabled: true, description: "Auto-linked from UC hydro bill, or manual upload" },
-  { key: "sld", label: "Single Line Diagram (SLD)", type: "upload", enabled: true, description: "Electrical single line diagram for the installation" },
+  { key: "invoice", label: "HRSP Invoice", type: "generate", phase: "pre", enabled: true, description: "Auto-generated PDF invoice with equipment specs" },
+  { key: "authorization", label: "Customer Authorization", type: "upload", phase: "pre", enabled: true, description: "Signed customer authorization form" },
+  { key: "hydroBill", label: "Hydro Bill / Power Consumption", type: "auto", phase: "pre", enabled: true, description: "Auto-linked from UC hydro bill, or manual upload" },
+  { key: "sld", label: "Single Line Diagram (SLD)", type: "upload", phase: "pre", enabled: true, description: "Electrical single line diagram for the installation" },
+  { key: "roofPics", label: "Roof Installation Photos", type: "upload", phase: "closeoff", enabled: true, description: "Photos of solar panels installed on the roof" },
+  { key: "panelNameplate", label: "Panel Nameplate Photo", type: "upload", phase: "closeoff", enabled: true, description: "Photo of the solar panel nameplate" },
+  { key: "inverterNameplate", label: "Inverter Nameplate Photo", type: "upload", phase: "closeoff", enabled: true, description: "Photo of the inverter nameplate" },
+  { key: "batteryNameplate", label: "Battery Nameplate Photo", type: "upload", phase: "closeoff", enabled: true, description: "Photo of the battery nameplate" },
+  { key: "esaCert", label: "ESA Certificate of Acceptance", type: "upload", phase: "closeoff", enabled: true, description: "Contractor's ESA certificate of acceptance" },
+  { key: "paidInvoice", label: "Paid Invoice", type: "generate", phase: "closeoff", enabled: true, description: "Same quote marked as PAID with installation date" },
 ];
+
+export const HRSP_PRE_APPROVAL_STATUSES = [
+  "New/ Check if needed",
+  "In-progress",
+  "Submitted",
+];
+
+export const HRSP_PREAPPROVED_STATUS = "Complete - (Pre approved, waiting for job to complete)";
 
 export const UC_STATUSES = [
   "New Application",

@@ -5,7 +5,6 @@ import { uploadAttachmentToTask } from "../asana";
 import { upload } from "../middleware/upload";
 import {
   DEFAULT_HRSP_INVOICE_TEMPLATE,
-  DEFAULT_HRSP_DOCUMENTS,
   type HrspInvoiceTemplate,
   type HrspRequiredDocument,
 } from "@shared/schema";
@@ -20,15 +19,13 @@ async function getInvoiceTemplate(): Promise<HrspInvoiceTemplate> {
   return DEFAULT_HRSP_INVOICE_TEMPLATE;
 }
 
-async function getRequiredDocuments(): Promise<HrspRequiredDocument[]> {
-  const config = await storage.getHrspConfig();
-  if (config?.requiredDocuments && Array.isArray(config.requiredDocuments)) {
-    return config.requiredDocuments as HrspRequiredDocument[];
-  }
-  return DEFAULT_HRSP_DOCUMENTS;
-}
-
-function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quoteDate: string, quoteNumber: string): Promise<Buffer> {
+function buildInvoicePdf(
+  tpl: HrspInvoiceTemplate,
+  serviceAddress: string,
+  quoteDate: string,
+  quoteNumber: string,
+  options?: { paid?: boolean; installDate?: string }
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 50 });
     const chunks: Buffer[] = [];
@@ -51,12 +48,21 @@ function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quote
     doc.text(`Quote Date`, 380, 106);
     doc.text(quoteDate, 380, 118);
 
+    if (options?.paid) {
+      doc.save();
+      doc.fontSize(28).font("Helvetica-Bold").fillColor("red");
+      doc.text("PAID", 420, 130);
+      doc.restore();
+      doc.fillColor("black");
+    }
+
     doc.moveDown(2);
     const saY = 150;
     doc.fontSize(10).font("Helvetica-Bold").text("Service Address", 50, saY);
     doc.fontSize(9).font("Helvetica").text(serviceAddress, 50, saY + 14, { width: 300 });
 
-    doc.text("Installation Date: TBD", 50, saY + 50);
+    const installDateText = options?.installDate || "TBD";
+    doc.text(`Installation Date: ${installDateText}`, 50, saY + 50);
 
     const tableTop = saY + 80;
     doc.fontSize(9).font("Helvetica-Bold");
@@ -64,14 +70,11 @@ function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quote
     doc.text("QTY", 280, tableTop, { width: 50 });
     doc.text("Rate", 400, tableTop, { width: 70 });
     doc.text("Amount", 480, tableTop, { width: 80, align: "right" });
-
     doc.moveTo(50, tableTop + 14).lineTo(560, tableTop + 14).stroke();
 
     let y = tableTop + 22;
 
-    doc.font("Helvetica-Bold").fontSize(10).text("Material Costs", 50, y);
-    y += 16;
-
+    doc.font("Helvetica-Bold").fontSize(10).text("Material Costs", 50, y); y += 16;
     doc.font("Helvetica-Bold").fontSize(9).text("Solar Panel Make:", 50, y, { width: 220 });
     doc.font("Helvetica").text(tpl.panelMake, 60, y + 12, { width: 210 });
     doc.text("1", 280, y, { width: 50 });
@@ -105,8 +108,7 @@ function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quote
     doc.font("Helvetica-Bold").fontSize(10).text("Other cost", 50, y); y += 14;
     doc.font("Helvetica").fontSize(9);
     doc.text("Electrical engineering", 60, y);
-    doc.text("1", 280, y);
-    y += 14;
+    doc.text("1", 280, y); y += 14;
     doc.text("Utility application, connection costs", 60, y);
     doc.text("1", 280, y);
     doc.text(`$${tpl.otherCost.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
@@ -129,6 +131,19 @@ function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quote
     doc.end();
   });
 }
+
+hrspInvoiceRouter.get("/hrsp-invoice/sample", async (_req, res) => {
+  try {
+    const tpl = await getInvoiceTemplate();
+    const pdfBuffer = await buildInvoicePdf(tpl, "123 Sample Street\nAnytown, ON A1B 2C3", new Date().toISOString().slice(0, 10), "SAMPLE");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'attachment; filename="HRSP_Invoice_SAMPLE.pdf"');
+    res.send(pdfBuffer);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
 
 hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
   try {
@@ -173,14 +188,52 @@ hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
   }
 });
 
-hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
+hrspInvoiceRouter.post("/:id/hrsp-paid-invoice", async (req, res) => {
   try {
     const project = await storage.getProject(req.params.id as string);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    if (!project.hrspServiceAddress) {
-      return res.status(400).json({ message: "No invoice data found. Generate an invoice first." });
+    const { installDate } = req.body;
+    if (!installDate) return res.status(400).json({ message: "installDate is required" });
+    if (!project.hrspServiceAddress || !project.hrspQuoteNumber || !project.hrspQuoteDate) {
+      return res.status(400).json({ message: "Original invoice must be generated first" });
     }
+
+    const tpl = await getInvoiceTemplate();
+    const pdfBuffer = await buildInvoicePdf(tpl, project.hrspServiceAddress, project.hrspQuoteDate, project.hrspQuoteNumber, { paid: true, installDate });
+    const fileName = `HRSP_PAID_Invoice_${project.hrspQuoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+
+    let viewUrl = "generated";
+    if (project.asanaGid) {
+      try {
+        const result = await uploadAttachmentToTask(project.asanaGid, pdfBuffer, fileName, "application/pdf");
+        const attachmentData = (result as Record<string, unknown>).data || result;
+        const data = attachmentData as Record<string, unknown>;
+        viewUrl = (data.view_url || data.download_url || data.permanent_url || "generated") as string;
+      } catch (uploadErr: unknown) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        console.warn(`[HRSP Paid Invoice] Asana upload failed: ${msg}`);
+      }
+    }
+
+    const updated = await storage.updateProject(req.params.id as string, {
+      hrspPaidInvoiceUrl: viewUrl,
+      hrspInstallDate: installDate,
+    });
+
+    res.json({ project: updated, invoiceUrl: viewUrl });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[HRSP Paid Invoice] Error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
+hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id as string);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!project.hrspServiceAddress) return res.status(400).json({ message: "No invoice data found. Generate an invoice first." });
 
     const tpl = await getInvoiceTemplate();
     const pdfBuffer = await buildInvoicePdf(tpl, project.hrspServiceAddress, project.hrspQuoteDate || "", project.hrspQuoteNumber || "");
@@ -195,66 +248,36 @@ hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
   }
 });
 
-hrspInvoiceRouter.post("/:id/hrsp-auth-doc", upload.single("authDoc"), async (req, res) => {
-  try {
-    const project = await storage.getProject(req.params.id as string);
-    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
-    if (!req.file) return res.status(400).json({ message: "File is required" });
+function createUploadHandler(endpoint: string, fieldName: string, asanaPrefix: string, projectField: string) {
+  return [upload.single(fieldName), async (req: any, res: any) => {
+    try {
+      const project = await storage.getProject(req.params.id as string);
+      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+      if (!req.file) return res.status(400).json({ message: "File is required" });
 
-    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP AUTH - ${req.file.originalname}`, req.file.mimetype);
-    const attachmentData = (result as Record<string, unknown>).data || result;
-    const data = attachmentData as Record<string, unknown>;
-    const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
+      const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `${asanaPrefix} - ${req.file.originalname}`, req.file.mimetype);
+      const attachmentData = (result as Record<string, unknown>).data || result;
+      const data = attachmentData as Record<string, unknown>;
+      const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
 
-    const updated = await storage.updateProject(req.params.id as string, {
-      hrspAuthDocUrl: viewUrl,
-      hrspAuthDocUploadedAt: new Date(),
-    });
+      const updateData: Record<string, unknown> = { [projectField]: viewUrl };
+      if (projectField === "hrspAuthDocUrl") updateData.hrspAuthDocUploadedAt = new Date();
 
-    res.json({ project: updated, attachmentUrl: viewUrl });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[HRSP Auth Doc] Error:", msg);
-    res.status(500).json({ message: msg });
-  }
-});
+      const updated = await storage.updateProject(req.params.id as string, updateData);
+      res.json({ project: updated, attachmentUrl: viewUrl });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[HRSP ${asanaPrefix}] Error:`, msg);
+      res.status(500).json({ message: msg });
+    }
+  }];
+}
 
-hrspInvoiceRouter.post("/:id/hrsp-power-doc", upload.single("powerDoc"), async (req, res) => {
-  try {
-    const project = await storage.getProject(req.params.id as string);
-    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
-    if (!req.file) return res.status(400).json({ message: "File is required" });
-
-    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP POWER CONSUMPTION - ${req.file.originalname}`, req.file.mimetype);
-    const attachmentData = (result as Record<string, unknown>).data || result;
-    const data = attachmentData as Record<string, unknown>;
-    const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
-
-    const updated = await storage.updateProject(req.params.id as string, { hrspPowerConsumptionUrl: viewUrl });
-    res.json({ project: updated, attachmentUrl: viewUrl });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[HRSP Power Doc] Error:", msg);
-    res.status(500).json({ message: msg });
-  }
-});
-
-hrspInvoiceRouter.post("/:id/hrsp-sld", upload.single("sldDoc"), async (req, res) => {
-  try {
-    const project = await storage.getProject(req.params.id as string);
-    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
-    if (!req.file) return res.status(400).json({ message: "File is required" });
-
-    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP SLD - ${req.file.originalname}`, req.file.mimetype);
-    const attachmentData = (result as Record<string, unknown>).data || result;
-    const data = attachmentData as Record<string, unknown>;
-    const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
-
-    const updated = await storage.updateProject(req.params.id as string, { hrspSldUrl: viewUrl });
-    res.json({ project: updated, attachmentUrl: viewUrl });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[HRSP SLD] Error:", msg);
-    res.status(500).json({ message: msg });
-  }
-});
+hrspInvoiceRouter.post("/:id/hrsp-auth-doc", ...createUploadHandler("hrsp-auth-doc", "authDoc", "HRSP AUTH", "hrspAuthDocUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-power-doc", ...createUploadHandler("hrsp-power-doc", "powerDoc", "HRSP POWER CONSUMPTION", "hrspPowerConsumptionUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-sld", ...createUploadHandler("hrsp-sld", "sldDoc", "HRSP SLD", "hrspSldUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-roof-pics", ...createUploadHandler("hrsp-roof-pics", "roofPics", "HRSP ROOF PHOTOS", "hrspRoofPicsUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-panel-nameplate", ...createUploadHandler("hrsp-panel-nameplate", "panelNameplate", "HRSP PANEL NAMEPLATE", "hrspPanelNameplateUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-inverter-nameplate", ...createUploadHandler("hrsp-inverter-nameplate", "inverterNameplate", "HRSP INVERTER NAMEPLATE", "hrspInverterNameplateUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-battery-nameplate", ...createUploadHandler("hrsp-battery-nameplate", "batteryNameplate", "HRSP BATTERY NAMEPLATE", "hrspBatteryNameplateUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-esa-cert", ...createUploadHandler("hrsp-esa-cert", "esaCert", "HRSP ESA CERTIFICATE", "hrspEsaCertUrl"));

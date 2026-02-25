@@ -1,24 +1,30 @@
 import { useRef } from "react";
-import { Check, Circle, Upload, Loader2, RefreshCw } from "lucide-react";
+import { Check, Circle, Upload, Loader2, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { HrspInvoiceDialog } from "./HrspInvoiceDialog";
+import { HrspPaidInvoiceDialog } from "./HrspPaidInvoiceDialog";
 import type { Project, HrspRequiredDocument } from "@shared/schema";
+import { HRSP_PRE_APPROVAL_STATUSES, HRSP_PREAPPROVED_STATUS } from "@shared/schema";
 
-function CheckItem({ done, label, children }: { done: boolean; label: string; children?: React.ReactNode }) {
+function CheckItem({ done, label, grayed, children }: { done: boolean; label: string; grayed?: boolean; children?: React.ReactNode }) {
+  const textClass = grayed
+    ? "text-[11px] text-muted-foreground/50 line-through"
+    : done
+      ? "text-[11px] text-green-700 dark:text-green-400"
+      : "text-[11px] text-muted-foreground";
+
   return (
-    <div className="flex items-center gap-1.5">
+    <div className={`flex items-center gap-1.5 ${grayed ? "opacity-50" : ""}`}>
       {done ? (
         <Check className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
       ) : (
         <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />
       )}
-      <span className={`text-[11px] ${done ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
-        {label}
-      </span>
-      {children}
+      <span className={textClass}>{label}</span>
+      {!grayed && children}
     </div>
   );
 }
@@ -51,13 +57,7 @@ function UploadButton({ mutation, inputRef, hasDoc, testId }: {
 }) {
   if (mutation.isPending) return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-6 text-[10px] px-2"
-      onClick={() => inputRef.current?.click()}
-      data-testid={testId}
-    >
+    <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={() => inputRef.current?.click()} data-testid={testId}>
       {hasDoc ? <RefreshCw className="h-3 w-3 mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
       {hasDoc ? "Replace" : "Upload"}
     </Button>
@@ -65,99 +65,167 @@ function UploadButton({ mutation, inputRef, hasDoc, testId }: {
 }
 
 function getDocStatus(key: string, project: Project): { done: boolean; label: string } {
-  switch (key) {
-    case "invoice":
-      return { done: !!project.hrspInvoiceUrl, label: "Invoice" };
-    case "authorization":
-      return { done: !!project.hrspAuthDocUrl, label: "Authorization" };
-    case "hydroBill": {
-      const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
-      const isAutoLinked = !project.hrspPowerConsumptionUrl && !!project.hydroBillUrl;
-      return { done: hasPower, label: isAutoLinked ? "Hydro Bill (from UC)" : "Hydro Bill" };
-    }
-    case "sld":
-      return { done: !!project.hrspSldUrl, label: "SLD" };
-    default:
-      return { done: false, label: key };
+  const map: Record<string, { field: keyof Project; label: string }> = {
+    invoice: { field: "hrspInvoiceUrl", label: "Invoice" },
+    authorization: { field: "hrspAuthDocUrl", label: "Authorization" },
+    sld: { field: "hrspSldUrl", label: "SLD" },
+    roofPics: { field: "hrspRoofPicsUrl", label: "Roof Photos" },
+    panelNameplate: { field: "hrspPanelNameplateUrl", label: "Panel Nameplate" },
+    inverterNameplate: { field: "hrspInverterNameplateUrl", label: "Inverter Nameplate" },
+    batteryNameplate: { field: "hrspBatteryNameplateUrl", label: "Battery Nameplate" },
+    esaCert: { field: "hrspEsaCertUrl", label: "ESA Certificate" },
+    paidInvoice: { field: "hrspPaidInvoiceUrl", label: "Paid Invoice" },
+  };
+
+  if (key === "hydroBill") {
+    const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
+    const isAutoLinked = !project.hrspPowerConsumptionUrl && !!project.hydroBillUrl;
+    return { done: hasPower, label: isAutoLinked ? "Hydro Bill (from UC)" : "Hydro Bill" };
   }
+
+  const entry = map[key];
+  if (entry) return { done: !!project[entry.field], label: entry.label };
+  return { done: false, label: key };
 }
 
-export function HrspChecklist({ project }: { project: Project }) {
-  const authRef = useRef<HTMLInputElement>(null);
-  const powerRef = useRef<HTMLInputElement>(null);
-  const sldRef = useRef<HTMLInputElement>(null);
+const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: string; accept: string }> = {
+  authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Authorization document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  hydroBill: { endpoint: "hrsp-power-doc", fieldName: "powerDoc", msg: "Power consumption document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png" },
+  sld: { endpoint: "hrsp-sld", fieldName: "sldDoc", msg: "SLD document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
+  roofPics: { endpoint: "hrsp-roof-pics", fieldName: "roofPics", msg: "Roof photos uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
+  panelNameplate: { endpoint: "hrsp-panel-nameplate", fieldName: "panelNameplate", msg: "Panel nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
+  inverterNameplate: { endpoint: "hrsp-inverter-nameplate", fieldName: "inverterNameplate", msg: "Inverter nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
+  batteryNameplate: { endpoint: "hrsp-battery-nameplate", fieldName: "batteryNameplate", msg: "Battery nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
+  esaCert: { endpoint: "hrsp-esa-cert", fieldName: "esaCert", msg: "ESA certificate uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png" },
+};
 
-  const { data: config } = useQuery<{ requiredDocuments: HrspRequiredDocument[] }>({
-    queryKey: ["/api/hrsp-config"],
-  });
+function UploadDocItem({ docKey, project, done, label, grayed }: {
+  docKey: string; project: Project; done: boolean; label: string; grayed?: boolean;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const cfg = UPLOAD_CONFIG[docKey];
+  const mutation = useUpload(project.id, cfg?.endpoint || "", cfg?.fieldName || "", cfg?.msg || "");
 
-  const uploadAuth = useUpload(project.id, "hrsp-auth-doc", "authDoc", "Authorization document uploaded to Asana");
-  const uploadPower = useUpload(project.id, "hrsp-power-doc", "powerDoc", "Power consumption document uploaded to Asana");
-  const uploadSld = useUpload(project.id, "hrsp-sld", "sldDoc", "SLD document uploaded to Asana");
-
-  const enabledDocs = (config?.requiredDocuments || []).filter(d => d.enabled);
-  const completedCount = enabledDocs.filter(d => getDocStatus(d.key, project).done).length;
-  const totalCount = enabledDocs.length;
-
-  const handleFile = (ref: React.RefObject<HTMLInputElement | null>, mutation: ReturnType<typeof useUpload>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) mutation.mutate(file);
     e.target.value = "";
   };
 
+  if (docKey === "hydroBill") {
+    const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
+    return (
+      <CheckItem done={done} label={label} grayed={grayed}>
+        {!hasPower && !grayed && cfg && (
+          <>
+            <UploadButton mutation={mutation} inputRef={ref} hasDoc={false} testId={`button-upload-power-${project.id}`} />
+            <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
+          </>
+        )}
+      </CheckItem>
+    );
+  }
+
   return (
-    <div className="mt-2 space-y-1" data-testid={`hrsp-checklist-${project.id}`}>
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-          HRSP Docs ({completedCount}/{totalCount})
-        </span>
+    <CheckItem done={done} label={label} grayed={grayed}>
+      {cfg && !grayed && (
+        <>
+          <UploadButton mutation={mutation} inputRef={ref} hasDoc={done} testId={`button-upload-${docKey}-${project.id}`} />
+          <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
+        </>
+      )}
+    </CheckItem>
+  );
+}
+
+export function HrspChecklist({ project }: { project: Project }) {
+  const { data: config } = useQuery<{ requiredDocuments: HrspRequiredDocument[] }>({
+    queryKey: ["/api/hrsp-config"],
+  });
+
+  const allDocs = config?.requiredDocuments || [];
+  const status = project.hrspStatus || "";
+  const isPreApproval = HRSP_PRE_APPROVAL_STATUSES.some(s => status.includes(s)) || !status;
+  const isPreApproved = status.includes(HRSP_PREAPPROVED_STATUS) || status.toLowerCase().includes("pre approved");
+
+  const preDocs = allDocs.filter(d => d.phase === "pre" && d.enabled);
+  const closeoffDocs = allDocs.filter(d => d.phase === "closeoff" && d.enabled);
+
+  const preCompleted = preDocs.filter(d => getDocStatus(d.key, project).done).length;
+  const closeoffCompleted = closeoffDocs.filter(d => getDocStatus(d.key, project).done).length;
+
+  const showCloseoff = isPreApproved || closeoffDocs.some(d => getDocStatus(d.key, project).done);
+
+  return (
+    <div className="mt-2 space-y-2" data-testid={`hrsp-checklist-${project.id}`}>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5 mb-1">
+          {isPreApproved ? (
+            <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+          ) : null}
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            {isPreApproved ? "Pre-Approval" : `Pre-Approval (${preCompleted}/${preDocs.length})`}
+          </span>
+          {isPreApproved && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">Approved</span>
+          )}
+        </div>
+
+        {preDocs.map(doc => {
+          const { done, label } = getDocStatus(doc.key, project);
+
+          if (doc.key === "invoice") {
+            return (
+              <CheckItem key={doc.key} done={isPreApproved || done} label={label} grayed={isPreApproved}>
+                {!isPreApproved && <HrspInvoiceDialog project={project} />}
+              </CheckItem>
+            );
+          }
+
+          return (
+            <UploadDocItem
+              key={doc.key}
+              docKey={doc.key}
+              project={project}
+              done={isPreApproved || done}
+              label={label}
+              grayed={isPreApproved}
+            />
+          );
+        })}
       </div>
 
-      {enabledDocs.map(doc => {
-        const { done, label } = getDocStatus(doc.key, project);
+      {(showCloseoff || isPreApproved) && closeoffDocs.length > 0 && (
+        <div className="space-y-1 pt-1 border-t border-border/50">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+              Close-Off ({closeoffCompleted}/{closeoffDocs.length})
+            </span>
+          </div>
 
-        if (doc.key === "invoice") {
-          return (
-            <CheckItem key={doc.key} done={done} label={label}>
-              <HrspInvoiceDialog project={project} />
-            </CheckItem>
-          );
-        }
+          {closeoffDocs.map(doc => {
+            const { done, label } = getDocStatus(doc.key, project);
 
-        if (doc.key === "authorization") {
-          return (
-            <CheckItem key={doc.key} done={done} label={label}>
-              <UploadButton mutation={uploadAuth} inputRef={authRef} hasDoc={done} testId={`button-upload-auth-${project.id}`} />
-              <input ref={authRef} type="file" className="hidden" onChange={handleFile(authRef, uploadAuth)} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
-            </CheckItem>
-          );
-        }
+            if (doc.key === "paidInvoice") {
+              return (
+                <CheckItem key={doc.key} done={done} label={label}>
+                  <HrspPaidInvoiceDialog project={project} />
+                </CheckItem>
+              );
+            }
 
-        if (doc.key === "hydroBill") {
-          const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
-          return (
-            <CheckItem key={doc.key} done={done} label={label}>
-              {!hasPower && (
-                <>
-                  <UploadButton mutation={uploadPower} inputRef={powerRef} hasDoc={false} testId={`button-upload-power-${project.id}`} />
-                  <input ref={powerRef} type="file" className="hidden" onChange={handleFile(powerRef, uploadPower)} accept=".pdf,.jpg,.jpeg,.png" />
-                </>
-              )}
-            </CheckItem>
-          );
-        }
-
-        if (doc.key === "sld") {
-          return (
-            <CheckItem key={doc.key} done={done} label={label}>
-              <UploadButton mutation={uploadSld} inputRef={sldRef} hasDoc={done} testId={`button-upload-sld-${project.id}`} />
-              <input ref={sldRef} type="file" className="hidden" onChange={handleFile(sldRef, uploadSld)} accept=".pdf,.jpg,.jpeg,.png,.dwg" />
-            </CheckItem>
-          );
-        }
-
-        return null;
-      })}
+            return (
+              <UploadDocItem
+                key={doc.key}
+                docKey={doc.key}
+                project={project}
+                done={done}
+                label={label}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
