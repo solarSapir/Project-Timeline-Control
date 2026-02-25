@@ -63,6 +63,11 @@ projectsRouter.patch("/:id", async (req, res) => {
         try {
           await updateSubtaskField(project.hrspSubtaskGid, 'grants status', req.body.rebateStatus);
           req.body.hrspStatus = req.body.rebateStatus;
+
+          if (req.body.rebateStatus.toLowerCase().includes('100% complete')) {
+            await completeAsanaTask(project.hrspSubtaskGid);
+            console.log(`Auto-completed HRSP subtask for ${project.name} (status → 100% complete)`);
+          }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`Failed to update HRSP subtask for ${project.name}:`, msg);

@@ -3,12 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { TaskActionDialog } from "@/components/task-action-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, AlertTriangle, AlertCircle, FolderOpen } from "lucide-react";
+import { Search, AlertTriangle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDaysUntilDue } from "@/utils/dates";
@@ -249,16 +248,6 @@ export default function PaymentsView() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant={expandedProjectId === p.id ? "secondary" : "ghost"}
-                        className="h-7 text-xs gap-1 px-2"
-                        onClick={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
-                        data-testid={`button-subtasks-${p.id}`}
-                      >
-                        <FolderOpen className="h-3 w-3" />
-                        Subtasks
-                      </Button>
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
                         <SelectTrigger className="w-[180px] h-7 text-xs" data-testid={`select-rebate-status-${p.id}`}>
                           <SelectValue placeholder="Set rebate status" />
@@ -269,7 +258,16 @@ export default function PaymentsView() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <TaskActionDialog projectId={p.id} projectName={p.name} viewType="payments" />
+                      <Button
+                        size="sm"
+                        variant={expandedProjectId === p.id ? "secondary" : "ghost"}
+                        className="h-7 text-xs gap-1 px-2"
+                        onClick={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
+                        data-testid={`button-expand-${p.id}`}
+                      >
+                        {expandedProjectId === p.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {expandedProjectId === p.id ? "Collapse" : "Expand"}
+                      </Button>
                     </div>
                   </div>
 
