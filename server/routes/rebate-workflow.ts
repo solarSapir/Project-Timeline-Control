@@ -6,6 +6,96 @@ import { fetchTaskStories, findAllStatusChangesInStories } from "../asana";
 
 export const rebateWorkflowRouter = Router();
 
+export async function runRebateBackfillIfNeeded(): Promise<void> {
+  try {
+    const existingCompletions = await storage.getRebateCompletions({});
+    if (existingCompletions.length > 0) {
+      console.log(`[Rebate Backfill] Already have ${existingCompletions.length} completions, skipping auto-backfill`);
+      return;
+    }
+
+    console.log("[Rebate Backfill] No rebate completions found, starting auto-backfill...");
+    const projects = await storage.getProjects();
+    const rebateProjects = projects.filter(p =>
+      p.asanaGid &&
+      p.installType?.toLowerCase() === "install" &&
+      (!p.propertySector || p.propertySector.toLowerCase() === "residential")
+    );
+
+    let created = 0;
+    let errors = 0;
+    let noSubtask = 0;
+    const batchSize = 5;
+
+    for (let i = 0; i < rebateProjects.length; i += batchSize) {
+      const batch = rebateProjects.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (project) => {
+        const subtaskGid = project.hrspSubtaskGid;
+        if (!subtaskGid) {
+          noSubtask++;
+          if (project.rebateStatus && project.rebateStatus.toLowerCase() !== "not required") {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: "System",
+              actionType: "status_change",
+              fromStatus: null,
+              toStatus: project.rebateStatus,
+              notes: `Backfilled: current status (no subtask history available)`,
+              hideDays: null,
+              followUpDate: null,
+            });
+            created++;
+          }
+          return;
+        }
+
+        try {
+          const stories = await fetchTaskStories(subtaskGid);
+          const changes = findAllStatusChangesInStories(stories, 'GRANTS STATUS');
+
+          for (const change of changes) {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: change.user,
+              actionType: "status_change",
+              fromStatus: change.fromStatus,
+              toStatus: change.toStatus,
+              notes: `Backfilled from Asana: ${change.text}`,
+              hideDays: null,
+              followUpDate: null,
+              completedAt: change.date ? new Date(change.date) : undefined,
+            });
+            created++;
+          }
+
+          if (changes.length === 0 && project.rebateStatus && project.rebateStatus.toLowerCase() !== "not required") {
+            await storage.createRebateCompletion({
+              projectId: project.id,
+              staffName: "System",
+              actionType: "status_change",
+              fromStatus: null,
+              toStatus: project.rebateStatus,
+              notes: `Backfilled: current status from Asana sync`,
+              hideDays: null,
+              followUpDate: null,
+            });
+            created++;
+          }
+        } catch (err: unknown) {
+          errors++;
+          console.error(`[Rebate Backfill] Error for project ${project.name}:`, err instanceof Error ? err.message : String(err));
+        }
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    console.log(`[Rebate Backfill] Auto-backfill complete: ${created} created, ${errors} errors, ${noSubtask} no subtask`);
+  } catch (error: unknown) {
+    console.error("[Rebate Backfill] Auto-backfill error:", error instanceof Error ? error.message : String(error));
+  }
+}
+
 rebateWorkflowRouter.get("/workflow-rules", async (req, res) => {
   try {
     let rules = await storage.getRebateWorkflowRules();
