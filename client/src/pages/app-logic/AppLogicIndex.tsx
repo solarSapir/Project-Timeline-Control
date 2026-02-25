@@ -34,7 +34,7 @@ export default function AppLogicIndex() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                14 tables with fields, types, and relationships. Color-coded by domain.
+                15 tables with fields, types, and relationships. Color-coded by domain.
               </p>
             </CardContent>
           </Card>

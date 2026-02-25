@@ -14,6 +14,9 @@ import {
   fixHrspRebateField,
   getSubtaskFieldOptions,
   updateSubtaskField,
+  createAsanaWebhook,
+  deleteAsanaWebhook,
+  listAsanaWebhooks,
 } from "../asana";
 import { addDays, addWeeks, format } from "date-fns";
 import { DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS, PROJECT_STAGES } from "@shared/schema";
@@ -303,9 +306,51 @@ async function runAutoSync() {
   }
 }
 
+async function setupWebhookOnStart() {
+  try {
+    const projectGid = await findProjectManageTeamGid();
+    const devDomain = process.env.REPLIT_DEV_DOMAIN;
+    const deploymentDomain = process.env.REPLIT_DEPLOYMENT_URL || process.env.REPL_SLUG;
+    const hostname = devDomain || deploymentDomain;
+    if (!hostname) {
+      console.log('[Webhook] No hostname available — skipping auto-setup');
+      return;
+    }
+    const targetUrl = `https://${hostname}/api/webhooks/asana`;
+
+    const workspaces = await fetchAsanaWorkspaces();
+    if (workspaces.length > 0) {
+      const existing = await listAsanaWebhooks(workspaces[0].gid);
+      const alreadyActive = existing.find((w: any) =>
+        w.resource?.gid === projectGid && w.active && w.target === targetUrl
+      );
+      if (alreadyActive) {
+        console.log(`[Webhook] Already active (${alreadyActive.gid}) → ${targetUrl}`);
+        return;
+      }
+      for (const w of existing) {
+        if (w.resource?.gid === projectGid) {
+          try {
+            await deleteAsanaWebhook(w.gid);
+            console.log(`[Webhook] Cleaned up stale webhook ${w.gid}`);
+          } catch (_) { /* ignore */ }
+        }
+      }
+    }
+
+    const result = await createAsanaWebhook(projectGid, targetUrl);
+    const gid = result?.data?.gid;
+    console.log(`[Webhook] Auto-setup complete (${gid}) → ${targetUrl}`);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`[Webhook] Auto-setup skipped: ${msg}`);
+  }
+}
+
 export function startAutoSync() {
-  setTimeout(() => {
-    runAutoSync();
+  setTimeout(async () => {
+    await runAutoSync();
+    setupWebhookOnStart();
     setInterval(runAutoSync, AUTO_SYNC_INTERVAL_MS);
   }, 10000);
 }

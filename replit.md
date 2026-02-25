@@ -35,7 +35,7 @@ Solar PM is a project management application designed for solar installation com
 - **Internal App Logic Documentation**: Visual documentation at `/app-logic` with interactive React Flow diagrams for database schema, API map, and workflow logic flows.
 
 ### Database Tables
-- `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `staff_members`.
+- `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`.
 
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories.
@@ -43,3 +43,14 @@ Solar PM is a project management application designed for solar installation com
 - **OpenAI Vision (gpt-4o)**: AI-powered data extraction from hydro bill images.
 - **PostgreSQL**: Relational database.
 - **Local Filesystem**: For storing uploaded project files.
+
+## App Logic Documentation (Maintenance Convention)
+- **Location**: `/app-logic` route with sub-routes for schema, API map, and 10 tab-specific flow diagrams
+- **Files**: `client/src/pages/app-logic/` (13 files), `client/src/components/app-logic/` (2 files)
+- **Library**: `reactflow` for interactive node-based diagrams
+- **Standard**: Whenever a new feature is added or an existing feature is modified, update the corresponding App Logic flow diagram and schema view in the same session. This includes:
+  - Adding new tables to `SchemaView.tsx` (with correct domain color)
+  - Adding new API endpoints to `ApiMapView.tsx` (with method, path, description, tables, usedBy)
+  - Updating flow nodes/edges in the relevant `flows/*FlowView.tsx` file
+  - Updating `AppLogicIndex.tsx` if the table/endpoint count changes
+- **Node types** in flow diagrams: `data` (blue), `filter` (amber), `action` (green), `dialog` (purple), `api` (emerald), `component` (indigo), `logic` (orange)

@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
 import RebateWorkflowLogicEditor from "@/components/settings/RebateWorkflowLogicEditor";
 import { StaffManager } from "@/components/settings/StaffManager";
+import { WebhookManager } from "@/components/settings/WebhookManager";
 import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
 
 interface SyncStatus {
@@ -94,16 +95,20 @@ export default function SyncView() {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Auto-Sync" icon={<Clock className="h-4 w-4" />} defaultOpen={false} testId="section-auto-sync">
+      <CollapsibleSection title="Real-Time Webhook" icon={<Wifi className="h-4 w-4" />} testId="section-webhook">
+        <WebhookManager />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Auto-Sync (Backup)" icon={<Clock className="h-4 w-4" />} defaultOpen={false} testId="section-auto-sync">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-auto-sync">Active</Badge>
             <span className="text-sm text-muted-foreground">Every 15 minutes</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            The app automatically syncs all projects from "Project Manage Team" every 15 minutes.
-            An initial sync also runs when the server starts. Any status changes you make in this app
-            are pushed to Asana immediately — the auto-sync pulls any updates made directly in Asana.
+            As a backup to real-time webhooks, the app also does a full sync of all projects every 15 minutes.
+            This catches anything that webhooks may have missed. Any status changes you make in this app
+            are pushed to Asana immediately.
           </p>
         </div>
       </CollapsibleSection>

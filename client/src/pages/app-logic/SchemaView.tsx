@@ -57,6 +57,8 @@ const tables: TableDef[] = [
       { name: "asanaCustomFields", type: "jsonb" },
       { name: "lastSyncedAt / createdAt", type: "timestamp" },
       { name: "lastUnpausedDate", type: "text" },
+      { name: "ucConnectionFee", type: "text" },
+      { name: "ucMeterbaseUrl", type: "text" },
     ],
   },
   {
@@ -87,9 +89,12 @@ const tables: TableDef[] = [
     columns: [
       { name: "id", type: "varchar PK" },
       { name: "projectId", type: "varchar FK→projects" },
-      { name: "installDate", type: "date" },
-      { name: "installEndDate", type: "date" },
-      { name: "teamLead / notes", type: "text" },
+      { name: "taskType", type: "text" },
+      { name: "scheduledDate", type: "date" },
+      { name: "duration", type: "integer" },
+      { name: "status", type: "text", note: "default: pending" },
+      { name: "installerName", type: "text" },
+      { name: "notes", type: "text" },
     ],
   },
   {
@@ -97,9 +102,10 @@ const tables: TableDef[] = [
     columns: [
       { name: "id", type: "varchar PK" },
       { name: "stage", type: "text unique" },
+      { name: "targetDays", type: "integer" },
       { name: "dependsOn", type: "text[]" },
-      { name: "gapDays", type: "integer" },
       { name: "gapRelativeTo", type: "text" },
+      { name: "completionCriteria", type: "text[]" },
     ],
   },
   {
@@ -109,9 +115,10 @@ const tables: TableDef[] = [
       { name: "projectId", type: "varchar FK→projects" },
       { name: "category", type: "text" },
       { name: "fileName / storedName", type: "text" },
-      { name: "mimeType / fileSize", type: "text/int" },
+      { name: "mimeType", type: "text" },
+      { name: "fileSize", type: "integer" },
       { name: "uploadedBy / notes", type: "text" },
-      { name: "uploadedAt", type: "timestamp" },
+      { name: "createdAt", type: "timestamp" },
     ],
   },
   {
@@ -132,7 +139,10 @@ const tables: TableDef[] = [
       { name: "createdBy / issue", type: "text" },
       { name: "status", type: "text", note: "open/responded/resolved" },
       { name: "managerResponse", type: "text" },
+      { name: "respondedBy", type: "text" },
+      { name: "respondedAt / resolvedAt", type: "timestamp" },
       { name: "hideUntil", type: "timestamp" },
+      { name: "createdAt", type: "timestamp" },
     ],
   },
   {
@@ -175,13 +185,40 @@ const tables: TableDef[] = [
     ],
   },
   {
+    name: "rebate_workflow_rules", domain: "kpi",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "triggerAction", type: "text unique" },
+      { name: "hideDays", type: "integer", note: "default: 5" },
+      { name: "requiresFiles/Notes", type: "boolean" },
+      { name: "autoEscalate", type: "boolean" },
+      { name: "label / description", type: "text" },
+      { name: "enabled", type: "boolean" },
+    ],
+  },
+  {
     name: "error_logs", domain: "system",
     columns: [
       { name: "id", type: "varchar PK" },
-      { name: "type / message", type: "text" },
-      { name: "stack / url / userAgent", type: "text" },
-      { name: "breadcrumbs", type: "jsonb" },
+      { name: "errorMessage", type: "text" },
+      { name: "errorSource", type: "text" },
+      { name: "pageUrl", type: "text" },
+      { name: "userActions", type: "jsonb" },
+      { name: "apiEndpoint / apiMethod", type: "text" },
+      { name: "apiPayload", type: "text" },
+      { name: "stackTrace", type: "text" },
       { name: "resolved", type: "boolean" },
+      { name: "resolvedNote", type: "text" },
+      { name: "createdAt", type: "timestamp" },
+    ],
+  },
+  {
+    name: "staff_members", domain: "system",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "name", type: "text" },
+      { name: "role", type: "text" },
+      { name: "active", type: "boolean", note: "default: true" },
       { name: "createdAt", type: "timestamp" },
     ],
   },
@@ -228,17 +265,19 @@ const nodeTypes = { tableNode: TableNode };
 const positions: Record<string, { x: number; y: number }> = {
   users: { x: 0, y: 0 },
   projects: { x: 300, y: 0 },
-  project_deadlines: { x: 600, y: 0 },
+  project_deadlines: { x: 650, y: 0 },
   task_actions: { x: 0, y: 350 },
-  install_schedule: { x: 250, y: 350 },
-  workflow_config: { x: 500, y: 350 },
-  project_files: { x: 0, y: 650 },
-  hrsp_config: { x: 250, y: 650 },
-  escalation_tickets: { x: 500, y: 650 },
-  uc_completions: { x: 750, y: 0 },
-  uc_workflow_rules: { x: 750, y: 280 },
-  rebate_completions: { x: 750, y: 520 },
-  error_logs: { x: 500, y: 900 },
+  install_schedule: { x: 280, y: 350 },
+  workflow_config: { x: 560, y: 350 },
+  project_files: { x: 0, y: 620 },
+  hrsp_config: { x: 280, y: 620 },
+  escalation_tickets: { x: 560, y: 620 },
+  uc_completions: { x: 900, y: 0 },
+  uc_workflow_rules: { x: 900, y: 280 },
+  rebate_completions: { x: 900, y: 520 },
+  rebate_workflow_rules: { x: 900, y: 780 },
+  error_logs: { x: 0, y: 920 },
+  staff_members: { x: 280, y: 920 },
 };
 
 const initialNodes: Node[] = tables.map((t) => ({
@@ -275,6 +314,7 @@ export default function SchemaView() {
           </Button>
         </Link>
         <h1 className="text-lg font-semibold">Database Schema</h1>
+        <span className="text-xs text-muted-foreground">{tables.length} tables</span>
         <div className="flex gap-2 ml-auto">
           {Object.entries(domainColors).map(([key, dc]) => (
             <div key={key} className="flex items-center gap-1 text-[10px]">
