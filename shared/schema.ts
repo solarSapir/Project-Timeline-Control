@@ -271,6 +271,42 @@ export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
   { key: "paidInvoice", label: "Paid Invoice", type: "generate", phase: "closeoff", enabled: true, description: "Same quote marked as PAID with installation date" },
 ];
 
+export const projectFiles = pgTable("project_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  category: text("category").notNull(),
+  fileName: text("file_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+  uploadedBy: text("uploaded_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ProjectFile = typeof projectFiles.$inferSelect;
+export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
+
+export const FILE_CATEGORIES = [
+  "uc", "rebates", "contract", "site_visit", "ahj", "install", "payment", "close_off",
+] as const;
+
+export const FILE_CATEGORY_LABELS: Record<string, string> = {
+  uc: "UC",
+  rebates: "Rebates",
+  contract: "Contract",
+  site_visit: "Site Visit",
+  ahj: "AHJ",
+  install: "Install Coordination",
+  payment: "Payment",
+  close_off: "Close Off",
+};
+
 export const HRSP_PRE_APPROVAL_STATUSES = [
   "New/ Check if needed",
   "In-progress",

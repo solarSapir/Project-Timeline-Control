@@ -1,7 +1,7 @@
 import { eq, and, lte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig,
+  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -10,6 +10,7 @@ import {
   type WorkflowConfig, type InsertWorkflowConfig,
   type ErrorLog, type InsertErrorLog,
   type HrspConfig,
+  type ProjectFile, type InsertProjectFile,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -46,6 +47,11 @@ export interface IStorage {
 
   getHrspConfig(): Promise<HrspConfig | undefined>;
   upsertHrspConfig(data: { invoiceTemplate?: unknown; requiredDocuments?: unknown }): Promise<HrspConfig>;
+
+  getProjectFiles(projectId: string, category?: string): Promise<ProjectFile[]>;
+  getProjectFile(id: string): Promise<ProjectFile | undefined>;
+  createProjectFile(data: InsertProjectFile): Promise<ProjectFile>;
+  deleteProjectFile(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -250,6 +256,32 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(hrspConfig).values(data).returning();
     return created;
+  }
+
+  async getProjectFiles(projectId: string, category?: string): Promise<ProjectFile[]> {
+    if (category) {
+      return db.select().from(projectFiles)
+        .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.category, category)))
+        .orderBy(desc(projectFiles.createdAt));
+    }
+    return db.select().from(projectFiles)
+      .where(eq(projectFiles.projectId, projectId))
+      .orderBy(desc(projectFiles.createdAt));
+  }
+
+  async getProjectFile(id: string): Promise<ProjectFile | undefined> {
+    const [file] = await db.select().from(projectFiles).where(eq(projectFiles.id, id));
+    return file;
+  }
+
+  async createProjectFile(data: InsertProjectFile): Promise<ProjectFile> {
+    const [file] = await db.insert(projectFiles).values(data).returning();
+    return file;
+  }
+
+  async deleteProjectFile(id: string): Promise<boolean> {
+    const result = await db.delete(projectFiles).where(eq(projectFiles.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 

@@ -1,13 +1,13 @@
 import { Router } from "express";
 import PDFDocument from "pdfkit";
 import { storage } from "../storage";
-import { uploadAttachmentToTask } from "../asana";
 import { upload } from "../middleware/upload";
 import {
   DEFAULT_HRSP_INVOICE_TEMPLATE,
   type HrspInvoiceTemplate,
   type HrspRequiredDocument,
 } from "@shared/schema";
+import { saveFileLocally, getDownloadUrl } from "../utils/file-storage";
 
 export const hrspInvoiceRouter = Router();
 
@@ -159,29 +159,18 @@ hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
     const pdfBuffer = await buildInvoicePdf(tpl, serviceAddress, quoteDate, quoteNumber);
     const fileName = `HRSP_Invoice_${quoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-    let viewUrl = "generated";
-    const uploadTarget = project.hrspSubtaskGid || project.asanaGid;
-    if (uploadTarget) {
-      try {
-        const result = await uploadAttachmentToTask(uploadTarget, pdfBuffer, fileName, "application/pdf");
-        const attachmentData = (result as Record<string, unknown>).data || result;
-        const data = attachmentData as Record<string, unknown>;
-        viewUrl = (data.view_url || data.download_url || data.permanent_url || "generated") as string;
-      } catch (uploadErr: unknown) {
-        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-        console.warn(`[HRSP Invoice] Asana upload failed: ${msg}`);
-      }
-    }
+    const savedFile = await saveFileLocally(req.params.id as string, 'rebates', pdfBuffer, fileName, 'application/pdf', undefined, 'HRSP Invoice');
+    const localUrl = getDownloadUrl(req.params.id as string, savedFile.id);
 
     const updated = await storage.updateProject(req.params.id as string, {
-      hrspInvoiceUrl: viewUrl,
+      hrspInvoiceUrl: localUrl,
       hrspInvoiceGeneratedAt: new Date(),
       hrspServiceAddress: serviceAddress,
       hrspQuoteNumber: quoteNumber,
       hrspQuoteDate: quoteDate,
     });
 
-    res.json({ project: updated, invoiceUrl: viewUrl });
+    res.json({ project: updated, invoiceUrl: localUrl });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[HRSP Invoice] Error:", msg);
@@ -204,26 +193,15 @@ hrspInvoiceRouter.post("/:id/hrsp-paid-invoice", async (req, res) => {
     const pdfBuffer = await buildInvoicePdf(tpl, project.hrspServiceAddress, project.hrspQuoteDate, project.hrspQuoteNumber, { paid: true, installDate });
     const fileName = `HRSP_PAID_Invoice_${project.hrspQuoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
-    let viewUrl = "generated";
-    const paidUploadTarget = project.hrspSubtaskGid || project.asanaGid;
-    if (paidUploadTarget) {
-      try {
-        const result = await uploadAttachmentToTask(paidUploadTarget, pdfBuffer, fileName, "application/pdf");
-        const attachmentData = (result as Record<string, unknown>).data || result;
-        const data = attachmentData as Record<string, unknown>;
-        viewUrl = (data.view_url || data.download_url || data.permanent_url || "generated") as string;
-      } catch (uploadErr: unknown) {
-        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-        console.warn(`[HRSP Paid Invoice] Asana upload failed: ${msg}`);
-      }
-    }
+    const savedFile = await saveFileLocally(req.params.id as string, 'rebates', pdfBuffer, fileName, 'application/pdf', undefined, 'HRSP Paid Invoice');
+    const localUrl = getDownloadUrl(req.params.id as string, savedFile.id);
 
     const updated = await storage.updateProject(req.params.id as string, {
-      hrspPaidInvoiceUrl: viewUrl,
+      hrspPaidInvoiceUrl: localUrl,
       hrspInstallDate: installDate,
     });
 
-    res.json({ project: updated, invoiceUrl: viewUrl });
+    res.json({ project: updated, invoiceUrl: localUrl });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[HRSP Paid Invoice] Error:", msg);
@@ -250,24 +228,21 @@ hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
   }
 });
 
-function createUploadHandler(endpoint: string, fieldName: string, asanaPrefix: string, projectField: string) {
+function createUploadHandler(_endpoint: string, fieldName: string, asanaPrefix: string, projectField: string) {
   return [upload.single(fieldName), async (req: any, res: any) => {
     try {
       const project = await storage.getProject(req.params.id as string);
-      if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+      if (!project) return res.status(404).json({ message: "Project not found" });
       if (!req.file) return res.status(400).json({ message: "File is required" });
 
-      const target = project.hrspSubtaskGid || project.asanaGid;
-      const result = await uploadAttachmentToTask(target, req.file.buffer, `${asanaPrefix} - ${req.file.originalname}`, req.file.mimetype);
-      const attachmentData = (result as Record<string, unknown>).data || result;
-      const data = attachmentData as Record<string, unknown>;
-      const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
+      const savedFile = await saveFileLocally(req.params.id as string, 'rebates', req.file.buffer, `${asanaPrefix} - ${req.file.originalname}`, req.file.mimetype, undefined, asanaPrefix);
+      const localUrl = getDownloadUrl(req.params.id as string, savedFile.id);
 
-      const updateData: Record<string, unknown> = { [projectField]: viewUrl };
+      const updateData: Record<string, unknown> = { [projectField]: localUrl };
       if (projectField === "hrspAuthDocUrl") updateData.hrspAuthDocUploadedAt = new Date();
 
       const updated = await storage.updateProject(req.params.id as string, updateData);
-      res.json({ project: updated, attachmentUrl: viewUrl });
+      res.json({ project: updated, attachmentUrl: localUrl });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[HRSP ${asanaPrefix}] Error:`, msg);

@@ -36,6 +36,8 @@ Solar PM is a project management application designed for solar installation com
 - **Rebate Follow-Up System**: Projects with "In-progress" or "Submitted" GRANTS STATUS enter a 5-day follow-up cycle. `rebateSubmittedDate` tracks when the status changed. Cards show amber borders and "follow-up needed" label when due. Follow-up dialog posts notes to the HRSP subtask (not the main task). A "Needs Follow-Up" filter is available in the dropdown.
 - **Subtask-Targeted Comments**: Follow-up comments for UC go to the UC subtask, rebate follow-ups go to the HRSP subtask, and HRSP document uploads go to the HRSP subtask. This keeps Asana organized by posting to the relevant subtask rather than the main task.
 - **Auto-Complete on 100% Complete**: When rebate status is changed to "100% complete...", the HRSP subtask is automatically marked as completed in Asana.
+- **Local File Storage System**: All file uploads (hydro bills, HRSP docs, contract documents, site visit photos, follow-up screenshots) are stored locally on the server filesystem at `data/uploads/{projectId}/{category}/` instead of being uploaded to Asana. Text comments are still posted to Asana. Asana attachments remain viewable (read-only). Each project has organized folders by team tab: UC, Rebates, Contract, Site Visit, AHJ, Install Coordination, Payment, Close Off.
+- **Project Documents Section**: The project profile page includes a Documents section with folder tabs for all 8 categories, file upload/download/delete per folder, file count badges, and a SharePoint quick link extracted from Asana custom fields for legacy clients.
 
 ### Database Tables
 - `users`
@@ -46,9 +48,11 @@ Solar PM is a project management application designed for solar installation com
 - `workflow_config`
 - `error_logs`
 - `hrsp_config`
+- `project_files` — tracks uploaded files with projectId, category, fileName, storedName, mimeType, fileSize, uploadedBy, notes
 
 ## External Dependencies
-- **Asana API**: For project synchronization, task management, custom field data, and project stories.
+- **Asana API**: For project synchronization, task management, custom field data, and project stories. Text comments still posted to Asana; file uploads now stored locally.
 - **Replit Connector**: Used for secure authentication and connection to Asana (connection:conn_asana_01KJ87H9ZADXMNKS3AVDTX4CKY).
 - **OpenAI Vision (gpt-4o)**: Utilized for AI-powered data extraction from hydro bill image uploads.
 - **PostgreSQL**: Relational database for storing application data.
+- **Local Filesystem**: File storage at `data/uploads/` organized by project and category.

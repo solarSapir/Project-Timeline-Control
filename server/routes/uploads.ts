@@ -3,13 +3,13 @@ import { createRequire } from "module";
 import { storage } from "../storage";
 import {
   postCommentToTask,
-  uploadAttachmentToTask,
   fetchSubtasksForTask,
   createSubtaskForTask,
 } from "../asana";
 import { upload } from "../middleware/upload";
 import { addDays, format } from "date-fns";
 import OpenAI from "openai";
+import { saveFileLocally, getDownloadUrl } from "../utils/file-storage";
 
 const require = createRequire(import.meta.url);
 const { PDFParse } = require("pdf-parse");
@@ -49,7 +49,9 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
     await postCommentToTask(targetGid, commentText);
 
     if (req.file) {
-      await uploadAttachmentToTask(targetGid, req.file.buffer, req.file.originalname, req.file.mimetype);
+      const categoryMap: Record<string, string> = { contracts: 'contract', payments: 'rebates', uc: 'uc' };
+      const fileCategory = categoryMap[viewType || 'uc'] || 'uc';
+      await saveFileLocally(projectId, fileCategory, req.file.buffer, req.file.originalname, req.file.mimetype, completedBy, 'Follow-up screenshot');
     }
 
     const followUpDays = isRebate ? 5 : isContract ? 1 : 7;
@@ -78,8 +80,8 @@ uploadsRouter.post("/:id/hydro-bill", upload.single('hydroBill'), async (req, re
 
     console.log(`[Hydro Bill] Upload started for ${project.name}: file="${req.file.originalname}", mimetype="${req.file.mimetype}", size=${req.file.buffer.length} bytes`);
 
-    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HYDRO BILL - ${req.file.originalname}`, req.file.mimetype);
-    console.log(`[Hydro Bill] Asana upload success for ${project.name}`);
+    const savedFile = await saveFileLocally(req.params.id as string, 'uc', req.file.buffer, `HYDRO BILL - ${req.file.originalname}`, req.file.mimetype, undefined, 'Hydro bill upload');
+    console.log(`[Hydro Bill] File saved locally for ${project.name}`);
 
     let extracted: { hydroCompanyName?: string; hydroAccountNumber?: string; hydroCustomerName?: string } = {};
     let aiError: string | null = null;
@@ -143,13 +145,11 @@ uploadsRouter.post("/:id/hydro-bill", upload.single('hydroBill'), async (req, re
       aiError = `File type "${req.file.mimetype}" is not supported for scanning. Upload a PDF, JPG, or PNG.`;
     }
 
-    const attachmentData = (result as Record<string, unknown>).data || result;
-    const data = attachmentData as Record<string, unknown>;
-    const viewUrl = (data.view_url || data.download_url || data.permanent_url || 'uploaded') as string;
+    const localUrl = getDownloadUrl(req.params.id as string, savedFile.id);
 
-    const updated = await storage.updateProject(req.params.id as string, { hydroBillUrl: viewUrl, ...extracted });
+    const updated = await storage.updateProject(req.params.id as string, { hydroBillUrl: localUrl, ...extracted });
 
-    res.json({ attachment: result, project: updated, extracted, aiError });
+    res.json({ project: updated, extracted, aiError, fileId: savedFile.id });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[Hydro Bill] Upload error:", msg);
@@ -173,17 +173,17 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
 
     if (files?.contract?.[0]) {
       const file = files.contract[0];
-      await uploadAttachmentToTask(project.asanaGid, file.buffer, `CONTRACT - ${file.originalname}`, file.mimetype);
+      await saveFileLocally(projectId, 'contract', file.buffer, `CONTRACT - ${file.originalname}`, file.mimetype, uploadedBy, notes);
       results.push({ type: 'Contract', fileName: file.originalname });
     }
     if (files?.proposal?.[0]) {
       const file = files.proposal[0];
-      await uploadAttachmentToTask(project.asanaGid, file.buffer, `PROPOSAL - ${file.originalname}`, file.mimetype);
+      await saveFileLocally(projectId, 'contract', file.buffer, `PROPOSAL - ${file.originalname}`, file.mimetype, uploadedBy, notes);
       results.push({ type: 'Proposal', fileName: file.originalname });
     }
     if (files?.sitePlan?.[0]) {
       const file = files.sitePlan[0];
-      await uploadAttachmentToTask(project.asanaGid, file.buffer, `SITE PLAN - ${file.originalname}`, file.mimetype);
+      await saveFileLocally(projectId, 'contract', file.buffer, `SITE PLAN - ${file.originalname}`, file.mimetype, uploadedBy, notes);
       results.push({ type: 'Site Plan', fileName: file.originalname });
     }
 
@@ -249,28 +249,29 @@ uploadsRouter.post("/:id/site-visit-photos", upload.array('photos', 10), async (
     const { notes, completedBy } = req.body;
     const files = req.files as Express.Multer.File[];
 
-    const subtasks = await fetchSubtasksForTask(project.asanaGid);
-    let photosSubtask = subtasks.find((st: Record<string, unknown>) => (st.name as string)?.toLowerCase().includes('site visit photos'));
-
-    if (!photosSubtask) {
-      photosSubtask = await createSubtaskForTask(project.asanaGid, 'Site visit Photos');
-      console.log(`Created "Site visit Photos" subtask for ${project.name}`);
-    }
-
     if (notes || completedBy) {
-      const commentText = `Site Visit Photos uploaded by ${completedBy || 'Team'}:\n${notes || 'Photos uploaded'}`;
-      await postCommentToTask(photosSubtask.gid as string, commentText);
+      try {
+        const subtasks = await fetchSubtasksForTask(project.asanaGid);
+        let photosSubtask = subtasks.find((st: Record<string, unknown>) => (st.name as string)?.toLowerCase().includes('site visit photos'));
+        if (!photosSubtask) {
+          photosSubtask = await createSubtaskForTask(project.asanaGid, 'Site visit Photos');
+        }
+        const commentText = `Site Visit Photos uploaded by ${completedBy || 'Team'}:\n${notes || 'Photos uploaded'}`;
+        await postCommentToTask(photosSubtask.gid as string, commentText);
+      } catch {
+        console.warn(`[Site Visit] Could not post comment to Asana for ${project.name}`);
+      }
     }
 
     let uploadedCount = 0;
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          await uploadAttachmentToTask(photosSubtask.gid as string, file.buffer, file.originalname, file.mimetype);
+          await saveFileLocally(projectId, 'site_visit', file.buffer, file.originalname, file.mimetype, completedBy, notes);
           uploadedCount++;
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error(`Failed to upload ${file.originalname}: ${msg}`);
+          console.error(`Failed to save ${file.originalname}: ${msg}`);
         }
       }
     }
@@ -284,7 +285,7 @@ uploadsRouter.post("/:id/site-visit-photos", upload.array('photos', 10), async (
       followUpDate: null,
     });
 
-    res.json({ success: true, action, uploadedCount, subtaskGid: photosSubtask.gid, message: `${uploadedCount} photo(s) uploaded to "Site visit Photos" subtask` });
+    res.json({ success: true, action, uploadedCount, message: `${uploadedCount} photo(s) saved` });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Site visit photos error:", error);
