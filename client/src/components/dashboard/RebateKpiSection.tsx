@@ -148,7 +148,7 @@ export function RebateKpiSection() {
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Avg Days to Submit</CardTitle>
               <div className="flex items-center gap-1">
-                <FormulaTooltip formula={"Average number of days between a project's creation date and the date the rebate status was changed to \"Submitted\".\n\nFormula: AVG(Submitted Date - Project Created Date)\n\nOnly includes projects where:\n• Install type = \"Install\"\n• Sector = Residential (or blank)\n• Rebate status changed to \"Submitted\"\n• Result is between 0-365 days\n\nShows \"--\" if no projects have been submitted yet."} />
+                <FormulaTooltip formula={"Average number of days between the rebate subtask creation date and the date the rebate status was changed to \"Submitted\".\n\nFormula: AVG(Submitted Date - Subtask Created Date)\n\nFalls back to project creation date if subtask date is unavailable.\n\nOnly includes projects where:\n• Install type = \"Install\"\n• Sector = Residential (or blank)\n• Rebate status changed to \"Submitted\"\n• Result is between 0-365 days\n\nShows \"--\" if no projects have been submitted yet."} />
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -156,7 +156,7 @@ export function RebateKpiSection() {
               <div className="text-2xl font-bold" data-testid="text-rebate-avg-submit">
                 {formatStat(stats.avgDaysToSubmit)}
               </div>
-              <p className="text-xs text-muted-foreground">from project creation · click for details</p>
+              <p className="text-xs text-muted-foreground">from subtask creation · click for details</p>
             </CardContent>
           </Card>
 

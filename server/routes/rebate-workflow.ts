@@ -261,15 +261,16 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
 
       if (submitEntry) submittedCount++;
 
-      if (p.projectCreatedDate && submitEntry?.completedAt) {
-        const days = Math.round(((new Date(submitEntry.completedAt).getTime() - new Date(p.projectCreatedDate).getTime()) / 86400000) * 10) / 10;
+      const startDate = p.hrspSubtaskCreatedDate || p.projectCreatedDate;
+      if (startDate && submitEntry?.completedAt) {
+        const days = Math.round(((new Date(submitEntry.completedAt).getTime() - new Date(startDate).getTime()) / 86400000) * 10) / 10;
         if (days >= 0 && days < 365) {
           submitTimes.push(days);
           const subDate = new Date(submitEntry.completedAt);
           submitTimeDetails.push({
             projectName: p.name || "Unknown",
             projectId: p.id,
-            createdDate: p.projectCreatedDate,
+            createdDate: startDate,
             submittedDate: subDate.toISOString().split("T")[0],
             days,
             month: `${subDate.getFullYear()}-${String(subDate.getMonth() + 1).padStart(2, "0")}`,

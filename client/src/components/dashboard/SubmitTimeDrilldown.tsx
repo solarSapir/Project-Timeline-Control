@@ -162,7 +162,7 @@ export function SubmitTimeDrilldown({ open, onOpenChange, details, overallAvg }:
                       <thead>
                         <tr className="text-left text-muted-foreground text-xs">
                           <th className="pb-2 font-medium">Project</th>
-                          <th className="pb-2 font-medium">Created</th>
+                          <th className="pb-2 font-medium">Subtask Created</th>
                           <th className="pb-2 font-medium">Submitted</th>
                           <th className="pb-2 font-medium text-right">Days</th>
                         </tr>

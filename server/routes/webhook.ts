@@ -108,6 +108,9 @@ async function syncSingleTask(taskGid: string, projectGid: string | null) {
           mapped.hrspSubtaskGid = hrsp.gid;
           mapped.hrspStatus = hrsp.status;
           mapped.hrspMissing = false;
+          if (hrsp.createdAt) {
+            mapped.hrspSubtaskCreatedDate = hrsp.createdAt.split('T')[0];
+          }
           if (hrsp.status) mapped.rebateStatus = hrsp.status;
           if (hrsp.needsRebateFieldFix && isLoadDisplacementOntario) {
             try {

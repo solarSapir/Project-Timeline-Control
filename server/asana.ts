@@ -428,7 +428,7 @@ export async function createSubtaskForTask(parentTaskGid: string, subtaskName: s
 
 export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
   const accessToken = await getAccessToken();
-  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/subtasks?opt_fields=name,gid,completed,due_on,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name`, {
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/subtasks?opt_fields=name,gid,completed,due_on,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
   if (!res.ok) return [];
@@ -436,7 +436,7 @@ export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
   return data?.data || [];
 }
 
-export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null; needsRebateFieldFix: boolean } | null {
+export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null; needsRebateFieldFix: boolean; createdAt: string | null } | null {
   let hrsp = subtasks.find((st: any) =>
     st.name?.toLowerCase().includes('home renovation savings program')
   );
@@ -445,7 +445,7 @@ export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; s
       f.name?.toLowerCase().includes('grants status')
     );
     const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
-    return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: false };
+    return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: false, createdAt: hrsp.created_at || null };
   }
 
   hrsp = subtasks.find((st: any) => {
@@ -462,7 +462,7 @@ export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; s
     f.name?.toLowerCase().includes('grants status')
   );
   const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
-  return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: true };
+  return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: true, createdAt: hrsp.created_at || null };
 }
 
 export async function fixHrspRebateField(subtaskGid: string): Promise<boolean> {

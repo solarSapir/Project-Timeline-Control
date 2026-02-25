@@ -28,7 +28,7 @@ Solar PM is a project management application designed for solar installation com
 - **Component-Based UI**: Modular frontend structure with reusable components and shared utilities.
 - **Property Sector Filtering**: Project views exclude non-residential projects based on an Asana custom field.
 - **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, including invoice template editing. All document uploads are logged as task_actions for audit trail and timeline visibility.
-- **UC & Rebate KPI Systems**: Track application and rebate workflow completions, hide/reappear logic, and key performance indicators with dashboards, configurable workflow rules, and drill-down views for both UC and Rebate completions.
+- **UC & Rebate KPI Systems**: Track application and rebate workflow completions, hide/reappear logic, and key performance indicators with dashboards, configurable workflow rules, and drill-down views for both UC and Rebate completions. "Avg Days to Submit" KPI uses HRSP subtask creation date (falls back to project creation date if unavailable).
 - **Escalated Tickets System**: Staff can flag "stuck" projects, creating escalation tickets with a 48-hour hide period for manager resolution.
 - **Local File Storage System**: All file uploads are stored locally on the server filesystem, organized by project and category. Asana attachments remain viewable.
 - **Project Documents Section**: Project profile includes a Documents section with categorized folders, file management, and SharePoint links.
