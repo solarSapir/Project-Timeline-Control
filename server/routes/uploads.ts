@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { createRequire } from "module";
 import { storage } from "../storage";
 import {
   postCommentToTask,
@@ -10,9 +9,7 @@ import { upload } from "../middleware/upload";
 import { addDays, format } from "date-fns";
 import OpenAI from "openai";
 import { saveFileLocally, getDownloadUrl } from "../utils/file-storage";
-
-const require = createRequire(import.meta.url);
-const { PDFParse } = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 
 export const uploadsRouter = Router();
 
