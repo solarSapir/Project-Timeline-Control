@@ -111,6 +111,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
 
     const submitTimes: number[] = [];
     const approvalTimes: number[] = [];
+    const closeOffSubmitTimes: number[] = [];
     let rejectionCount = 0;
     let submittedCount = 0;
 
@@ -119,6 +120,8 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
       const submitEntry = projCompletions.find(c => c.toStatus?.toLowerCase() === "submitted");
       const approveEntry = projCompletions.find(c => c.toStatus?.toLowerCase()?.includes("complete") || c.toStatus?.toLowerCase()?.includes("pre-approved"));
       const rejectEntry = projCompletions.find(c => c.actionType === "status_change" && c.toStatus?.toLowerCase()?.includes("revision"));
+      const closeOffEntry = projCompletions.find(c => c.actionType === "status_change" && c.toStatus?.toLowerCase()?.includes("close-off") && !c.toStatus?.toLowerCase()?.includes("submitted"));
+      const closeOffSubmitEntry = projCompletions.find(c => c.actionType === "status_change" && (c.toStatus?.toLowerCase() === "close-off - submitted" || c.toStatus?.toLowerCase() === "close-off submitted"));
 
       if (submitEntry) submittedCount++;
 
@@ -130,6 +133,14 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
       if (submitEntry?.completedAt && approveEntry?.completedAt) {
         const days = (new Date(approveEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000;
         if (days >= 0) approvalTimes.push(days);
+      }
+
+      if (closeOffEntry?.completedAt && closeOffSubmitEntry?.completedAt) {
+        const days = (new Date(closeOffSubmitEntry.completedAt).getTime() - new Date(closeOffEntry.completedAt).getTime()) / 86400000;
+        if (days >= 0 && days < 365) closeOffSubmitTimes.push(days);
+      } else if (p.rebateCloseOffDate && closeOffSubmitEntry?.completedAt) {
+        const days = (new Date(closeOffSubmitEntry.completedAt).getTime() - new Date(p.rebateCloseOffDate).getTime()) / 86400000;
+        if (days >= 0 && days < 365) closeOffSubmitTimes.push(days);
       }
 
       if (rejectEntry) rejectionCount++;
@@ -147,6 +158,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
       avgTasksPerDay: Math.round((completions.length / activeDays) * 10) / 10,
       avgDaysToSubmit: avg(submitTimes),
       avgDaysToApproval: avg(approvalTimes),
+      avgDaysCloseOffToSubmit: avg(closeOffSubmitTimes),
       rejectionCount,
       rejectionRate,
       totalCompletions: completions.length,

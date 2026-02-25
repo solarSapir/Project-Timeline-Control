@@ -16,6 +16,7 @@ import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import type { Project } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
 
 function HrspInfo({ project }: { project: Project }) {
   const isLoadDisplacementOntario =
@@ -74,7 +75,8 @@ function getCloseOffDueInfo(p: Project): { daysLeft: number; dueDate: string } |
 
 function needsRebateFollowUp(p: Project): boolean {
   const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
-  if (!['in-progress', 'submitted'].some(s => status.includes(s))) return false;
+  const eligible = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.includes(s));
+  if (!eligible) return false;
   const days = daysSince(p.rebateSubmittedDate);
   return days !== null && days >= 5;
 }
@@ -83,6 +85,7 @@ export default function PaymentsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [modalProject, setModalProject] = useState<Project | null>(null);
+  const [closeOffSubmitProject, setCloseOffSubmitProject] = useState<Project | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<Project[]>({
@@ -136,9 +139,16 @@ export default function PaymentsView() {
   const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p)).length;
 
   const handleRebateStatus = async (projectId: string, status: string) => {
+    const lower = status.toLowerCase();
+    if (lower === 'close-off - submitted' || lower === 'close-off submitted') {
+      const proj = (projects || []).find(p => p.id === projectId);
+      if (proj) {
+        setCloseOffSubmitProject(proj);
+        return;
+      }
+    }
     try {
       const patchBody: Record<string, string> = { rebateStatus: status };
-      const lower = status.toLowerCase();
       if (lower.includes('close-off') || lower.includes('close off') || lower.includes('closeoff')) {
         patchBody.rebateCloseOffDate = new Date().toISOString().split('T')[0];
       }
@@ -150,11 +160,25 @@ export default function PaymentsView() {
     }
   };
 
+  const confirmCloseOffSubmitted = async () => {
+    if (!closeOffSubmitProject) return;
+    try {
+      await apiRequest("PATCH", `/api/projects/${closeOffSubmitProject.id}`, {
+        rebateStatus: "Close-off - Submitted",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "Status changed to Close-off - Submitted" });
+    } catch (error: unknown) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    }
+  };
+
   const getRebateStatusColor = (status: string) => {
     const lower = status.toLowerCase();
     if (lower.includes('not required')) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
     if (lower.includes('new') || lower.includes('check')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
     if (lower.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+    if (lower === 'close-off - submitted' || lower === 'close-off submitted') return "bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300";
     if (lower.includes('in-progress') || lower.includes('submitted')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
     return "bg-muted text-muted-foreground";
   };
@@ -336,6 +360,14 @@ export default function PaymentsView() {
         project={modalProject}
         open={!!modalProject}
         onOpenChange={(open) => { if (!open) setModalProject(null); }}
+      />
+
+      <CloseOffSubmittedDialog
+        open={!!closeOffSubmitProject}
+        onOpenChange={(open) => { if (!open) setCloseOffSubmitProject(null); }}
+        projectId={closeOffSubmitProject?.id || ""}
+        projectName={closeOffSubmitProject?.name || ""}
+        onConfirm={confirmCloseOffSubmitted}
       />
     </div>
   );

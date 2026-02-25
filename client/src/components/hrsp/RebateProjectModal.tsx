@@ -17,6 +17,7 @@ function getRebateStatusColor(status: string) {
   if (lower.includes('not required')) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
   if (lower.includes('new') || lower.includes('check')) return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
   if (lower.includes('complete')) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+  if (lower === 'close-off - submitted' || lower === 'close-off submitted') return "bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300";
   if (lower.includes('in-progress') || lower.includes('submitted')) return "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
   return "bg-muted text-muted-foreground";
 }
@@ -25,7 +26,7 @@ export function RebateProjectModal({ project, open, onOpenChange }: Props) {
   if (!project) return null;
 
   const status = project.rebateStatus || project.hrspStatus || '';
-  const needsFollowUp = ['in-progress', 'submitted'].some(s => status.toLowerCase().includes(s));
+  const needsFollowUp = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.toLowerCase().includes(s));
   const days = daysSince(project.rebateSubmittedDate);
   const followUpDue = needsFollowUp && days !== null && days >= 5;
 

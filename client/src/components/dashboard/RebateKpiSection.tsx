@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "lucide-react";
 
 interface RebateKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
@@ -14,6 +14,7 @@ interface RebateKpiStats {
   avgTasksPerDay: number;
   avgDaysToSubmit: number | null;
   avgDaysToApproval: number | null;
+  avgDaysCloseOffToSubmit: number | null;
   rejectionCount: number;
   rejectionRate: number | null;
   totalCompletions: number;
@@ -29,8 +30,8 @@ export function RebateKpiSection() {
     return (
       <div className="space-y-4" data-testid="rebate-kpi-loading">
         <h2 className="text-lg font-semibold">Rebate Team KPIs</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
@@ -70,7 +71,7 @@ export function RebateKpiSection() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card data-testid="card-rebate-completions-week">
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
@@ -135,6 +136,19 @@ export function RebateKpiSection() {
             <p className="text-xs text-muted-foreground">
               {stats.rejectionCount} rejection{stats.rejectionCount !== 1 ? "s" : ""} total
             </p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-rebate-closeoff-submit">
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Close-off to Submit</CardTitle>
+            <Send className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-rebate-closeoff-submit">
+              {formatStat(stats.avgDaysCloseOffToSubmit)}
+            </div>
+            <p className="text-xs text-muted-foreground">avg days to submit close-off</p>
           </CardContent>
         </Card>
       </div>

@@ -60,7 +60,7 @@ projectsRouter.patch("/:id", async (req, res) => {
 
     if (req.body.rebateStatus && req.body.rebateStatus !== project.rebateStatus) {
       const rebateLower = req.body.rebateStatus.toLowerCase();
-      const rebateFollowUpStatuses = ['in-progress', 'submitted'];
+      const rebateFollowUpStatuses = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'];
       if (rebateFollowUpStatuses.some(s => rebateLower.includes(s))) {
         const oldLower = (project.rebateStatus || '').toLowerCase();
         if (!rebateFollowUpStatuses.some(s => oldLower.includes(s))) {
