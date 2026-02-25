@@ -28,6 +28,7 @@ export interface IStorage {
   getProjectByAsanaGid(gid: string): Promise<Project | undefined>;
   upsertProject(data: InsertProject): Promise<Project>;
   updateProject(id: string, data: Partial<InsertProject>): Promise<Project | undefined>;
+  deleteProject(id: string): Promise<boolean>;
 
   getProjectDeadlines(projectId: string): Promise<ProjectDeadline[]>;
   upsertProjectDeadline(data: InsertProjectDeadline): Promise<ProjectDeadline>;
@@ -126,6 +127,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projects.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    await db.delete(projectDeadlines).where(eq(projectDeadlines.projectId, id));
+    await db.delete(projectFiles).where(eq(projectFiles.projectId, id));
+    await db.delete(escalationTickets).where(eq(escalationTickets.projectId, id));
+    await db.delete(ucCompletions).where(eq(ucCompletions.projectId, id));
+    await db.delete(rebateCompletions).where(eq(rebateCompletions.projectId, id));
+    const [deleted] = await db.delete(projects).where(eq(projects.id, id)).returning();
+    return !!deleted;
   }
 
   async getProjectDeadlines(projectId: string): Promise<ProjectDeadline[]> {

@@ -187,6 +187,20 @@ async function syncProjectFromAsana(projectGid: string) {
     synced.push(project);
   }
 
+  const syncedGids = new Set(tasks.map((t: Record<string, unknown>) => t.gid as string));
+  const allLocal = await storage.getProjects();
+  let removedCount = 0;
+  for (const local of allLocal) {
+    if (local.asanaGid && !syncedGids.has(local.asanaGid)) {
+      await storage.deleteProject(local.id);
+      console.log(`[Sync Cleanup] Removed "${local.name}" — Asana task ${local.asanaGid} no longer exists`);
+      removedCount++;
+    }
+  }
+  if (removedCount > 0) {
+    console.log(`[Sync Cleanup] Removed ${removedCount} projects deleted from Asana`);
+  }
+
   return synced;
 }
 
