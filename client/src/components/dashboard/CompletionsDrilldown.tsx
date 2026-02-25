@@ -27,11 +27,15 @@ interface Props {
 const ACTION_LABELS: Record<string, string> = {
   status_change: "Status Change",
   follow_up: "Follow-Up",
+  follow_up_push: "Follow-Up Push",
+  document_upload: "Document Upload",
 };
 
 const ACTION_COLORS: Record<string, string> = {
   status_change: "hsl(33, 93%, 54%)",
   follow_up: "hsl(210, 80%, 55%)",
+  follow_up_push: "hsl(150, 60%, 50%)",
+  document_upload: "hsl(270, 60%, 55%)",
 };
 
 function formatDate(dateStr: string): string {

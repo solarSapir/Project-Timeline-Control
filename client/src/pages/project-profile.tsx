@@ -13,6 +13,7 @@ import { InfoRow, ExpectedDueRow, formatProfileDate } from "@/components/project
 import { ProjectHeader } from "@/components/project-profile/ProjectHeader";
 import { InstallationSection } from "@/components/project-profile/InstallationSection";
 import { ActivitySection } from "@/components/project-profile/ActivitySection";
+import { CustomerTimeline } from "@/components/project-profile/CustomerTimeline";
 import { DocumentsSection } from "@/components/project-profile/DocumentsSection";
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
 import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, Camera } from "lucide-react";
@@ -133,7 +134,7 @@ export default function ProjectProfile() {
         </StageSection>
       </div>
       <DocumentsSection project={project} projectId={projectId!} />
-      <ActivitySection taskActions={taskActions} />
+      <CustomerTimeline projectId={projectId!} taskActions={taskActions} />
       {project.customerNotes && (
         <Card>
           <CardHeader className="py-3 px-4"><CardTitle className="text-sm font-medium">Customer Notes</CardTitle></CardHeader>

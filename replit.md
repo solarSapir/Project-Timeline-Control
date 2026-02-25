@@ -24,11 +24,11 @@ Solar PM is a project management application designed for solar installation com
 - **Dynamic Gantt Chart**: Visualizes project timelines with target vs. expected dates.
 - **Hydro Bill Information Extraction**: UC cards allow manual entry or AI-powered extraction of data from uploaded hydro bill images using OpenAI Vision.
 - **Installation Calendar**: Monthly calendar view of installations with cascading target date logic.
-- **Project Profile Page**: Comprehensive view for each project, displaying all stage values, Gantt chart, activity, and notes.
+- **Project Profile Page**: Comprehensive view for each project, displaying all stage values, Gantt chart, documents, and a unified Customer Timeline merging task actions, UC completions, and rebate completions.
 - **Component-Based UI**: Modular frontend structure with reusable components and shared utilities.
 - **Property Sector Filtering**: Project views exclude non-residential projects based on an Asana custom field.
-- **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, including invoice template editing.
-- **UC & Rebate KPI Systems**: Track application and rebate workflow completions, hide/reappear logic, and key performance indicators with dashboards and configurable workflow rules.
+- **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, including invoice template editing. All document uploads are logged as task_actions for audit trail and timeline visibility.
+- **UC & Rebate KPI Systems**: Track application and rebate workflow completions, hide/reappear logic, and key performance indicators with dashboards, configurable workflow rules, and drill-down views for both UC and Rebate completions.
 - **Escalated Tickets System**: Staff can flag "stuck" projects, creating escalation tickets with a 48-hour hide period for manager resolution.
 - **Local File Storage System**: All file uploads are stored locally on the server filesystem, organized by project and category. Asana attachments remain viewable.
 - **Project Documents Section**: Project profile includes a Documents section with categorized folders, file management, and SharePoint links.

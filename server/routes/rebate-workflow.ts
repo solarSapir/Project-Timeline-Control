@@ -126,7 +126,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
     );
 
     const dailyCounts: Record<string, Record<string, number>> = {};
-    const recentCompletions: { date: string; time: string; staffName: string; actionType: string; projectName: string; toStatus: string | null }[] = [];
+    const recentCompletions: { date: string; time: string; staffName: string; actionType: string; projectName: string; toStatus: string | null; notes: string | null }[] = [];
 
     for (const c of completions) {
       const ts = c.completedAt ? new Date(c.completedAt) : null;
@@ -143,6 +143,7 @@ rebateWorkflowRouter.get("/kpi-stats", async (req, res) => {
         actionType: c.actionType,
         projectName: proj?.name || "Unknown Project",
         toStatus: c.toStatus,
+        notes: c.notes || null,
       });
     }
 

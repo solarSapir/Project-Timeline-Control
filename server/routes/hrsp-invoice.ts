@@ -171,6 +171,17 @@ hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
       hrspQuoteDate: quoteDate,
     });
 
+    try {
+      await storage.createTaskAction({
+        projectId: req.params.id as string,
+        viewType: "payments",
+        actionType: "document_upload",
+        completedBy: null,
+        notes: `Generated: Invoice (Quote #${quoteNumber})`,
+        followUpDate: null,
+      });
+    } catch { /* non-critical */ }
+
     res.json({ project: updated, invoiceUrl: localUrl });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -202,6 +213,17 @@ hrspInvoiceRouter.post("/:id/hrsp-paid-invoice", async (req, res) => {
       hrspInstallDate: installDate,
     });
 
+    try {
+      await storage.createTaskAction({
+        projectId: req.params.id as string,
+        viewType: "payments",
+        actionType: "document_upload",
+        completedBy: null,
+        notes: `Generated: Paid Invoice (Install Date: ${installDate})`,
+        followUpDate: null,
+      });
+    } catch { /* non-critical */ }
+
     res.json({ project: updated, invoiceUrl: localUrl });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -229,6 +251,18 @@ hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
   }
 });
 
+const DOC_LABELS: Record<string, string> = {
+  hrspAuthDocUrl: "Participation Document",
+  hrspPowerConsumptionUrl: "Hydro Bill",
+  hrspSldUrl: "SLD",
+  hrspRoofPicsUrl: "Roof Photos",
+  hrspPanelNameplateUrl: "Panel Nameplate",
+  hrspInverterNameplateUrl: "Inverter Nameplate",
+  hrspBatteryNameplateUrl: "Battery Nameplate",
+  hrspEsaCertUrl: "ESA Certificate",
+  hrspPaidInvoiceUrl: "Paid Invoice",
+};
+
 function createUploadHandler(_endpoint: string, fieldName: string, asanaPrefix: string, projectField: string) {
   return [upload.single(fieldName), async (req: any, res: any) => {
     try {
@@ -243,6 +277,21 @@ function createUploadHandler(_endpoint: string, fieldName: string, asanaPrefix: 
       if (projectField === "hrspAuthDocUrl") updateData.hrspAuthDocUploadedAt = new Date();
 
       const updated = await storage.updateProject(req.params.id as string, updateData);
+
+      const docLabel = DOC_LABELS[projectField] || asanaPrefix;
+      try {
+        await storage.createTaskAction({
+          projectId: req.params.id as string,
+          viewType: "payments",
+          actionType: "document_upload",
+          completedBy: null,
+          notes: `Uploaded: ${docLabel} (${req.file.originalname})`,
+          followUpDate: null,
+        });
+      } catch (logErr: unknown) {
+        console.error("[HRSP Upload Log] Failed to log action:", logErr instanceof Error ? logErr.message : String(logErr));
+      }
+
       res.json({ project: updated, attachmentUrl: localUrl });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -252,6 +301,7 @@ function createUploadHandler(_endpoint: string, fieldName: string, asanaPrefix: 
   }];
 }
 
+hrspInvoiceRouter.post("/:id/hrsp-paid-invoice-upload", ...createUploadHandler("hrsp-paid-invoice-upload", "paidInvoice", "HRSP PAID INVOICE", "hrspPaidInvoiceUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-auth-doc", ...createUploadHandler("hrsp-auth-doc", "authDoc", "HRSP AUTH", "hrspAuthDocUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-power-doc", ...createUploadHandler("hrsp-power-doc", "powerDoc", "HRSP POWER CONSUMPTION", "hrspPowerConsumptionUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-sld", ...createUploadHandler("hrsp-sld", "sldDoc", "HRSP SLD", "hrspSldUrl"));

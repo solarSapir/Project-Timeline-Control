@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -5,10 +6,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "lucide-react";
+import { CompletionsDrilldown } from "./CompletionsDrilldown";
 
 interface RebateKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
-  recentCompletions: { date: string; time: string; staffName: string; actionType: string; projectName: string; toStatus: string | null }[];
+  recentCompletions: { date: string; time: string; staffName: string; actionType: string; projectName: string; toStatus: string | null; notes: string | null }[];
   completionsThisWeek: number;
   completionsThisMonth: number;
   avgTasksPerDay: number;
@@ -22,6 +24,7 @@ interface RebateKpiStats {
 }
 
 export function RebateKpiSection() {
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
   const { data: stats, isLoading } = useQuery<RebateKpiStats>({
     queryKey: ["/api/rebate/kpi-stats"],
   });
@@ -72,7 +75,11 @@ export function RebateKpiSection() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <Card data-testid="card-rebate-completions-week">
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDrilldownOpen(true)}
+          data-testid="card-rebate-completions-week"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
@@ -81,7 +88,7 @@ export function RebateKpiSection() {
             <div className="text-2xl font-bold" data-testid="text-rebate-completions-week">
               {stats.completionsThisWeek}
             </div>
-            <p className="text-xs text-muted-foreground">completions</p>
+            <p className="text-xs text-muted-foreground">completions · click for details</p>
           </CardContent>
         </Card>
 
@@ -175,6 +182,13 @@ export function RebateKpiSection() {
           )}
         </CardContent>
       </Card>
+
+      <CompletionsDrilldown
+        open={drilldownOpen}
+        onOpenChange={setDrilldownOpen}
+        completions={stats.recentCompletions || []}
+        dailyCounts={stats.dailyCounts}
+      />
     </div>
   );
 }
