@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, AlertTriangle, AlertCircle, Maximize2, MessageSquare } from "lucide-react";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getDaysUntilDue, daysSince } from "@/utils/dates";
 import { HrspChecklist } from "@/components/hrsp/HrspChecklist";
 import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
-import type { Project } from "@shared/schema";
+import type { Project, RebateWorkflowRule } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { RebateFollowUpDialog } from "@/components/hrsp/RebateFollowUpDialog";
@@ -64,23 +64,23 @@ function HrspInfo({ project }: { project: Project }) {
   );
 }
 
-function getCloseOffDueInfo(p: Project): { daysLeft: number; dueDate: string } | null {
+function getCloseOffDueInfo(p: Project, dueWindowDays: number): { daysLeft: number; dueDate: string } | null {
   const status = (p.rebateStatus || '').toLowerCase();
   if (!status.includes('close-off') && !status.includes('close off') && !status.includes('closeoff')) return null;
   const closeOffDate = p.rebateCloseOffDate;
   if (!closeOffDate) return null;
-  const due = new Date(new Date(closeOffDate).getTime() + 14 * 86400000);
+  const due = new Date(new Date(closeOffDate).getTime() + dueWindowDays * 86400000);
   const daysLeft = Math.ceil((due.getTime() - Date.now()) / 86400000);
   const dueDate = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return { daysLeft, dueDate };
 }
 
-function needsRebateFollowUp(p: Project): boolean {
+function needsRebateFollowUp(p: Project, followUpDays: number): boolean {
   const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
   const eligible = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.includes(s));
   if (!eligible) return false;
   const days = daysSince(p.rebateSubmittedDate);
-  return days !== null && days >= 5;
+  return days !== null && days >= followUpDays;
 }
 
 export default function PaymentsView() {
@@ -98,6 +98,23 @@ export default function PaymentsView() {
   const { data: rebateOptions } = useQuery<{ gid: string; name: string }[]>({
     queryKey: ['/api/asana/field-options/rebateStatus'],
   });
+
+  const { data: workflowRules } = useQuery<RebateWorkflowRule[]>({
+    queryKey: ['/api/rebate/workflow-rules'],
+  });
+
+  const ruleMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (workflowRules) {
+      for (const r of workflowRules) {
+        if (r.enabled) map[r.triggerAction] = r.hideDays;
+      }
+    }
+    return map;
+  }, [workflowRules]);
+
+  const followUpDays = ruleMap["follow_up_submitted"] ?? ruleMap["status_to_submitted"] ?? 5;
+  const closeOffDueWindowDays = ruleMap["closeoff_due_window"] ?? 14;
 
   const rebateStatusOptions = Array.isArray(rebateOptions) ? rebateOptions.map(o => o.name) : [];
 
@@ -134,7 +151,7 @@ export default function PaymentsView() {
     }
     if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
     if (filter === "hrsp_issues") return hasHrspIssue(p);
-    if (filter === "needs_followup") return needsRebateFollowUp(p);
+    if (filter === "needs_followup") return needsRebateFollowUp(p, followUpDays);
     if (filter !== "all" && p.rebateStatus !== filter) return false;
     return true;
   });
@@ -144,7 +161,7 @@ export default function PaymentsView() {
   ).length;
 
   const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
-  const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p)).length;
+  const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p, followUpDays)).length;
 
   const handleRebateStatus = (projectId: string, status: string) => {
     const lower = status.toLowerCase();
@@ -256,8 +273,8 @@ export default function PaymentsView() {
         <div className="space-y-3">
           {[...filtered]
             .sort((a: Project, b: Project) => {
-              const aFollowUp = needsRebateFollowUp(a);
-              const bFollowUp = needsRebateFollowUp(b);
+              const aFollowUp = needsRebateFollowUp(a, followUpDays);
+              const bFollowUp = needsRebateFollowUp(b, followUpDays);
               if (aFollowUp && !bFollowUp) return -1;
               if (!aFollowUp && bFollowUp) return 1;
               const aIssue = hasHrspIssue(a);
@@ -269,11 +286,11 @@ export default function PaymentsView() {
             .map((p: Project) => {
             const isLdOn = isRebateEligible(p);
             const hrspIssue = hasHrspIssue(p);
-            const followUp = needsRebateFollowUp(p);
+            const followUp = needsRebateFollowUp(p, followUpDays);
 
             const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
             const isHrspFallback = !p.rebateStatus && isLdOn && !!p.hrspStatus;
-            const closeOffDue = getCloseOffDueInfo(p);
+            const closeOffDue = getCloseOffDueInfo(p, closeOffDueWindowDays);
 
             return (
               <Card

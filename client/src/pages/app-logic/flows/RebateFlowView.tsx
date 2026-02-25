@@ -8,6 +8,7 @@ const nodeTypes = { flowNode: FlowNode };
 const initialNodes: Node[] = [
   { id: "data-projects", type: "flowNode", position: { x: 0, y: 0 }, data: { label: "Fetch Projects", type: "data", description: "GET /api/projects", items: ["useQuery queryKey: ['/api/projects']"] } },
   { id: "data-options", type: "flowNode", position: { x: 300, y: 0 }, data: { label: "Fetch Rebate Options", type: "data", description: "GET /api/asana/field-options/rebateStatus", items: ["GRANTS STATUS dropdown values from Asana"] } },
+  { id: "data-rules", type: "flowNode", position: { x: 600, y: 0 }, data: { label: "Fetch Workflow Rules", type: "data", description: "GET /api/rebate/workflow-rules", items: ["Configurable delays from Settings", "followUpDays, closeOffDueWindowDays", "Auto-seeds defaults if table empty"] } },
 
   { id: "filter", type: "flowNode", position: { x: 150, y: 160 }, data: { label: "Filter Projects", type: "filter", description: "Load Displacement ON (Ontario) only", items: ["installType = 'install'", "residential only", "ucTeam includes 'load displacement'", "province includes 'ontario'", "Exclude paused/lost/complete (pmStatus)", "Exclude 'Pre approved, waiting for job to complete'", "Re-appears when status changes to Close-off"] } },
 
@@ -19,11 +20,11 @@ const initialNodes: Node[] = [
 
   { id: "closeoff-submitted", type: "flowNode", position: { x: 0, y: 720 }, data: { label: "CloseOffSubmittedDialog", type: "dialog", description: "Required when changing to Close-off - Submitted", items: ["Fields: staff name, screenshot upload (required)", "POST files to /api/projects/:id/files (category=rebates)", "POST /api/rebate/complete-action", "Records KPI completion entry", "Status badge = teal"] } },
 
-  { id: "closeoff-due", type: "flowNode", position: { x: 300, y: 520 }, data: { label: "Close-Off Due Date", type: "logic", description: "14 days from close-off status change", items: ["rebateCloseOffDate + 14 days = due date", "Red if overdue, amber if ≤3 days", "Shown on card metadata line", "Different from project creation due date"] } },
+  { id: "closeoff-due", type: "flowNode", position: { x: 300, y: 520 }, data: { label: "Close-Off Due Date", type: "logic", description: "Configurable days from close-off date", items: ["rebateCloseOffDate + closeoff_due_window days", "Default: 14 days (configurable in Settings)", "Red if overdue, amber if ≤3 days", "Shown on card metadata line"] } },
 
   { id: "hrsp-checklist", type: "flowNode", position: { x: 0, y: 920 }, data: { label: "HrspChecklist", type: "component", description: "Two-phase document tracking", items: ["Pre-Approval: Invoice, Participation Doc, Hydro Bill, SLD", "Close-Off: Roof Photos, Panel/Inverter/Battery Nameplates, ESA Cert, Paid Invoice", "Pre-approval grayed when post-approval", "Each doc: upload button → POST /api/projects/:id/hrsp-*", "Invoice/Paid Invoice: generate PDF dialogs"] } },
 
-  { id: "followup", type: "flowNode", position: { x: 300, y: 920 }, data: { label: "Follow-Up System", type: "logic", description: "5-day follow-up cycle", items: ["rebateSubmittedDate tracks status change", "In-progress, Submitted, or Close-off - Submitted → 5d cycle", "Cards show amber border when due", "RebateFollowUpDialog: action taken + next steps", "Posts to HRSP subtask (not main task)", "POST /api/rebate/push-followup"] } },
+  { id: "followup", type: "flowNode", position: { x: 300, y: 920 }, data: { label: "Follow-Up System", type: "logic", description: "Configurable follow-up cycle", items: ["rebateSubmittedDate tracks status change", "follow_up_submitted rule sets cycle days (default: 5)", "Cards show amber border when follow-up is due", "RebateFollowUpDialog: action taken + next steps", "Posts to HRSP subtask (not main task)", "Backend reads rules for push delay", "All delays configurable in Settings → Rebate Workflow Logic"] } },
 
   { id: "focus-modal", type: "flowNode", position: { x: 600, y: 340 }, data: { label: "RebateProjectModal", type: "dialog", description: "Full project view in modal", items: ["Project details + status info", "HrspChecklist (interactive)", "Follow-up section with dialog", "HRSP subtask stories/comments", "HRSP subtask attachments", "Fetches from /api/subtasks/:gid/*"] } },
 
@@ -35,6 +36,8 @@ const initialNodes: Node[] = [
 const initialEdges: Edge[] = [
   { id: "e1", source: "data-projects", target: "filter", animated: true },
   { id: "e2", source: "data-options", target: "card" },
+  { id: "e14", source: "data-rules", target: "followup", label: "configurable days" },
+  { id: "e15", source: "data-rules", target: "closeoff-due", label: "due window days" },
   { id: "e3", source: "filter", target: "sort" },
   { id: "e4", source: "sort", target: "card" },
   { id: "e5", source: "card", target: "status-change" },

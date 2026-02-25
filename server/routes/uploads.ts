@@ -78,7 +78,16 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
       await saveFileLocally(projectId, fileCategory, req.file.buffer, req.file.originalname, req.file.mimetype, completedBy, 'Follow-up screenshot');
     }
 
-    const followUpDays = isRebate ? 5 : isContract ? 1 : 7;
+    let followUpDays = isContract ? 1 : 7;
+    if (isRebate) {
+      try {
+        const rules = await storage.getRebateWorkflowRules();
+        const followUpRule = rules.find(r => r.enabled && r.triggerAction === 'follow_up_submitted');
+        followUpDays = followUpRule?.hideDays ?? 5;
+      } catch {
+        followUpDays = 5;
+      }
+    }
     const action = await storage.createTaskAction({
       projectId: projectId,
       viewType: viewType || 'uc',

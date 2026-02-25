@@ -2,7 +2,7 @@ import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
-  ucCompletions, ucWorkflowRules, rebateCompletions, staffMembers,
+  ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -16,6 +16,7 @@ import {
   type UcCompletion, type InsertUcCompletion,
   type UcWorkflowRule, type InsertUcWorkflowRule,
   type RebateCompletion, type InsertRebateCompletion,
+  type RebateWorkflowRule, type InsertRebateWorkflowRule,
   type StaffMember, type InsertStaffMember,
 } from "@shared/schema";
 
@@ -71,6 +72,9 @@ export interface IStorage {
 
   getUcWorkflowRules(): Promise<UcWorkflowRule[]>;
   upsertUcWorkflowRule(data: InsertUcWorkflowRule): Promise<UcWorkflowRule>;
+
+  getRebateWorkflowRules(): Promise<RebateWorkflowRule[]>;
+  upsertRebateWorkflowRule(data: InsertRebateWorkflowRule): Promise<RebateWorkflowRule>;
 
   createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion>;
   getRebateCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<RebateCompletion[]>;
@@ -394,6 +398,24 @@ export class DatabaseStorage implements IStorage {
       return updated;
     }
     const [created] = await db.insert(ucWorkflowRules).values(data).returning();
+    return created;
+  }
+
+  async getRebateWorkflowRules(): Promise<RebateWorkflowRule[]> {
+    return db.select().from(rebateWorkflowRules).orderBy(asc(rebateWorkflowRules.triggerAction));
+  }
+
+  async upsertRebateWorkflowRule(data: InsertRebateWorkflowRule): Promise<RebateWorkflowRule> {
+    const existing = await db.select().from(rebateWorkflowRules)
+      .where(eq(rebateWorkflowRules.triggerAction, data.triggerAction));
+    if (existing.length > 0) {
+      const [updated] = await db.update(rebateWorkflowRules)
+        .set(data)
+        .where(eq(rebateWorkflowRules.triggerAction, data.triggerAction))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(rebateWorkflowRules).values(data).returning();
     return created;
   }
 

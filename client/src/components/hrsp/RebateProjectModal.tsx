@@ -1,9 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HrspChecklist } from "./HrspChecklist";
 import { HrspSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { RebateFollowUpDialog } from "./RebateFollowUpDialog";
-import type { Project } from "@shared/schema";
+import type { Project, RebateWorkflowRule } from "@shared/schema";
 import { daysSince } from "@/utils/dates";
 
 interface Props {
@@ -23,12 +24,17 @@ function getRebateStatusColor(status: string) {
 }
 
 export function RebateProjectModal({ project, open, onOpenChange }: Props) {
+  const { data: workflowRules } = useQuery<RebateWorkflowRule[]>({
+    queryKey: ['/api/rebate/workflow-rules'],
+  });
+
   if (!project) return null;
 
+  const followUpThreshold = workflowRules?.find(r => r.enabled && r.triggerAction === 'follow_up_submitted')?.hideDays ?? 5;
   const status = project.rebateStatus || project.hrspStatus || '';
   const needsFollowUp = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.toLowerCase().includes(s));
   const days = daysSince(project.rebateSubmittedDate);
-  const followUpDue = needsFollowUp && days !== null && days >= 5;
+  const followUpDue = needsFollowUp && days !== null && days >= followUpThreshold;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

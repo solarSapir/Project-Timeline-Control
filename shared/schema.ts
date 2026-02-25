@@ -461,6 +461,88 @@ export const DEFAULT_UC_WORKFLOW_RULES: InsertUcWorkflowRule[] = [
   },
 ];
 
+export const rebateWorkflowRules = pgTable("rebate_workflow_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  triggerAction: text("trigger_action").notNull().unique(),
+  hideDays: integer("hide_days").notNull().default(5),
+  requiresFiles: boolean("requires_files").default(false),
+  requiresNotes: boolean("requires_notes").default(true),
+  autoEscalate: boolean("auto_escalate").default(false),
+  label: text("label").notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").default(true),
+});
+
+export const insertRebateWorkflowRuleSchema = createInsertSchema(rebateWorkflowRules).omit({
+  id: true,
+});
+
+export type RebateWorkflowRule = typeof rebateWorkflowRules.$inferSelect;
+export type InsertRebateWorkflowRule = z.infer<typeof insertRebateWorkflowRuleSchema>;
+
+export const DEFAULT_REBATE_WORKFLOW_RULES: InsertRebateWorkflowRule[] = [
+  {
+    triggerAction: "status_to_in_progress",
+    hideDays: 5,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "New → In-Progress",
+    description: "When rebate status changes to in-progress. Follow-up indicator shows after this many days.",
+    enabled: true,
+  },
+  {
+    triggerAction: "status_to_submitted",
+    hideDays: 5,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "New → Submitted",
+    description: "When rebate application is submitted to utility. Follow-up indicator shows after this many days.",
+    enabled: true,
+  },
+  {
+    triggerAction: "follow_up_submitted",
+    hideDays: 5,
+    requiresFiles: false,
+    requiresNotes: true,
+    autoEscalate: false,
+    label: "Follow-up (Submitted / In-Progress)",
+    description: "When following up on a submitted or in-progress rebate. Resets the follow-up timer by this many days.",
+    enabled: true,
+  },
+  {
+    triggerAction: "status_to_closeoff_submitted",
+    hideDays: 5,
+    requiresFiles: true,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Close-off → Submitted",
+    description: "When close-off documents are submitted. Follow-up shows after this many days.",
+    enabled: true,
+  },
+  {
+    triggerAction: "follow_up_closeoff",
+    hideDays: 5,
+    requiresFiles: false,
+    requiresNotes: true,
+    autoEscalate: false,
+    label: "Follow-up (Close-off Submitted)",
+    description: "When following up on submitted close-off documents. Resets the follow-up timer.",
+    enabled: true,
+  },
+  {
+    triggerAction: "closeoff_due_window",
+    hideDays: 14,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Close-off Due Window",
+    description: "Number of days after close-off date to set the due date for document submission.",
+    enabled: true,
+  },
+];
+
 export const HRSP_PRE_APPROVAL_STATUSES = [
   "New/ Check if needed",
   "In-progress",

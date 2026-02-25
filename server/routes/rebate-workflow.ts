@@ -1,8 +1,43 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { format, addDays } from "date-fns";
+import { DEFAULT_REBATE_WORKFLOW_RULES } from "@shared/schema";
 
 export const rebateWorkflowRouter = Router();
+
+rebateWorkflowRouter.get("/workflow-rules", async (req, res) => {
+  try {
+    let rules = await storage.getRebateWorkflowRules();
+    if (rules.length === 0) {
+      for (const rule of DEFAULT_REBATE_WORKFLOW_RULES) {
+        await storage.upsertRebateWorkflowRule(rule);
+      }
+      rules = await storage.getRebateWorkflowRules();
+    }
+    res.json(rules);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+rebateWorkflowRouter.put("/workflow-rules", async (req, res) => {
+  try {
+    const rulesData = req.body;
+    if (!Array.isArray(rulesData)) {
+      return res.status(400).json({ message: "Expected array of workflow rules" });
+    }
+    const results = [];
+    for (const rule of rulesData) {
+      const updated = await storage.upsertRebateWorkflowRule(rule);
+      results.push(updated);
+    }
+    res.json(results);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
 
 rebateWorkflowRouter.post("/complete-action", async (req, res) => {
   try {
@@ -31,7 +66,13 @@ rebateWorkflowRouter.post("/push-followup", async (req, res) => {
     if (!projectId || !staffName || !actionDone || !nextSteps) {
       return res.status(400).json({ message: "projectId, staffName, actionDone, and nextSteps are required" });
     }
-    const days = pushDays || 2;
+    let defaultPush = 2;
+    try {
+      const rules = await storage.getRebateWorkflowRules();
+      const followUpRule = rules.find(r => r.enabled && r.triggerAction === 'follow_up_submitted');
+      if (followUpRule) defaultPush = followUpRule.hideDays;
+    } catch { /* use default */ }
+    const days = pushDays || defaultPush;
     const newFollowUpDate = format(addDays(new Date(), days), "yyyy-MM-dd");
     const notes = `Action Taken:\n${actionDone}\n\nNext Steps:\n${nextSteps}`;
 
