@@ -9,7 +9,7 @@ const initialNodes: Node[] = [
   { id: "data-projects", type: "flowNode", position: { x: 0, y: 0 }, data: { label: "Fetch Projects", type: "data", description: "GET /api/projects", items: ["useQuery queryKey: ['/api/projects']"] } },
   { id: "data-options", type: "flowNode", position: { x: 300, y: 0 }, data: { label: "Fetch Rebate Options", type: "data", description: "GET /api/asana/field-options/rebateStatus", items: ["GRANTS STATUS dropdown values from Asana"] } },
 
-  { id: "filter", type: "flowNode", position: { x: 150, y: 160 }, data: { label: "Filter Projects", type: "filter", description: "Load Displacement ON (Ontario) only", items: ["installType = 'install'", "residential only", "ucTeam includes 'load displacement'", "province includes 'ontario'", "Exclude paused/lost/complete"] } },
+  { id: "filter", type: "flowNode", position: { x: 150, y: 160 }, data: { label: "Filter Projects", type: "filter", description: "Load Displacement ON (Ontario) only", items: ["installType = 'install'", "residential only", "ucTeam includes 'load displacement'", "province includes 'ontario'", "Exclude paused/lost/complete (pmStatus)", "Exclude 'Pre approved, waiting for job to complete'", "Re-appears when status changes to Close-off"] } },
 
   { id: "sort", type: "flowNode", position: { x: 450, y: 160 }, data: { label: "Sort & Sub-filters", type: "filter", description: "Multiple filter options", items: ["All / Needs Attention / Needs Follow-Up", "HRSP Issues / Not Required", "Follow-up needed → top (amber border)", "HRSP issues → next (red border)"] } },
 

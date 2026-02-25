@@ -108,7 +108,12 @@ export default function PaymentsView() {
     p.ucTeam?.toLowerCase().includes('load displacement') &&
     p.province?.toLowerCase().includes('ontario');
 
-  const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p));
+  const isWaitingForInstall = (p: Project) => {
+    const s = (p.rebateStatus || '').toLowerCase();
+    return s.includes('pre approved') || s.includes('pre-approved') || s === 'complete - (pre approved, waiting for job to complete)';
+  };
+
+  const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p) && !isWaitingForInstall(p));
 
   const hasHrspIssue = (p: Project) => {
     const isLdOn = isRebateEligible(p);
