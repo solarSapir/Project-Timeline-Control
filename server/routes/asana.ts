@@ -151,6 +151,10 @@ async function syncProjectFromAsana(projectGid: string) {
 
     const project = await storage.upsertProject(mapped as Parameters<typeof storage.upsertProject>[0]);
 
+    if (project.hydroBillUrl && !project.hrspPowerConsumptionUrl) {
+      await storage.updateProject(project.id, { hrspPowerConsumptionUrl: project.hydroBillUrl });
+    }
+
     const existingDeadlines = await storage.getProjectDeadlines(project.id);
     if (existingDeadlines.length === 0) {
       const baseDate = mapped.projectCreatedDate ? new Date(mapped.projectCreatedDate as string) : new Date();

@@ -13,6 +13,7 @@ import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDaysUntilDue } from "@/utils/dates";
 import { HrspSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { HrspChecklist } from "@/components/hrsp/HrspChecklist";
 import type { Project } from "@shared/schema";
 
 function HrspInfo({ project }: { project: Project }) {
@@ -244,6 +245,7 @@ export default function PaymentsView() {
                       </div>
 
                       {isLdOn && <HrspInfo project={p} />}
+                      {isLdOn && <HrspChecklist project={p} />}
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">

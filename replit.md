@@ -29,6 +29,7 @@ Solar PM is a project management application designed for solar installation com
 - **Property Sector Filtering**: All project views are filtered to exclude non-residential projects based on the Asana "Property Sector" custom field.
 
 - **IT / Error Log System**: Automatic frontend error capture with user activity breadcrumbs. Tracks API errors, unhandled exceptions, and unhandled promise rejections. Breadcrumbs record last 20 user actions (navigation, API calls) for debugging context. Viewable at `/error-log` with resolve/clear workflow.
+- **HRSP Document Checklist**: For Load Displacement Ontario projects, the Rebates view shows a 3-item document checklist: (1) HRSP Invoice — auto-generated PDF via `pdfkit` with hardcoded equipment specs and user-provided service address/quote info, uploaded to Asana; (2) Customer Authorization — file upload to Asana; (3) Hydro Bill / Power Consumption — auto-linked from UC hydro bill upload, or manual upload. Routes in `server/routes/hrsp-invoice.ts`, UI in `client/src/components/hrsp/`.
 
 ### Database Tables
 - `users`
