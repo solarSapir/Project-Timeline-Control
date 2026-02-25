@@ -2,7 +2,7 @@ import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
-  ucCompletions, ucWorkflowRules, rebateCompletions,
+  ucCompletions, ucWorkflowRules, rebateCompletions, staffMembers,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -16,6 +16,7 @@ import {
   type UcCompletion, type InsertUcCompletion,
   type UcWorkflowRule, type InsertUcWorkflowRule,
   type RebateCompletion, type InsertRebateCompletion,
+  type StaffMember, type InsertStaffMember,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -74,6 +75,11 @@ export interface IStorage {
   createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion>;
   getRebateCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<RebateCompletion[]>;
   getRebateCompletionsByProject(projectId: string): Promise<RebateCompletion[]>;
+
+  getStaffMembers(activeOnly?: boolean): Promise<StaffMember[]>;
+  createStaffMember(data: InsertStaffMember): Promise<StaffMember>;
+  updateStaffMember(id: string, data: Partial<InsertStaffMember>): Promise<StaffMember | undefined>;
+  deleteStaffMember(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -414,6 +420,28 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(rebateCompletions)
       .where(eq(rebateCompletions.projectId, projectId))
       .orderBy(desc(rebateCompletions.completedAt));
+  }
+
+  async getStaffMembers(activeOnly?: boolean): Promise<StaffMember[]> {
+    if (activeOnly) {
+      return db.select().from(staffMembers).where(eq(staffMembers.active, true)).orderBy(asc(staffMembers.name));
+    }
+    return db.select().from(staffMembers).orderBy(asc(staffMembers.name));
+  }
+
+  async createStaffMember(data: InsertStaffMember): Promise<StaffMember> {
+    const [member] = await db.insert(staffMembers).values(data).returning();
+    return member;
+  }
+
+  async updateStaffMember(id: string, data: Partial<InsertStaffMember>): Promise<StaffMember | undefined> {
+    const [updated] = await db.update(staffMembers).set(data).where(eq(staffMembers.id, id)).returning();
+    return updated;
+  }
+
+  async deleteStaffMember(id: string): Promise<boolean> {
+    const result = await db.delete(staffMembers).where(eq(staffMembers.id, id));
+    return (result?.rowCount ?? 0) > 0;
   }
 }
 

@@ -21,6 +21,7 @@ import { escalationRouter } from "./routes/escalation";
 import { ucWorkflowRouter } from "./routes/uc-workflow";
 import { rebateWorkflowRouter } from "./routes/rebate-workflow";
 import { webhookRouter } from "./routes/webhook";
+import { staffRouter } from "./routes/staff";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
@@ -40,6 +41,7 @@ export async function registerRoutes(
   app.use("/api/uc", ucWorkflowRouter);
   app.use("/api/rebate", rebateWorkflowRouter);
   app.use("/api/webhooks", webhookRouter);
+  app.use("/api", staffRouter);
 
   app.get("/api/hrsp-config", async (_req, res) => {
     try {

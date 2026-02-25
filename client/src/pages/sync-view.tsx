@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
+import { StaffManager } from "@/components/settings/StaffManager";
 import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
 
 interface SyncStatus {
@@ -61,6 +62,10 @@ export default function SyncView() {
       <p className="text-muted-foreground">
         Manage Asana sync, workflow configuration, and HRSP document settings.
       </p>
+
+      <CollapsibleSection title="Staff Members" icon={<Users className="h-4 w-4" />} testId="section-staff">
+        <StaffManager />
+      </CollapsibleSection>
 
       <CollapsibleSection title="Sync from Asana" icon={<Zap className="h-4 w-4" />} testId="section-sync">
         <div className="space-y-4">

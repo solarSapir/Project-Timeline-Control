@@ -59,6 +59,7 @@ Solar PM is a project management application designed for solar installation com
 - `uc_completions` — logs UC workflow actions with projectId, staffName, actionType (status_change/follow_up), fromStatus, toStatus, notes, hideDays, completedAt
 - `uc_workflow_rules` — configurable UC workflow rules with triggerAction, hideDays, requiresFiles, requiresNotes, autoEscalate, label, description, enabled
 - `rebate_completions` — logs rebate workflow actions with projectId, staffName, actionType (status_change/follow_up_push), fromStatus, toStatus, notes, hideDays, followUpDate, completedAt
+- `staff_members` — team members who use the app, with name, role, active status. Managed via Settings page. Active members appear in staff dropdowns across all views. Routes in `server/routes/staff.ts`, UI in `client/src/components/settings/StaffManager.tsx`.
 
 ### App Logic Documentation Section
 Internal visual documentation at `/app-logic` with interactive reactflow diagrams. Library: `reactflow` + `@dagrejs/dagre`.

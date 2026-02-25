@@ -496,6 +496,18 @@ export const AHJ_STATUSES = [
   "Close-off",
 ] as const;
 
+export const staffMembers = pgTable("staff_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  role: text("role"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ id: true, createdAt: true });
+export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
+export type StaffMember = typeof staffMembers.$inferSelect;
+
 export const PROJECT_STAGES = [
   "uc_application",
   "rebates_payment",
