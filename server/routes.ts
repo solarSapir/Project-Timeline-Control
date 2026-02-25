@@ -6,6 +6,7 @@ import {
   fetchTaskAttachments,
   postCommentToTask,
   uploadAttachmentToTask,
+  getAccessToken,
 } from "./asana";
 import { upload } from "./middleware/upload";
 import { format } from "date-fns";
@@ -140,6 +141,45 @@ export async function registerRoutes(
     try {
       const attachments = await fetchTaskAttachments(req.params.gid);
       res.json(attachments);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  app.get("/api/asana/asset/:assetId", async (req, res) => {
+    try {
+      const accessToken = await getAccessToken();
+      const attachmentRes = await fetch(`https://app.asana.com/api/1.0/attachments/${req.params.assetId}?opt_fields=download_url,view_url,name,host`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      if (attachmentRes.ok) {
+        const attachData = await attachmentRes.json();
+        const imgUrl = attachData?.data?.download_url || attachData?.data?.view_url;
+        if (imgUrl) {
+          const imgRes = await fetch(imgUrl);
+          if (imgRes.ok) {
+            const contentType = imgRes.headers.get('content-type') || 'image/png';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            const buffer = Buffer.from(await imgRes.arrayBuffer());
+            return res.send(buffer);
+          }
+        }
+      }
+      const assetUrl = `https://app.asana.com/app/asana/-/get_asset?asset_id=${req.params.assetId}`;
+      const asanaRes = await fetch(assetUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+        redirect: 'follow',
+      });
+      if (!asanaRes.ok) {
+        return res.status(asanaRes.status).json({ message: "Failed to fetch asset" });
+      }
+      const contentType = asanaRes.headers.get('content-type') || 'image/png';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      const buffer = Buffer.from(await asanaRes.arrayBuffer());
+      res.send(buffer);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       res.status(500).json({ message: msg });

@@ -5,7 +5,67 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { X, Upload, Loader2, FileText, Paperclip, Send, ExternalLink, MessageSquare } from "lucide-react";
+import { X, Upload, Loader2, FileText, Paperclip, Send, ExternalLink, MessageSquare, ImageIcon } from "lucide-react";
+
+const ASANA_ASSET_REGEX = /https:\/\/app\.asana\.com\/app\/asana\/-\/get_asset\?asset_id=(\d+)/g;
+
+function StoryText({ text }: { text: string }) {
+  const parts: Array<{ type: 'text' | 'image'; content: string; assetId?: string }> = [];
+  let lastIndex = 0;
+  const regex = new RegExp(ASANA_ASSET_REGEX.source, 'g');
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: 'image', content: match[0], assetId: match[1] });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  if (parts.every(p => p.type === 'text')) {
+    return <p className="whitespace-pre-wrap text-foreground/80">{text}</p>;
+  }
+
+  return (
+    <div className="space-y-1">
+      {parts.map((part, i) => {
+        if (part.type === 'text') {
+          const trimmed = part.content.trim();
+          if (!trimmed) return null;
+          return <p key={i} className="whitespace-pre-wrap text-foreground/80">{part.content}</p>;
+        }
+        return <AsanaImagePreview key={i} assetId={part.assetId!} />;
+      })}
+    </div>
+  );
+}
+
+function AsanaImagePreview({ assetId }: { assetId: string }) {
+  const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const src = `/api/asana/asset/${assetId}`;
+
+  if (failed) {
+    return (
+      <a href={`https://app.asana.com/app/asana/-/get_asset?asset_id=${assetId}`} target="_blank" rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-primary hover:underline" data-testid={`link-asset-${assetId}`}>
+        <ImageIcon className="h-3 w-3" /> View image in Asana
+      </a>
+    );
+  }
+
+  return (
+    <div className="my-1">
+      <img src={src} alt="Asana attachment" onError={() => setFailed(true)} onClick={() => setExpanded(!expanded)}
+        className={`rounded border cursor-pointer hover:opacity-90 transition-all ${expanded ? 'max-w-full' : 'max-w-[280px] max-h-[180px]'} object-contain`}
+        data-testid={`img-asset-${assetId}`} loading="lazy" />
+    </div>
+  );
+}
 
 interface AsanaStory {
   gid: string;
@@ -129,7 +189,7 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
                       {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap text-foreground/80">{story.text}</p>
+                  <StoryText text={story.text} />
                 </div>
               ))}
             </div>
