@@ -40,53 +40,48 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
       data-testid={`card-project-${project.id}`}
     >
       <CardContent className="py-3 px-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Link href={`/project/${project.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-profile-${project.id}`}>
-                {project.name}
-              </Link>
-              {ucTeam && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  isOffGrid ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                  : "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-                }`}>
-                  {ucTeam}
-                </span>
-              )}
-              <EscalationBadge projectId={project.id} />
-            </div>
-
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-              {project.province && <span>{project.province}</span>}
-              {project.province && project.projectCreatedDate && <span>·</span>}
-              {project.projectCreatedDate && <span>Created {formatShortDate(project.projectCreatedDate)}</span>}
-              {(project.province || project.projectCreatedDate) && project.ucDueDate && !completed && <span>·</span>}
-              <DueIndicator dueDate={project.ucDueDate} completed={completed} />
-            </div>
-
-            {isSubmitted && project.ucSubmittedDate && (
-              <div className="flex items-center gap-1.5 mt-1 text-[11px]">
-                <span className="text-muted-foreground">
-                  Submitted {formatShortDate(project.ucSubmittedDate)}
-                  {project.ucSubmittedBy && ` by ${project.ucSubmittedBy}`}
-                  {submittedDays !== null && ` (${submittedDays}d ago)`}
-                </span>
-                {needsFollowUp && (
-                  <span className="text-amber-600 dark:text-amber-400 font-medium">
-                    — follow-up needed
-                  </span>
-                )}
-              </div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/project/${project.id}`} className="font-medium text-sm text-primary hover:underline break-all" data-testid={`link-profile-${project.id}`}>
+              {project.name}
+            </Link>
+            {ucTeam && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
+                isOffGrid ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                : "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+              }`}>
+                {ucTeam}
+              </span>
             )}
-
-            <HydroInfoSection project={project} />
-            <UcDocChecklist project={project} />
+            <EscalationBadge projectId={project.id} />
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            {project.province && <span>{project.province}</span>}
+            {project.province && project.projectCreatedDate && <span>·</span>}
+            {project.projectCreatedDate && <span>Created {formatShortDate(project.projectCreatedDate)}</span>}
+            {(project.province || project.projectCreatedDate) && project.ucDueDate && !completed && <span>·</span>}
+            <DueIndicator dueDate={project.ucDueDate} completed={completed} />
+          </div>
+
+          {isSubmitted && project.ucSubmittedDate && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-muted-foreground">
+                Submitted {formatShortDate(project.ucSubmittedDate)}
+                {project.ucSubmittedBy && ` by ${project.ucSubmittedBy}`}
+                {submittedDays !== null && ` (${submittedDays}d ago)`}
+              </span>
+              {needsFollowUp && (
+                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                  — follow-up needed
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-1.5">
             <Select value={project.ucStatus || ''} onValueChange={(v) => onStatusChange(project.id, v)}>
-              <SelectTrigger className="w-[140px] sm:w-[160px] h-7 text-xs" data-testid={`select-uc-status-${project.id}`}>
+              <SelectTrigger className="w-[160px] h-7 text-xs" data-testid={`select-uc-status-${project.id}`}>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -116,6 +111,9 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
               Expand
             </Button>
           </div>
+
+          <HydroInfoSection project={project} />
+          <UcDocChecklist project={project} />
         </div>
 
         {isExpanded && (
