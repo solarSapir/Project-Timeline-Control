@@ -41,6 +41,7 @@ function useUpload(projectId: string, endpoint: string, fieldName: string, succe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "files"] });
       toast({ title: "Uploaded", description: successMsg });
     },
     onError: (err: Error) => {
@@ -89,14 +90,14 @@ function getDocStatus(key: string, project: Project): { done: boolean; label: st
 }
 
 const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: string; accept: string }> = {
-  authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Authorization document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
-  hydroBill: { endpoint: "hrsp-power-doc", fieldName: "powerDoc", msg: "Power consumption document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png" },
-  sld: { endpoint: "hrsp-sld", fieldName: "sldDoc", msg: "SLD document uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
-  roofPics: { endpoint: "hrsp-roof-pics", fieldName: "roofPics", msg: "Roof photos uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
-  panelNameplate: { endpoint: "hrsp-panel-nameplate", fieldName: "panelNameplate", msg: "Panel nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
-  inverterNameplate: { endpoint: "hrsp-inverter-nameplate", fieldName: "inverterNameplate", msg: "Inverter nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
-  batteryNameplate: { endpoint: "hrsp-battery-nameplate", fieldName: "batteryNameplate", msg: "Battery nameplate photo uploaded to Asana", accept: ".jpg,.jpeg,.png,.heic" },
-  esaCert: { endpoint: "hrsp-esa-cert", fieldName: "esaCert", msg: "ESA certificate uploaded to Asana", accept: ".pdf,.jpg,.jpeg,.png" },
+  authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Authorization document saved", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  hydroBill: { endpoint: "hrsp-power-doc", fieldName: "powerDoc", msg: "Power consumption document saved", accept: ".pdf,.jpg,.jpeg,.png" },
+  sld: { endpoint: "hrsp-sld", fieldName: "sldDoc", msg: "SLD document saved", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
+  roofPics: { endpoint: "hrsp-roof-pics", fieldName: "roofPics", msg: "Roof photos saved", accept: ".jpg,.jpeg,.png,.heic" },
+  panelNameplate: { endpoint: "hrsp-panel-nameplate", fieldName: "panelNameplate", msg: "Panel nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
+  inverterNameplate: { endpoint: "hrsp-inverter-nameplate", fieldName: "inverterNameplate", msg: "Inverter nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
+  batteryNameplate: { endpoint: "hrsp-battery-nameplate", fieldName: "batteryNameplate", msg: "Battery nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
+  esaCert: { endpoint: "hrsp-esa-cert", fieldName: "esaCert", msg: "ESA certificate saved", accept: ".pdf,.jpg,.jpeg,.png" },
 };
 
 function UploadDocItem({ docKey, project, done, label, grayed }: {
