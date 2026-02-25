@@ -46,7 +46,7 @@ export default function ContractFlowView() {
       <div className="p-4 border-b space-y-2">
         <FlowNavigation />
         <h1 className="text-lg font-semibold">Contracts — Logic Flow</h1>
-        <p className="text-xs text-muted-foreground">Pages: contracts-view.tsx, contract-creation-view.tsx | Components: client/src/components/contracts/</p>
+        <p className="text-xs text-muted-foreground">Pages: payment-method-view.tsx, contracts-view.tsx | Components: client/src/components/contracts/</p>
       </div>
       <div className="flex-1">
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2}>

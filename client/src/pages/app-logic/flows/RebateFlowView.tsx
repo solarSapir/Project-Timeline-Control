@@ -60,7 +60,7 @@ export default function RebateFlowView() {
       <div className="p-4 border-b space-y-2">
         <FlowNavigation />
         <h1 className="text-lg font-semibold">Rebates — Logic Flow</h1>
-        <p className="text-xs text-muted-foreground">Page: client/src/pages/payments-view.tsx | Components: client/src/components/hrsp/</p>
+        <p className="text-xs text-muted-foreground">Page: client/src/pages/rebates-view.tsx | Components: client/src/components/hrsp/</p>
       </div>
       <div className="flex-1">
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2}>

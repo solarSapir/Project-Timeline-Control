@@ -50,9 +50,9 @@ const mainNav = [
 const viewNav = [
   { title: "Escalated Tickets", url: "/escalated", icon: AlertTriangle },
   { title: "UC Applications", url: "/uc", icon: Zap },
-  { title: "Rebates", url: "/payments", icon: Gift },
-  { title: "Payment Method", url: "/contracts", icon: CreditCard },
-  { title: "Contracts", url: "/contract-creation", icon: FileText },
+  { title: "Rebates", url: "/rebates", icon: Gift },
+  { title: "Payment Method", url: "/payment-method", icon: CreditCard },
+  { title: "Contracts", url: "/contracts", icon: FileText },
   { title: "Site Visits", url: "/site-visits", icon: MapPin },
   { title: "AHJ / Permitting", url: "/ahj", icon: Building2 },
   { title: "Install Coordination", url: "/installs", icon: Wrench },
@@ -61,7 +61,7 @@ const viewNav = [
 ];
 
 const settingsNav = [
-  { title: "Settings", url: "/sync", icon: Settings },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 const itNav = [

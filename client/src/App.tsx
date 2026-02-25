@@ -10,14 +10,14 @@ import { initGlobalErrorHandlers, trackNavigation } from "./lib/error-logger";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import UCView from "@/pages/uc-view";
+import PaymentMethodView from "@/pages/payment-method-view";
 import ContractsView from "@/pages/contracts-view";
-import ContractCreationView from "@/pages/contract-creation-view";
 import SiteVisitsView from "@/pages/site-visits-view";
 import AHJView from "@/pages/ahj-view";
 import InstallsView from "@/pages/installs-view";
-import PaymentsView from "@/pages/payments-view";
+import RebatesView from "@/pages/rebates-view";
 import CloseOffView from "@/pages/close-off-view";
-import SyncView from "@/pages/sync-view";
+import SettingsView from "@/pages/settings-view";
 import ProjectProfile from "@/pages/project-profile";
 import InstallCalendar from "@/pages/install-calendar";
 import AllProjectsView from "@/pages/all-projects-view";
@@ -53,17 +53,17 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/escalated" component={EscalatedTicketsView} />
         <Route path="/uc" component={UCView} />
+        <Route path="/rebates" component={RebatesView} />
+        <Route path="/payment-method" component={PaymentMethodView} />
         <Route path="/contracts" component={ContractsView} />
-        <Route path="/contract-creation" component={ContractCreationView} />
         <Route path="/site-visits" component={SiteVisitsView} />
         <Route path="/ahj" component={AHJView} />
         <Route path="/installs" component={InstallsView} />
-        <Route path="/payments" component={PaymentsView} />
         <Route path="/close-off" component={CloseOffView} />
         <Route path="/all" component={AllProjectsView} />
         <Route path="/install-calendar" component={InstallCalendar} />
         <Route path="/project/:id" component={ProjectProfile} />
-        <Route path="/sync" component={SyncView} />
+        <Route path="/settings" component={SettingsView} />
         <Route path="/error-log" component={ErrorLogView} />
         <Route path="/app-logic" component={AppLogicIndex} />
         <Route path="/app-logic/schema" component={SchemaView} />

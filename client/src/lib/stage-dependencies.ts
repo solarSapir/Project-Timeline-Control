@@ -28,8 +28,8 @@ export const DEFAULT_COMPLETION_CRITERIA: Record<string, string[]> = {
 
 export const STAGE_TAB_MAP: Record<string, { tabName: string; route: string }> = {
   uc_application: { tabName: "UC Applications", route: "/uc" },
-  rebates_payment: { tabName: "Rebates", route: "/payments" },
-  contract_signing: { tabName: "Contracts", route: "/contract-creation" },
+  rebates_payment: { tabName: "Rebates", route: "/rebates" },
+  contract_signing: { tabName: "Contracts", route: "/contracts" },
   site_visit: { tabName: "Site Visits", route: "/site-visits" },
   ahj_permitting: { tabName: "AHJ / Permitting", route: "/ahj" },
   install_booking: { tabName: "Installation", route: "/installs" },

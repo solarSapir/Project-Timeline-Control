@@ -53,7 +53,7 @@ export default function SettingsFlowView() {
       <div className="p-4 border-b space-y-2">
         <FlowNavigation />
         <h1 className="text-lg font-semibold">Settings — Logic Flow</h1>
-        <p className="text-xs text-muted-foreground">Page: client/src/pages/sync-view.tsx | Components: client/src/components/settings/</p>
+        <p className="text-xs text-muted-foreground">Page: client/src/pages/settings-view.tsx | Components: client/src/components/settings/</p>
       </div>
       <div className="flex-1">
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} nodeTypes={nodeTypes} fitView minZoom={0.2} maxZoom={2}>
