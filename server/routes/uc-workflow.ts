@@ -86,6 +86,7 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
     const submitTimes: number[] = [];
     const approveTimes: number[] = [];
     const rejectTimes: number[] = [];
+    const closeOffTimes: number[] = [];
     const rejectionsByUtility: Record<string, number> = {};
 
     for (const p of ucRequiredProjects) {
@@ -99,6 +100,8 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
       const submitEntry = projCompletions.find(c => c.toStatus?.toLowerCase() === 'submitted');
       const approveEntry = projCompletions.find(c => c.toStatus?.toLowerCase() === 'approved');
       const rejectEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase()?.includes('reject'));
+      const closeOffEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase()?.includes('close off'));
+      const closedEntry = projCompletions.find(c => c.actionType === 'status_change' && c.toStatus?.toLowerCase() === 'closed');
 
       if (submitEntry?.completedAt && approveEntry?.completedAt) {
         const days = (new Date(approveEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000;
@@ -108,11 +111,19 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
         const days = (new Date(rejectEntry.completedAt).getTime() - new Date(submitEntry.completedAt).getTime()) / 86400000;
         if (days >= 0) rejectTimes.push(days);
       }
+      if (closeOffEntry?.completedAt && closedEntry?.completedAt) {
+        const days = (new Date(closedEntry.completedAt).getTime() - new Date(closeOffEntry.completedAt).getTime()) / 86400000;
+        if (days >= 0) closeOffTimes.push(days);
+      }
       if (rejectEntry) {
         const utility = p.ucTeam || 'Unknown';
         rejectionsByUtility[utility] = (rejectionsByUtility[utility] || 0) + 1;
       }
     }
+
+    const closeOffPending = ucRequiredProjects.filter(p =>
+      p.ucStatus?.toLowerCase().includes('close off')
+    ).length;
 
     const avg = (arr: number[]) => arr.length > 0 ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
     const activeDays = Object.keys(dailyCounts).length || 1;
@@ -126,6 +137,8 @@ ucWorkflowRouter.get("/kpi-stats", async (req, res) => {
       avgDaysToSubmit: avg(submitTimes),
       avgDaysToApprove: avg(approveTimes),
       avgDaysToReject: avg(rejectTimes),
+      avgDaysToClose: avg(closeOffTimes),
+      closeOffPending,
       rejectionsByUtility,
       totalCompletions: completions.length,
       totalUcProjects: ucRequiredProjects.length,

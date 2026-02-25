@@ -72,6 +72,7 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" data-testid="dialog-completions-drilldown">
         <DialogHeader>
           <DialogTitle data-testid="text-drilldown-title">Completions Breakdown</DialogTitle>
+          <p className="text-sm text-muted-foreground">Daily activity breakdown by staff and action type</p>
         </DialogHeader>
 
         <div className="flex items-center gap-3 mb-4">

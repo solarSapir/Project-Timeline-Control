@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Activity, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { Activity, TrendingUp, Clock, CheckCircle2, Timer } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 
 interface CompletionEntry {
@@ -25,6 +25,8 @@ interface UcKpiStats {
   avgDaysToSubmit: number | null;
   avgDaysToApprove: number | null;
   avgDaysToReject: number | null;
+  avgDaysToClose: number | null;
+  closeOffPending: number;
   rejectionsByUtility: Record<string, number>;
   totalCompletions: number;
   totalUcProjects: number;
@@ -40,8 +42,8 @@ export function UcKpiSection() {
     return (
       <div className="space-y-4" data-testid="uc-kpi-loading">
         <h2 className="text-lg font-semibold">UC Team KPIs</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
@@ -91,7 +93,7 @@ export function UcKpiSection() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card
           className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           onClick={() => setDrilldownOpen(true)}
@@ -153,6 +155,23 @@ export function UcKpiSection() {
               {formatStat(stats.avgDaysToApprove)}
             </div>
             <p className="text-xs text-muted-foreground">from submission</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Avg Close-Off Time
+            </CardTitle>
+            <Timer className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-uc-avg-close">
+              {formatStat(stats.avgDaysToClose)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              close-off → closed{stats.closeOffPending > 0 ? ` · ${stats.closeOffPending} pending` : ""}
+            </p>
           </CardContent>
         </Card>
       </div>
