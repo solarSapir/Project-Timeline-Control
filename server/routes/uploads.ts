@@ -68,6 +68,58 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
   }
 });
 
+uploadsRouter.post("/:id/status-note", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id as string);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const { notes, completedBy, viewType, fromStatus, toStatus } = req.body;
+    if (!notes || !completedBy) return res.status(400).json({ message: "Notes and name are required" });
+
+    const labelMap: Record<string, string> = {
+      uc: "UC Status Change", payments: "Rebate Status Change",
+      ahj: "AHJ Status Change", site_visit: "Site Visit Status Change",
+      contracts: "Contract Status Change", close_off: "Close-off Status Change",
+      install: "Install Status Change",
+    };
+    const label = labelMap[viewType] || "Status Change";
+    const statusLine = fromStatus ? `${fromStatus} → ${toStatus}` : `→ ${toStatus}`;
+    const commentText = `${label} by ${completedBy}:\n${statusLine}\n\n${notes}`;
+
+    let targetGid = project.asanaGid;
+    if (viewType === "uc") {
+      try {
+        const subs = await fetchSubtasksForTask(project.asanaGid);
+        const ucSub = subs.find((s: Record<string, unknown>) =>
+          ((s.name as string) || '').toLowerCase().includes('uc') && !s.completed
+        ) || subs.find((s: Record<string, unknown>) =>
+          ((s.name as string) || '').toLowerCase().includes('uc')
+        );
+        if (ucSub) targetGid = ucSub.gid as string;
+      } catch { /* fall through to main task */ }
+    } else if (viewType === "payments" && project.hrspSubtaskGid) {
+      targetGid = project.hrspSubtaskGid;
+    }
+
+    await postCommentToTask(targetGid, commentText);
+
+    await storage.createTaskAction({
+      projectId: project.id,
+      viewType: viewType || "uc",
+      actionType: "status_change",
+      completedBy: completedBy || null,
+      notes: notes || null,
+      followUpDate: null,
+    });
+
+    res.json({ success: true, message: `${label} posted to Asana` });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Status note error:", error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 uploadsRouter.post("/:id/hydro-bill", upload.single('hydroBill'), async (req, res) => {
   try {
     const project = await storage.getProject(req.params.id as string);

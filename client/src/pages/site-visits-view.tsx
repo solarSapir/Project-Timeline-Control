@@ -24,6 +24,8 @@ import { DueIndicator } from "@/components/uc/DueIndicator";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import type { Project } from "@shared/schema";
 
 function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisitDueDate: string | null }): string | null {
   if (!project.contractDueDate) return project.siteVisitDueDate || null;
@@ -36,6 +38,7 @@ export default function SiteVisitsView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("pending");
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
   const { toast } = useToast();
 
   const { residentialProjects, isLoading } = useProjects();
@@ -49,14 +52,9 @@ export default function SiteVisitsView() {
 
   const pendingProjects = depsMetProjects.filter(p => p.installTeamStage?.toLowerCase().includes('pending site visit'));
 
-  const handleStatus = async (projectId: string, status: string) => {
-    try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { siteVisitStatus: status });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Site visit status updated in Asana" });
-    } catch (error: unknown) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Unknown error', variant: "destructive" });
-    }
+  const handleStatus = (projectId: string, status: string) => {
+    const project = residentialProjects.find(p => p.id === projectId);
+    if (project) setStatusChangeInfo({ project, newStatus: status });
   };
 
   const handleDate = async (projectId: string, date: Date | undefined) => {
@@ -222,6 +220,19 @@ export default function SiteVisitsView() {
             </Card>
           );
         })}</div>
+      )}
+
+      {statusChangeInfo && (
+        <StatusChangeDialog
+          open={!!statusChangeInfo}
+          onOpenChange={(open) => { if (!open) setStatusChangeInfo(null); }}
+          projectId={statusChangeInfo.project.id}
+          projectName={statusChangeInfo.project.name}
+          viewType="site_visit"
+          fieldName="siteVisitStatus"
+          newStatus={statusChangeInfo.newStatus}
+          oldStatus={statusChangeInfo.project.siteVisitStatus || ""}
+        />
       )}
     </div>
   );

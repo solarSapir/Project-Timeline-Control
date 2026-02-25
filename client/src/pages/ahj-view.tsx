@@ -23,6 +23,8 @@ import { STAGE_LABELS } from "@shared/schema";
 import { AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import type { Project } from "@shared/schema";
 
 function getExpectedAhjDueDate(svCompletionDate: string | null): string | null {
   if (!svCompletionDate) return null;
@@ -35,6 +37,7 @@ export default function AHJView() {
   const [filter, setFilter] = useState("action-needed");
   const [search, setSearch] = useState("");
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
   const { toast } = useToast();
 
   const { residentialProjects, isLoading } = useProjects();
@@ -90,14 +93,9 @@ export default function AHJView() {
   const overdueCount = ahjProjects.filter(p => { const d = getDaysUntilDue(p.targetAhjDue); return !p.ahjComplete && d !== null && d < 0; }).length;
   const lateCount = ahjProjects.filter(p => !p.ahjComplete && p.isLate).length;
 
-  const handleStatusChange = async (projectId: string, newStatus: string) => {
-    try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { ahjStatus: newStatus });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "AHJ status updated in Asana" });
-    } catch (error: unknown) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Unknown error', variant: "destructive" });
-    }
+  const handleStatusChange = (projectId: string, newStatus: string) => {
+    const project = residentialProjects.find(p => p.id === projectId);
+    if (project) setStatusChangeInfo({ project, newStatus });
   };
 
   if (isLoading) return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">AHJ / Permitting</h1>{[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}</div>;
@@ -236,6 +234,19 @@ export default function AHJView() {
             </Card>
           );
         })}</div>
+      )}
+
+      {statusChangeInfo && (
+        <StatusChangeDialog
+          open={!!statusChangeInfo}
+          onOpenChange={(open) => { if (!open) setStatusChangeInfo(null); }}
+          projectId={statusChangeInfo.project.id}
+          projectName={statusChangeInfo.project.name}
+          viewType="ahj"
+          fieldName="ahjStatus"
+          newStatus={statusChangeInfo.newStatus}
+          oldStatus={statusChangeInfo.project.ahjStatus || ""}
+        />
       )}
     </div>
   );

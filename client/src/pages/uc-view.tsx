@@ -13,6 +13,7 @@ import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
 import { UCProjectCard } from "@/components/uc/UCProjectCard";
 import { UcApprovalDialog } from "@/components/uc/UcApprovalDialog";
 import { UcRejectionDialog } from "@/components/uc/UcRejectionDialog";
+import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 import type { Project, EscalationTicket, UcCompletion } from "@shared/schema";
 
 export default function UCView() {
@@ -23,6 +24,7 @@ export default function UCView() {
   const [approvalProject, setApprovalProject] = useState<Project | null>(null);
   const [rejectionProject, setRejectionProject] = useState<Project | null>(null);
   const [rejectionStatus, setRejectionStatus] = useState("");
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
@@ -77,47 +79,22 @@ export default function UCView() {
     return true;
   });
 
-  const handleStatusChange = async (projectId: string, newStatus: string) => {
+  const handleStatusChange = (projectId: string, newStatus: string) => {
     const lower = newStatus.toLowerCase();
     const project = installProjects.find(p => p.id === projectId);
+    if (!project) return;
 
     if (lower.includes('approved')) {
-      if (project) setApprovalProject(project);
+      setApprovalProject(project);
       return;
     }
     if (lower.includes('reject')) {
-      if (project) {
-        setRejectionProject(project);
-        setRejectionStatus(newStatus);
-      }
+      setRejectionProject(project);
+      setRejectionStatus(newStatus);
       return;
     }
 
-    try {
-      const patchBody: Record<string, string> = { ucStatus: newStatus };
-      if (lower === 'submitted' || lower.includes('submitted')) {
-        patchBody.ucSubmittedDate = new Date().toISOString().split('T')[0];
-      }
-      await apiRequest("PATCH", `/api/projects/${projectId}`, patchBody);
-
-      if (lower === 'submitted' || lower.includes('submitted')) {
-        await apiRequest("POST", "/api/uc/complete-action", {
-          projectId,
-          staffName: "System",
-          actionType: "status_change",
-          fromStatus: project?.ucStatus || "",
-          toStatus: newStatus,
-          hideDays: 7,
-        });
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/uc/completions'] });
-      toast({ title: "UC status updated in Asana" });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      toast({ title: "Error", description: message, variant: "destructive" });
-    }
+    setStatusChangeInfo({ project, newStatus });
   };
 
   if (isLoading) {
@@ -219,6 +196,24 @@ export default function UCView() {
           queryClient.invalidateQueries({ queryKey: ['/api/escalation-tickets'] });
         }}
       />
+
+      {statusChangeInfo && (
+        <StatusChangeDialog
+          open={!!statusChangeInfo}
+          onOpenChange={(open) => { if (!open) setStatusChangeInfo(null); }}
+          projectId={statusChangeInfo.project.id}
+          projectName={statusChangeInfo.project.name}
+          viewType="uc"
+          fieldName="ucStatus"
+          newStatus={statusChangeInfo.newStatus}
+          oldStatus={statusChangeInfo.project.ucStatus || ""}
+          extraPatchFields={
+            statusChangeInfo.newStatus.toLowerCase().includes('submitted')
+              ? { ucSubmittedDate: new Date().toISOString().split('T')[0] }
+              : undefined
+          }
+        />
+      )}
 
       <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) setFocusProject(null); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-expanded-view">

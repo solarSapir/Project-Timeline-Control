@@ -19,6 +19,7 @@ import { STAGE_LABELS } from "@shared/schema";
 import type { Project } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 
 function getCloseOffDueDate(project: Project): string | null {
   if (!project.installStartDate) return project.closeOffDueDate || null;
@@ -34,6 +35,7 @@ function isFullyComplete(p: Project): boolean {
 export default function CloseOffView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
   const { toast } = useToast();
 
   const { allProjects, isLoading } = useProjects();
@@ -67,14 +69,9 @@ export default function CloseOffView() {
   const completedCount = closeOffProjects.filter(isFullyComplete).length;
   const overdueCount = closeOffProjects.filter(p => { const d = getDaysUntilDue(getCloseOffDueDate(p)); return d !== null && d < 0 && !isFullyComplete(p); }).length;
 
-  const handleSetCloseOff = async (projectId: string) => {
-    try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { ucStatus: "Closed", ahjStatus: "Closed" });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Project set to close-off status in Asana" });
-    } catch (error: unknown) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : 'Unknown error', variant: "destructive" });
-    }
+  const handleSetCloseOff = (projectId: string) => {
+    const project = closeOffProjects.find(p => p.id === projectId);
+    if (project) setStatusChangeInfo({ project, newStatus: "Closed" });
   };
 
   if (isLoading) return <div className="p-6 space-y-4"><h1 className="text-2xl font-semibold">Close-off</h1>{[1,2,3].map(i => <Skeleton key={i} className="h-20" />)}</div>;
@@ -158,6 +155,20 @@ export default function CloseOffView() {
             </Card>
           );
         })}</div>
+      )}
+
+      {statusChangeInfo && (
+        <StatusChangeDialog
+          open={!!statusChangeInfo}
+          onOpenChange={(open) => { if (!open) setStatusChangeInfo(null); }}
+          projectId={statusChangeInfo.project.id}
+          projectName={statusChangeInfo.project.name}
+          viewType="close_off"
+          fieldName="ucStatus"
+          newStatus={statusChangeInfo.newStatus}
+          oldStatus={statusChangeInfo.project.ucStatus || ""}
+          extraPatchFields={{ ahjStatus: "Closed" }}
+        />
       )}
     </div>
   );

@@ -109,15 +109,15 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
               </div>
             )}
             <div>
-              <Label htmlFor="contractCompletedBy">Your Name</Label>
+              <Label htmlFor="contractCompletedBy">Your Name <span className="text-destructive">*</span></Label>
               <Input id="contractCompletedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-contract-followup-name" />
             </div>
             <div>
-              <Label htmlFor="contractActionDone">What has been done</Label>
+              <Label htmlFor="contractActionDone">What has been done <span className="text-destructive">*</span></Label>
               <Textarea id="contractActionDone" value={actionDone} onChange={(e) => setActionDone(e.target.value)} placeholder="Describe the action you took..." rows={3} data-testid="input-contract-followup-action-done" />
             </div>
             <div>
-              <Label htmlFor="contractNextSteps">Next Steps</Label>
+              <Label htmlFor="contractNextSteps">Next Steps <span className="text-destructive">*</span></Label>
               <Textarea id="contractNextSteps" value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} placeholder="What needs to happen next?" rows={3} data-testid="input-contract-followup-next-steps" />
             </div>
             <div>
@@ -131,7 +131,7 @@ export function ContractFollowUpDialog({ project, lastFollowUp }: ContractFollow
                 )}
               </div>
             </div>
-            <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-contract-followup">
+            <Button className="w-full" onClick={handleSubmit} disabled={submitting || !completedBy.trim() || !actionDone.trim() || !nextSteps.trim()} data-testid="button-submit-contract-followup">
               {submitting ? "Posting to Asana..." : "Submit Follow-Up & Post to Asana"}
             </Button>
           </div>

@@ -17,6 +17,7 @@ import type { Project } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
+import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 
 function HrspInfo({ project }: { project: Project }) {
   const isLoadDisplacementOntario =
@@ -86,6 +87,7 @@ export default function PaymentsView() {
   const [filter, setFilter] = useState("all");
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [closeOffSubmitProject, setCloseOffSubmitProject] = useState<Project | null>(null);
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
   const { toast } = useToast();
 
   const { data: projects, isLoading } = useQuery<Project[]>({
@@ -143,26 +145,25 @@ export default function PaymentsView() {
   const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
   const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p)).length;
 
-  const handleRebateStatus = async (projectId: string, status: string) => {
+  const handleRebateStatus = (projectId: string, status: string) => {
     const lower = status.toLowerCase();
+    const proj = (projects || []).find(p => p.id === projectId);
+    if (!proj) return;
+
     if (lower === 'close-off - submitted' || lower === 'close-off submitted') {
-      const proj = (projects || []).find(p => p.id === projectId);
-      if (proj) {
-        setCloseOffSubmitProject(proj);
-        return;
-      }
+      setCloseOffSubmitProject(proj);
+      return;
     }
-    try {
-      const patchBody: Record<string, string> = { rebateStatus: status };
-      if (lower.includes('close-off') || lower.includes('close off') || lower.includes('closeoff')) {
-        patchBody.rebateCloseOffDate = new Date().toISOString().split('T')[0];
-      }
-      await apiRequest("PATCH", `/api/projects/${projectId}`, patchBody);
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Rebate status updated in Asana" });
-    } catch (error: unknown) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+
+    const extraFields: Record<string, string> = {};
+    if (lower.includes('close-off') || lower.includes('close off') || lower.includes('closeoff')) {
+      extraFields.rebateCloseOffDate = new Date().toISOString().split('T')[0];
     }
+
+    setStatusChangeInfo({
+      project: proj,
+      newStatus: status,
+    });
   };
 
   const confirmCloseOffSubmitted = async () => {
@@ -374,6 +375,25 @@ export default function PaymentsView() {
         projectName={closeOffSubmitProject?.name || ""}
         onConfirm={confirmCloseOffSubmitted}
       />
+
+      {statusChangeInfo && (
+        <StatusChangeDialog
+          open={!!statusChangeInfo}
+          onOpenChange={(open) => { if (!open) setStatusChangeInfo(null); }}
+          projectId={statusChangeInfo.project.id}
+          projectName={statusChangeInfo.project.name}
+          viewType="payments"
+          fieldName="rebateStatus"
+          newStatus={statusChangeInfo.newStatus}
+          oldStatus={statusChangeInfo.project.rebateStatus || ""}
+          extraPatchFields={
+            statusChangeInfo.newStatus.toLowerCase().includes('close-off') ||
+            statusChangeInfo.newStatus.toLowerCase().includes('close off')
+              ? { rebateCloseOffDate: new Date().toISOString().split('T')[0] }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

@@ -106,15 +106,15 @@ export function FollowUpDialog({ project }: { project: Project }) {
             </p>
           )}
           <div>
-            <Label htmlFor="completedBy">Your Name</Label>
+            <Label htmlFor="completedBy">Your Name <span className="text-destructive">*</span></Label>
             <Input id="completedBy" value={completedBy} onChange={(e) => setCompletedBy(e.target.value)} placeholder="Enter your name" data-testid="input-followup-name" />
           </div>
           <div>
-            <Label htmlFor="actionDone">What has been done</Label>
+            <Label htmlFor="actionDone">What has been done <span className="text-destructive">*</span></Label>
             <Textarea id="actionDone" value={actionDone} onChange={(e) => setActionDone(e.target.value)} placeholder="Describe the action you took for this task..." rows={3} data-testid="input-followup-action-done" />
           </div>
           <div>
-            <Label htmlFor="nextSteps">Next Steps</Label>
+            <Label htmlFor="nextSteps">Next Steps <span className="text-destructive">*</span></Label>
             <Textarea id="nextSteps" value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} placeholder="What needs to happen next?" rows={3} data-testid="input-followup-next-steps" />
           </div>
           <div>
@@ -126,7 +126,7 @@ export function FollowUpDialog({ project }: { project: Project }) {
               </p>
             )}
           </div>
-          <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-followup">
+          <Button className="w-full" onClick={handleSubmit} disabled={submitting || !completedBy.trim() || !actionDone.trim() || !nextSteps.trim()} data-testid="button-submit-followup">
             {submitting ? "Posting to Asana..." : "Submit Follow-Up & Post to Asana"}
           </Button>
         </div>
