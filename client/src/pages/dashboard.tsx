@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, CheckCircle2, Wrench, Zap } from "lucide-react";
 import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
+import { RebateKpiSection } from "@/components/dashboard/RebateKpiSection";
 import { type Project, type ProjectDeadline } from "@shared/schema";
 import { TimelineIndicator, TimelineHealth } from "@/components/timeline-indicator";
 import { StatusBadge } from "@/components/status-badge";
@@ -106,6 +107,8 @@ export default function Dashboard() {
       </div>
 
       <UcKpiSection />
+
+      <RebateKpiSection />
 
       <Card>
         <CardHeader>

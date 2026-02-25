@@ -37,6 +37,7 @@ export async function registerRoutes(
   app.use("/api/projects", filesRouter);
   app.use("/api", escalationRouter);
   app.use("/api/uc", ucWorkflowRouter);
+  app.use("/api/rebate", rebateWorkflowRouter);
 
   app.get("/api/hrsp-config", async (_req, res) => {
     try {

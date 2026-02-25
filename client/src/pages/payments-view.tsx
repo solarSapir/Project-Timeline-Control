@@ -61,6 +61,17 @@ function HrspInfo({ project }: { project: Project }) {
   );
 }
 
+function getCloseOffDueInfo(p: Project): { daysLeft: number; dueDate: string } | null {
+  const status = (p.rebateStatus || '').toLowerCase();
+  if (!status.includes('close-off') && !status.includes('close off') && !status.includes('closeoff')) return null;
+  const closeOffDate = p.rebateCloseOffDate;
+  if (!closeOffDate) return null;
+  const due = new Date(new Date(closeOffDate).getTime() + 14 * 86400000);
+  const daysLeft = Math.ceil((due.getTime() - Date.now()) / 86400000);
+  const dueDate = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return { daysLeft, dueDate };
+}
+
 function needsRebateFollowUp(p: Project): boolean {
   const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
   if (!['in-progress', 'submitted'].some(s => status.includes(s))) return false;
@@ -126,7 +137,12 @@ export default function PaymentsView() {
 
   const handleRebateStatus = async (projectId: string, status: string) => {
     try {
-      await apiRequest("PATCH", `/api/projects/${projectId}`, { rebateStatus: status });
+      const patchBody: Record<string, string> = { rebateStatus: status };
+      const lower = status.toLowerCase();
+      if (lower.includes('close-off') || lower.includes('close off') || lower.includes('closeoff')) {
+        patchBody.rebateCloseOffDate = new Date().toISOString().split('T')[0];
+      }
+      await apiRequest("PATCH", `/api/projects/${projectId}`, patchBody);
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       toast({ title: "Rebate status updated in Asana" });
     } catch (error: unknown) {
@@ -226,6 +242,7 @@ export default function PaymentsView() {
 
             const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
             const isHrspFallback = !p.rebateStatus && isLdOn && !!p.hrspStatus;
+            const closeOffDue = getCloseOffDueInfo(p);
 
             return (
               <Card
@@ -264,6 +281,14 @@ export default function PaymentsView() {
                         <span>UC Team: {p.ucTeam || 'N/A'}</span>
                         <span>·</span>
                         <span>PM: {p.pmStatus || 'N/A'}</span>
+                        {closeOffDue && (
+                          <>
+                            <span>·</span>
+                            <span className={`font-medium ${closeOffDue.daysLeft < 0 ? "text-red-600 dark:text-red-400" : closeOffDue.daysLeft <= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} data-testid={`text-closeoff-due-${p.id}`}>
+                              Due {closeOffDue.dueDate} ({closeOffDue.daysLeft < 0 ? `${Math.abs(closeOffDue.daysLeft)}d overdue` : `${closeOffDue.daysLeft}d left`})
+                            </span>
+                          </>
+                        )}
                         {followUp && (
                           <>
                             <span>·</span>

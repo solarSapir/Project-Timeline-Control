@@ -68,7 +68,7 @@ function UploadButton({ mutation, inputRef, hasDoc, testId }: {
 function getDocStatus(key: string, project: Project): { done: boolean; label: string } {
   const map: Record<string, { field: keyof Project; label: string }> = {
     invoice: { field: "hrspInvoiceUrl", label: "Invoice" },
-    authorization: { field: "hrspAuthDocUrl", label: "Authorization" },
+    authorization: { field: "hrspAuthDocUrl", label: "Participation Document" },
     sld: { field: "hrspSldUrl", label: "SLD" },
     roofPics: { field: "hrspRoofPicsUrl", label: "Roof Photos" },
     panelNameplate: { field: "hrspPanelNameplateUrl", label: "Panel Nameplate" },
@@ -90,7 +90,7 @@ function getDocStatus(key: string, project: Project): { done: boolean; label: st
 }
 
 const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: string; accept: string }> = {
-  authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Authorization document saved", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Participation document saved", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
   hydroBill: { endpoint: "hrsp-power-doc", fieldName: "powerDoc", msg: "Power consumption document saved", accept: ".pdf,.jpg,.jpeg,.png" },
   sld: { endpoint: "hrsp-sld", fieldName: "sldDoc", msg: "SLD document saved", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
   roofPics: { endpoint: "hrsp-roof-pics", fieldName: "roofPics", msg: "Roof photos saved", accept: ".jpg,.jpeg,.png,.heic" },
