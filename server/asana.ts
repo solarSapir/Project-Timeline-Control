@@ -369,16 +369,71 @@ export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
   return data?.data || [];
 }
 
-export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null } | null {
-  const hrsp = subtasks.find((st: any) =>
+export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null; needsRebateFieldFix: boolean } | null {
+  let hrsp = subtasks.find((st: any) =>
     st.name?.toLowerCase().includes('home renovation savings program')
   );
+  if (hrsp) {
+    const grantsField = hrsp.custom_fields?.find((f: any) =>
+      f.name?.toLowerCase().includes('grants status')
+    );
+    const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
+    return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: false };
+  }
+
+  hrsp = subtasks.find((st: any) => {
+    const name = st.name?.trim() || '';
+    if (!name.toLowerCase().startsWith('[no value]')) return false;
+    const hasGrantsField = st.custom_fields?.some((f: any) =>
+      f.name?.toLowerCase().includes('grants status')
+    );
+    return hasGrantsField;
+  });
   if (!hrsp) return null;
+
   const grantsField = hrsp.custom_fields?.find((f: any) =>
     f.name?.toLowerCase().includes('grants status')
   );
   const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
-  return { gid: hrsp.gid, name: hrsp.name, status };
+  return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: true };
+}
+
+export async function fixHrspRebateField(subtaskGid: string): Promise<boolean> {
+  const accessToken = await getAccessToken();
+  const taskRes = await fetch(`https://app.asana.com/api/1.0/tasks/${subtaskGid}?opt_fields=custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.multi_enum_values,custom_fields.multi_enum_values.name`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!taskRes.ok) return false;
+  const taskData = await taskRes.json();
+  const customFields = taskData?.data?.custom_fields || [];
+
+  const rebateField = customFields.find((f: any) =>
+    f.name?.toLowerCase().includes('rebates (required to apply')
+  );
+  if (!rebateField) return false;
+
+  const fieldRes = await fetch(`https://app.asana.com/api/1.0/custom_fields/${rebateField.gid}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  const fieldData = await fieldRes.json();
+  const enumOptions = fieldData?.data?.enum_options || [];
+
+  const hrspOption = enumOptions.find((opt: any) =>
+    opt.name?.toLowerCase().includes('home renovation savings program (on)')
+  );
+  if (!hrspOption) return false;
+
+  const updateRes = await fetch(`https://app.asana.com/api/1.0/tasks/${subtaskGid}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: { custom_fields: { [rebateField.gid]: [hrspOption.gid] } }
+    }),
+  });
+  return updateRes.ok;
 }
 
 export async function fetchTaskAttachments(taskGid: string): Promise<any[]> {

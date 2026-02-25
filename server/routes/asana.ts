@@ -11,6 +11,7 @@ import {
   findStatusChangeInStories,
   fetchSubtasksForTask,
   findHrspSubtask,
+  fixHrspRebateField,
   getSubtaskFieldOptions,
   updateSubtaskField,
 } from "../asana";
@@ -86,6 +87,17 @@ async function syncProjectFromAsana(projectGid: string) {
           mapped.hrspMissing = false;
           if (hrsp.status) {
             mapped.rebateStatus = hrsp.status;
+          }
+          if (hrsp.needsRebateFieldFix && isLoadDisplacementOntario) {
+            try {
+              const fixed = await fixHrspRebateField(hrsp.gid);
+              if (fixed) {
+                console.log(`Auto-fixed [no value] HRSP subtask for ${task.name} → Home Renovation Savings Program (ON)`);
+              }
+            } catch (fixErr: unknown) {
+              const fixMsg = fixErr instanceof Error ? fixErr.message : String(fixErr);
+              console.warn(`Could not auto-fix HRSP subtask for ${task.name}: ${fixMsg}`);
+            }
           }
         } else if (isLoadDisplacementOntario) {
           mapped.hrspSubtaskGid = null;
