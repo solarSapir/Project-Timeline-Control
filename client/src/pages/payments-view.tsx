@@ -59,22 +59,6 @@ function HrspInfo({ project }: { project: Project }) {
   );
 }
 
-function HrspStatusSelect({ project, hrspOptions, onUpdate }: { project: Project; hrspOptions: string[]; onUpdate: (projectId: string, status: string) => void }) {
-  if (!project.hrspSubtaskGid) return null;
-
-  return (
-    <Select value={project.hrspStatus || ''} onValueChange={(v) => onUpdate(project.id, v)}>
-      <SelectTrigger className="w-[180px] h-7 text-xs" data-testid={`select-hrsp-status-${project.id}`}>
-        <SelectValue placeholder="Set HRSP status" />
-      </SelectTrigger>
-      <SelectContent>
-        {hrspOptions.map(s => (
-          <SelectItem key={s} value={s}>{s}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
 
 export default function PaymentsView() {
   const [search, setSearch] = useState("");
@@ -103,26 +87,6 @@ export default function PaymentsView() {
     p.province?.toLowerCase().includes('ontario');
 
   const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p));
-
-  const firstHrspSubtaskGid = installProjects.find((p: Project) => p.hrspSubtaskGid)?.hrspSubtaskGid;
-
-  const { data: hrspOptionsData } = useQuery<{ gid: string; name: string }[]>({
-    queryKey: ['/api/hrsp/field-options', firstHrspSubtaskGid],
-    queryFn: () => fetch(`/api/hrsp/field-options/${firstHrspSubtaskGid}`).then(r => r.json()),
-    enabled: !!firstHrspSubtaskGid,
-  });
-
-  const hrspStatusOptions = Array.isArray(hrspOptionsData) ? hrspOptionsData.map(o => o.name) : [];
-
-  const handleHrspStatus = async (projectId: string, status: string) => {
-    try {
-      await apiRequest("PATCH", `/api/hrsp/${projectId}`, { status });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "HRSP status updated in Asana" });
-    } catch (error: unknown) {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
-    }
-  };
 
   const hasHrspIssue = (p: Project) => {
     const isLdOn = p.ucTeam?.toLowerCase().includes('load displacement') && p.province?.toLowerCase().includes('ontario');
@@ -303,9 +267,6 @@ export default function PaymentsView() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {isLdOn && p.hrspSubtaskGid && (
-                        <HrspStatusSelect project={p} hrspOptions={hrspStatusOptions} onUpdate={handleHrspStatus} />
-                      )}
                       <TaskActionDialog projectId={p.id} projectName={p.name} viewType="payments" />
                     </div>
                   </div>
