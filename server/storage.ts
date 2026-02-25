@@ -2,7 +2,7 @@ import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
-  ucCompletions, ucWorkflowRules,
+  ucCompletions, ucWorkflowRules, rebateCompletions,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -15,6 +15,7 @@ import {
   type EscalationTicket, type InsertEscalationTicket,
   type UcCompletion, type InsertUcCompletion,
   type UcWorkflowRule, type InsertUcWorkflowRule,
+  type RebateCompletion, type InsertRebateCompletion,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -68,6 +69,10 @@ export interface IStorage {
 
   getUcWorkflowRules(): Promise<UcWorkflowRule[]>;
   upsertUcWorkflowRule(data: InsertUcWorkflowRule): Promise<UcWorkflowRule>;
+
+  createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion>;
+  getRebateCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<RebateCompletion[]>;
+  getRebateCompletionsByProject(projectId: string): Promise<RebateCompletion[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -373,6 +378,31 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(ucWorkflowRules).values(data).returning();
     return created;
+  }
+
+  async createRebateCompletion(data: InsertRebateCompletion): Promise<RebateCompletion> {
+    const [completion] = await db.insert(rebateCompletions).values(data).returning();
+    return completion;
+  }
+
+  async getRebateCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<RebateCompletion[]> {
+    const conditions = [];
+    if (filters?.staffName) conditions.push(eq(rebateCompletions.staffName, filters.staffName));
+    if (filters?.startDate) conditions.push(gte(rebateCompletions.completedAt, new Date(filters.startDate)));
+    if (filters?.endDate) conditions.push(lte(rebateCompletions.completedAt, new Date(filters.endDate)));
+
+    if (conditions.length > 0) {
+      return db.select().from(rebateCompletions)
+        .where(and(...conditions))
+        .orderBy(desc(rebateCompletions.completedAt));
+    }
+    return db.select().from(rebateCompletions).orderBy(desc(rebateCompletions.completedAt));
+  }
+
+  async getRebateCompletionsByProject(projectId: string): Promise<RebateCompletion[]> {
+    return db.select().from(rebateCompletions)
+      .where(eq(rebateCompletions.projectId, projectId))
+      .orderBy(desc(rebateCompletions.completedAt));
   }
 }
 

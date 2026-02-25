@@ -263,7 +263,7 @@ export const DEFAULT_HRSP_INVOICE_TEMPLATE: HrspInvoiceTemplate = {
 
 export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
   { key: "invoice", label: "HRSP Invoice", type: "generate", phase: "pre", enabled: true, description: "Auto-generated PDF invoice with equipment specs" },
-  { key: "authorization", label: "Customer Authorization", type: "upload", phase: "pre", enabled: true, description: "Signed customer authorization form" },
+  { key: "authorization", label: "Participation Document", type: "upload", phase: "pre", enabled: true, description: "Signed participation document" },
   { key: "hydroBill", label: "Hydro Bill / Power Consumption", type: "auto", phase: "pre", enabled: true, description: "Auto-linked from UC hydro bill, or manual upload" },
   { key: "sld", label: "Single Line Diagram (SLD)", type: "upload", phase: "pre", enabled: true, description: "Electrical single line diagram for the installation" },
   { key: "roofPics", label: "Roof Installation Photos", type: "upload", phase: "closeoff", enabled: true, description: "Photos of solar panels installed on the roof" },
@@ -366,6 +366,27 @@ export const insertUcCompletionSchema = createInsertSchema(ucCompletions).omit({
 
 export type UcCompletion = typeof ucCompletions.$inferSelect;
 export type InsertUcCompletion = z.infer<typeof insertUcCompletionSchema>;
+
+export const rebateCompletions = pgTable("rebate_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  actionType: text("action_type").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  notes: text("notes"),
+  hideDays: integer("hide_days"),
+  followUpDate: text("follow_up_date"),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export const insertRebateCompletionSchema = createInsertSchema(rebateCompletions).omit({
+  id: true,
+  completedAt: true,
+});
+
+export type RebateCompletion = typeof rebateCompletions.$inferSelect;
+export type InsertRebateCompletion = z.infer<typeof insertRebateCompletionSchema>;
 
 export const ucWorkflowRules = pgTable("uc_workflow_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
