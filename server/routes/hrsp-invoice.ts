@@ -3,39 +3,32 @@ import PDFDocument from "pdfkit";
 import { storage } from "../storage";
 import { uploadAttachmentToTask } from "../asana";
 import { upload } from "../middleware/upload";
+import {
+  DEFAULT_HRSP_INVOICE_TEMPLATE,
+  DEFAULT_HRSP_DOCUMENTS,
+  type HrspInvoiceTemplate,
+  type HrspRequiredDocument,
+} from "@shared/schema";
 
 export const hrspInvoiceRouter = Router();
 
-const COMPANY = {
-  name: "Solar Power Store Canada LTD",
-  address1: "526 Bryne Dr",
-  address2: "Unit C",
-  city: "Barrie, ON L4N 9P6",
-  phone: "1-888-421-5354",
-  email: "accounting@solarpowerstore.ca",
-  gstHst: "772144143RT0001",
-};
+async function getInvoiceTemplate(): Promise<HrspInvoiceTemplate> {
+  const config = await storage.getHrspConfig();
+  if (config?.invoiceTemplate) {
+    return { ...DEFAULT_HRSP_INVOICE_TEMPLATE, ...(config.invoiceTemplate as Partial<HrspInvoiceTemplate>) };
+  }
+  return DEFAULT_HRSP_INVOICE_TEMPLATE;
+}
 
-const EQUIPMENT = {
-  panelMake: "MAPLE LEAF",
-  panelModel: "TS-BGT72(580)",
-  panelWatt: 580,
-  panelQty: 31,
-  totalKwDc: 17980,
-  panelCost: 24354.89,
-  batteryMake: "FOX ESS",
-  batteryModel: "ECS4000-H4",
-  batterySize: "12Kwh",
-  batteryCost: 10638.97,
-  otherCost: 1000,
-  subtotal: 35993.86,
-  hstRate: 0.13,
-  hst: 4679.20,
-  total: 40673.06,
-  pvOnlyPreTax: 29610.48,
-};
+async function getRequiredDocuments(): Promise<HrspRequiredDocument[]> {
+  const config = await storage.getHrspConfig();
+  if (config?.requiredDocuments && Array.isArray(config.requiredDocuments)) {
+    return config.requiredDocuments as HrspRequiredDocument[];
+  }
+  return DEFAULT_HRSP_DOCUMENTS;
+}
 
-function buildInvoicePdf(serviceAddress: string, quoteDate: string, quoteNumber: string): Promise<Buffer> {
+function buildInvoicePdf(tpl: HrspInvoiceTemplate, serviceAddress: string, quoteDate: string, quoteNumber: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "LETTER", margin: 50 });
     const chunks: Buffer[] = [];
@@ -43,16 +36,16 @@ function buildInvoicePdf(serviceAddress: string, quoteDate: string, quoteNumber:
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(14).font("Helvetica-Bold").text(COMPANY.name, 50, 50);
+    doc.fontSize(14).font("Helvetica-Bold").text(tpl.companyName, 50, 50);
     doc.fontSize(9).font("Helvetica");
-    doc.text(COMPANY.address1, 50, 70);
-    doc.text(COMPANY.address2, 50, 82);
-    doc.text(COMPANY.city, 50, 94);
-    doc.text(`Phone: ${COMPANY.phone}`, 50, 106);
-    doc.text(`Email: ${COMPANY.email}`, 50, 118);
+    doc.text(tpl.address1, 50, 70);
+    doc.text(tpl.address2, 50, 82);
+    doc.text(tpl.city, 50, 94);
+    doc.text(`Phone: ${tpl.phone}`, 50, 106);
+    doc.text(`Email: ${tpl.email}`, 50, 118);
 
     doc.text(`GST/HST Registration:`, 380, 70);
-    doc.text(COMPANY.gstHst, 380, 82);
+    doc.text(tpl.gstHst, 380, 82);
 
     doc.text(`QUOTE: #${quoteNumber}`, 380, 50, { align: "right" });
     doc.text(`Quote Date`, 380, 106);
@@ -75,31 +68,30 @@ function buildInvoicePdf(serviceAddress: string, quoteDate: string, quoteNumber:
     doc.moveTo(50, tableTop + 14).lineTo(560, tableTop + 14).stroke();
 
     let y = tableTop + 22;
-    const row = (label: string, detail: string, qty: string, rate: string, amount: string) => {
-      doc.font("Helvetica-Bold").fontSize(9).text(label, 50, y, { width: 220 });
-      if (detail) {
-        y += 12;
-        doc.font("Helvetica").text(detail, 60, y, { width: 210 });
-      }
-      doc.font("Helvetica").text(qty, 280, y - (detail ? 12 : 0), { width: 50 });
-      doc.text(rate, 400, y - (detail ? 12 : 0), { width: 70 });
-      doc.text(amount, 480, y - (detail ? 12 : 0), { width: 80, align: "right" });
-      y += 18;
-    };
 
     doc.font("Helvetica-Bold").fontSize(10).text("Material Costs", 50, y);
     y += 16;
 
-    row("Solar Panel Make:", EQUIPMENT.panelMake, "1", `$${EQUIPMENT.panelCost.toFixed(2)}`, `$${EQUIPMENT.panelCost.toFixed(2)}`);
-    doc.font("Helvetica").fontSize(8);
-    doc.text(`Solar Panel Model: ${EQUIPMENT.panelModel}`, 60, y); y += 12;
-    doc.text(`Solar Panel Size (watt): ${EQUIPMENT.panelWatt}`, 60, y); y += 12;
-    doc.text(`Qty of solar panels (units): ${EQUIPMENT.panelQty}`, 60, y); y += 12;
-    doc.text(`Total Kw DC (watt): ${EQUIPMENT.totalKwDc}`, 60, y); y += 18;
+    doc.font("Helvetica-Bold").fontSize(9).text("Solar Panel Make:", 50, y, { width: 220 });
+    doc.font("Helvetica").text(tpl.panelMake, 60, y + 12, { width: 210 });
+    doc.text("1", 280, y, { width: 50 });
+    doc.text(`$${tpl.panelCost.toFixed(2)}`, 400, y, { width: 70 });
+    doc.text(`$${tpl.panelCost.toFixed(2)}`, 480, y, { width: 80, align: "right" });
+    y += 24;
+    doc.fontSize(8);
+    doc.text(`Solar Panel Model: ${tpl.panelModel}`, 60, y); y += 12;
+    doc.text(`Solar Panel Size (watt): ${tpl.panelWatt}`, 60, y); y += 12;
+    doc.text(`Qty of solar panels (units): ${tpl.panelQty}`, 60, y); y += 12;
+    doc.text(`Total Kw DC (watt): ${tpl.totalKwDc}`, 60, y); y += 18;
 
-    row("Battery Make:", `${EQUIPMENT.batteryMake} — ${EQUIPMENT.batteryModel}`, "1", `$${EQUIPMENT.batteryCost.toFixed(2)}`, `$${EQUIPMENT.batteryCost.toFixed(2)}`);
-    doc.font("Helvetica").fontSize(8);
-    doc.text(`Battery size (Kwh): ${EQUIPMENT.batterySize}`, 60, y); y += 18;
+    doc.font("Helvetica-Bold").fontSize(9).text("Battery Make:", 50, y, { width: 220 });
+    doc.font("Helvetica").text(`${tpl.batteryMake} — ${tpl.batteryModel}`, 60, y + 12, { width: 210 });
+    doc.text("1", 280, y, { width: 50 });
+    doc.text(`$${tpl.batteryCost.toFixed(2)}`, 400, y, { width: 70 });
+    doc.text(`$${tpl.batteryCost.toFixed(2)}`, 480, y, { width: 80, align: "right" });
+    y += 24;
+    doc.fontSize(8);
+    doc.text(`Battery size (Kwh): ${tpl.batterySize}`, 60, y); y += 18;
 
     doc.font("Helvetica-Bold").fontSize(10).text("Labour cost", 50, y); y += 14;
     doc.font("Helvetica").fontSize(9);
@@ -117,22 +109,22 @@ function buildInvoicePdf(serviceAddress: string, quoteDate: string, quoteNumber:
     y += 14;
     doc.text("Utility application, connection costs", 60, y);
     doc.text("1", 280, y);
-    doc.text(`$${EQUIPMENT.otherCost.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
+    doc.text(`$${tpl.otherCost.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
 
     doc.moveTo(50, y).lineTo(560, y).stroke(); y += 8;
 
     doc.font("Helvetica-Bold").fontSize(10);
     doc.text("Subtotal", 380, y);
-    doc.text(`$${EQUIPMENT.subtotal.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 16;
-    doc.text("HST (ON) 13%", 380, y);
-    doc.text(`$${EQUIPMENT.hst.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
+    doc.text(`$${tpl.subtotal.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 16;
+    doc.text(`HST (ON) ${(tpl.hstRate * 100).toFixed(0)}%`, 380, y);
+    doc.text(`$${tpl.hst.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
 
     doc.fontSize(12);
     doc.text("Total", 380, y);
-    doc.text(`$${EQUIPMENT.total.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
+    doc.text(`$${tpl.total.toFixed(2)}`, 480, y, { width: 80, align: "right" }); y += 20;
 
     doc.fontSize(9).font("Helvetica");
-    doc.text(`Total (PV ONLY) Pre tax: $${EQUIPMENT.pvOnlyPreTax.toFixed(2)}`, 380, y);
+    doc.text(`Total (PV ONLY) Pre tax: $${tpl.pvOnlyPreTax.toFixed(2)}`, 380, y);
 
     doc.end();
   });
@@ -148,7 +140,8 @@ hrspInvoiceRouter.post("/:id/hrsp-invoice", async (req, res) => {
       return res.status(400).json({ message: "serviceAddress, quoteDate, and quoteNumber are required" });
     }
 
-    const pdfBuffer = await buildInvoicePdf(serviceAddress, quoteDate, quoteNumber);
+    const tpl = await getInvoiceTemplate();
+    const pdfBuffer = await buildInvoicePdf(tpl, serviceAddress, quoteDate, quoteNumber);
     const fileName = `HRSP_Invoice_${quoteNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     let viewUrl = "generated";
@@ -185,14 +178,13 @@ hrspInvoiceRouter.get("/:id/hrsp-invoice/download", async (req, res) => {
     const project = await storage.getProject(req.params.id as string);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    const { serviceAddress, quoteDate, quoteNumber } = project.hrspServiceAddress
-      ? { serviceAddress: project.hrspServiceAddress, quoteDate: project.hrspQuoteDate || "", quoteNumber: project.hrspQuoteNumber || "" }
-      : { serviceAddress: "", quoteDate: "", quoteNumber: "" };
+    if (!project.hrspServiceAddress) {
+      return res.status(400).json({ message: "No invoice data found. Generate an invoice first." });
+    }
 
-    if (!serviceAddress) return res.status(400).json({ message: "No invoice data found. Generate an invoice first." });
-
-    const pdfBuffer = await buildInvoicePdf(serviceAddress, quoteDate, quoteNumber);
-    const fileName = `HRSP_Invoice_${quoteNumber}.pdf`;
+    const tpl = await getInvoiceTemplate();
+    const pdfBuffer = await buildInvoicePdf(tpl, project.hrspServiceAddress, project.hrspQuoteDate || "", project.hrspQuoteNumber || "");
+    const fileName = `HRSP_Invoice_${project.hrspQuoteNumber || "draft"}.pdf`;
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -209,13 +201,7 @@ hrspInvoiceRouter.post("/:id/hrsp-auth-doc", upload.single("authDoc"), async (re
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
     if (!req.file) return res.status(400).json({ message: "File is required" });
 
-    const result = await uploadAttachmentToTask(
-      project.asanaGid,
-      req.file.buffer,
-      `HRSP AUTH - ${req.file.originalname}`,
-      req.file.mimetype
-    );
-
+    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP AUTH - ${req.file.originalname}`, req.file.mimetype);
     const attachmentData = (result as Record<string, unknown>).data || result;
     const data = attachmentData as Record<string, unknown>;
     const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
@@ -239,25 +225,36 @@ hrspInvoiceRouter.post("/:id/hrsp-power-doc", upload.single("powerDoc"), async (
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
     if (!req.file) return res.status(400).json({ message: "File is required" });
 
-    const result = await uploadAttachmentToTask(
-      project.asanaGid,
-      req.file.buffer,
-      `HRSP POWER CONSUMPTION - ${req.file.originalname}`,
-      req.file.mimetype
-    );
-
+    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP POWER CONSUMPTION - ${req.file.originalname}`, req.file.mimetype);
     const attachmentData = (result as Record<string, unknown>).data || result;
     const data = attachmentData as Record<string, unknown>;
     const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
 
-    const updated = await storage.updateProject(req.params.id as string, {
-      hrspPowerConsumptionUrl: viewUrl,
-    });
-
+    const updated = await storage.updateProject(req.params.id as string, { hrspPowerConsumptionUrl: viewUrl });
     res.json({ project: updated, attachmentUrl: viewUrl });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[HRSP Power Doc] Error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
+hrspInvoiceRouter.post("/:id/hrsp-sld", upload.single("sldDoc"), async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id as string);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+    if (!req.file) return res.status(400).json({ message: "File is required" });
+
+    const result = await uploadAttachmentToTask(project.asanaGid, req.file.buffer, `HRSP SLD - ${req.file.originalname}`, req.file.mimetype);
+    const attachmentData = (result as Record<string, unknown>).data || result;
+    const data = attachmentData as Record<string, unknown>;
+    const viewUrl = (data.view_url || data.download_url || data.permanent_url || "uploaded") as string;
+
+    const updated = await storage.updateProject(req.params.id as string, { hrspSldUrl: viewUrl });
+    res.json({ project: updated, attachmentUrl: viewUrl });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[HRSP SLD] Error:", msg);
     res.status(500).json({ message: msg });
   }
 });

@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
+import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 
 interface SyncStatus {
   lastSyncTime: string | null;
@@ -126,6 +127,17 @@ export default function SyncView() {
           <WorkflowEditor />
         </CardContent>
       </Card>
+
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <FileCheck className="h-4 w-4" />
+          HRSP Document Configuration
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Configure required documents for HRSP rebate applications and update the invoice template.
+        </p>
+      </div>
+      <HrspConfigEditor />
     </div>
   );
 }

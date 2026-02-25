@@ -29,7 +29,8 @@ Solar PM is a project management application designed for solar installation com
 - **Property Sector Filtering**: All project views are filtered to exclude non-residential projects based on the Asana "Property Sector" custom field.
 
 - **IT / Error Log System**: Automatic frontend error capture with user activity breadcrumbs. Tracks API errors, unhandled exceptions, and unhandled promise rejections. Breadcrumbs record last 20 user actions (navigation, API calls) for debugging context. Viewable at `/error-log` with resolve/clear workflow.
-- **HRSP Document Checklist**: For Load Displacement Ontario projects, the Rebates view shows a 3-item document checklist: (1) HRSP Invoice — auto-generated PDF via `pdfkit` with hardcoded equipment specs and user-provided service address/quote info, uploaded to Asana; (2) Customer Authorization — file upload to Asana; (3) Hydro Bill / Power Consumption — auto-linked from UC hydro bill upload, or manual upload. Routes in `server/routes/hrsp-invoice.ts`, UI in `client/src/components/hrsp/`.
+- **HRSP Document Checklist**: For Load Displacement Ontario projects, the Rebates view shows a configurable document checklist: (1) HRSP Invoice — auto-generated PDF via `pdfkit` with configurable equipment specs and user-provided service address/quote info, uploaded to Asana; (2) Customer Authorization — file upload to Asana; (3) Hydro Bill / Power Consumption — auto-linked from UC hydro bill upload, or manual upload; (4) SLD (Single Line Diagram) — file upload to Asana. Routes in `server/routes/hrsp-invoice.ts`, UI in `client/src/components/hrsp/`.
+- **HRSP Configuration**: Settings page includes an HRSP config section (`client/src/components/settings/HrspConfigEditor.tsx`) for toggling required documents on/off and editing invoice template values (company info, equipment specs, pricing). Config stored in `hrsp_config` DB table; defaults in `shared/schema.ts` (`DEFAULT_HRSP_INVOICE_TEMPLATE`, `DEFAULT_HRSP_DOCUMENTS`). API: `GET/PUT /api/hrsp-config`.
 
 ### Database Tables
 - `users`
@@ -39,6 +40,7 @@ Solar PM is a project management application designed for solar installation com
 - `install_schedule`
 - `workflow_config`
 - `error_logs`
+- `hrsp_config`
 
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories.

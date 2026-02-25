@@ -1,7 +1,7 @@
 import { eq, and, lte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs,
+  users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -9,6 +9,7 @@ import {
   type InstallSchedule, type InsertInstallSchedule,
   type WorkflowConfig, type InsertWorkflowConfig,
   type ErrorLog, type InsertErrorLog,
+  type HrspConfig,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -42,6 +43,9 @@ export interface IStorage {
   getErrorLogs(filters?: { resolved?: boolean; search?: string }): Promise<ErrorLog[]>;
   markErrorResolved(id: string, note: string): Promise<ErrorLog | undefined>;
   clearResolvedErrors(): Promise<number>;
+
+  getHrspConfig(): Promise<HrspConfig | undefined>;
+  upsertHrspConfig(data: { invoiceTemplate?: unknown; requiredDocuments?: unknown }): Promise<HrspConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -228,6 +232,24 @@ export class DatabaseStorage implements IStorage {
   async clearResolvedErrors(): Promise<number> {
     const result = await db.delete(errorLogs).where(eq(errorLogs.resolved, true));
     return result.rowCount ?? 0;
+  }
+
+  async getHrspConfig(): Promise<HrspConfig | undefined> {
+    const [config] = await db.select().from(hrspConfig).limit(1);
+    return config;
+  }
+
+  async upsertHrspConfig(data: { invoiceTemplate?: unknown; requiredDocuments?: unknown }): Promise<HrspConfig> {
+    const existing = await this.getHrspConfig();
+    if (existing) {
+      const [updated] = await db.update(hrspConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(hrspConfig.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(hrspConfig).values(data).returning();
+    return created;
   }
 }
 

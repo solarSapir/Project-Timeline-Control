@@ -16,6 +16,7 @@ import { workflowRouter } from "./routes/workflow";
 import { dashboardRouter } from "./routes/dashboard";
 import { errorLogsRouter } from "./routes/error-logs";
 import { hrspInvoiceRouter } from "./routes/hrsp-invoice";
+import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -29,6 +30,31 @@ export async function registerRoutes(
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/error-logs", errorLogsRouter);
   app.use("/api/projects", hrspInvoiceRouter);
+
+  app.get("/api/hrsp-config", async (_req, res) => {
+    try {
+      const config = await storage.getHrspConfig();
+      res.json({
+        invoiceTemplate: config?.invoiceTemplate || DEFAULT_HRSP_INVOICE_TEMPLATE,
+        requiredDocuments: config?.requiredDocuments || DEFAULT_HRSP_DOCUMENTS,
+        updatedAt: config?.updatedAt || null,
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  app.put("/api/hrsp-config", async (req, res) => {
+    try {
+      const { invoiceTemplate, requiredDocuments } = req.body;
+      const config = await storage.upsertHrspConfig({ invoiceTemplate, requiredDocuments });
+      res.json(config);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: msg });
+    }
+  });
 
   app.put("/api/deadlines", async (req, res) => {
     try {

@@ -63,6 +63,7 @@ export const projects = pgTable("projects", {
   hrspAuthDocUrl: text("hrsp_auth_doc_url"),
   hrspAuthDocUploadedAt: timestamp("hrsp_auth_doc_uploaded_at"),
   hrspPowerConsumptionUrl: text("hrsp_power_consumption_url"),
+  hrspSldUrl: text("hrsp_sld_url"),
   asanaCustomFields: jsonb("asana_custom_fields"),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -172,6 +173,88 @@ export const insertErrorLogSchema = createInsertSchema(errorLogs).omit({
 
 export type ErrorLog = typeof errorLogs.$inferSelect;
 export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
+
+export const hrspConfig = pgTable("hrsp_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceTemplate: jsonb("invoice_template"),
+  requiredDocuments: jsonb("required_documents"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertHrspConfigSchema = createInsertSchema(hrspConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type HrspConfig = typeof hrspConfig.$inferSelect;
+export type InsertHrspConfig = z.infer<typeof insertHrspConfigSchema>;
+
+export interface HrspInvoiceTemplate {
+  companyName: string;
+  address1: string;
+  address2: string;
+  city: string;
+  phone: string;
+  email: string;
+  gstHst: string;
+  panelMake: string;
+  panelModel: string;
+  panelWatt: number;
+  panelQty: number;
+  totalKwDc: number;
+  panelCost: number;
+  batteryMake: string;
+  batteryModel: string;
+  batterySize: string;
+  batteryCost: number;
+  otherCost: number;
+  subtotal: number;
+  hstRate: number;
+  hst: number;
+  total: number;
+  pvOnlyPreTax: number;
+}
+
+export interface HrspRequiredDocument {
+  key: string;
+  label: string;
+  type: "generate" | "upload" | "auto";
+  enabled: boolean;
+  description?: string;
+}
+
+export const DEFAULT_HRSP_INVOICE_TEMPLATE: HrspInvoiceTemplate = {
+  companyName: "Solar Power Store Canada LTD",
+  address1: "526 Bryne Dr",
+  address2: "Unit C",
+  city: "Barrie, ON L4N 9P6",
+  phone: "1-888-421-5354",
+  email: "accounting@solarpowerstore.ca",
+  gstHst: "772144143RT0001",
+  panelMake: "MAPLE LEAF",
+  panelModel: "TS-BGT72(580)",
+  panelWatt: 580,
+  panelQty: 31,
+  totalKwDc: 17980,
+  panelCost: 24354.89,
+  batteryMake: "FOX ESS",
+  batteryModel: "ECS4000-H4",
+  batterySize: "12Kwh",
+  batteryCost: 10638.97,
+  otherCost: 1000,
+  subtotal: 35993.86,
+  hstRate: 0.13,
+  hst: 4679.20,
+  total: 40673.06,
+  pvOnlyPreTax: 29610.48,
+};
+
+export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
+  { key: "invoice", label: "HRSP Invoice", type: "generate", enabled: true, description: "Auto-generated PDF invoice with equipment specs" },
+  { key: "authorization", label: "Customer Authorization", type: "upload", enabled: true, description: "Signed customer authorization form" },
+  { key: "hydroBill", label: "Hydro Bill / Power Consumption", type: "auto", enabled: true, description: "Auto-linked from UC hydro bill, or manual upload" },
+  { key: "sld", label: "Single Line Diagram (SLD)", type: "upload", enabled: true, description: "Electrical single line diagram for the installation" },
+];
 
 export const UC_STATUSES = [
   "New Application",
