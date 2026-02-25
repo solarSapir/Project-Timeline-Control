@@ -6,7 +6,7 @@ import { FlowNode } from "@/components/app-logic/FlowNode";
 const nodeTypes = { flowNode: FlowNode };
 
 const initialNodes: Node[] = [
-  { id: "page", type: "flowNode", position: { x: 300, y: 0 }, data: { label: "Settings Page (sync-view.tsx)", type: "component", description: "CollapsibleSection layout with 5 sections", items: ["Sync from Asana", "Auto-Sync info", "Workflow Configuration", "HRSP Document Configuration", "UC Workflow Logic"] } },
+  { id: "page", type: "flowNode", position: { x: 300, y: 0 }, data: { label: "Settings Page (sync-view.tsx)", type: "component", description: "CollapsibleSection layout with 6 sections", items: ["Sync from Asana", "Auto-Sync info", "Webhook Management", "Workflow Configuration", "HRSP Document Configuration", "UC Workflow Logic"] } },
 
   { id: "sync", type: "flowNode", position: { x: 0, y: 200 }, data: { label: "Sync from Asana", type: "action", description: "Manual full sync trigger", items: ["POST /api/asana/sync-all", "Syncs all tasks from 'Project Manage Team'", "Maps Asana custom fields to DB columns", "Updates projects table", "Shows synced count result"] } },
 
@@ -15,6 +15,8 @@ const initialNodes: Node[] = [
   { id: "workflow", type: "flowNode", position: { x: 300, y: 200 }, data: { label: "WorkflowEditor", type: "component", description: "Visual stage dependency editor", items: ["GET /api/workflow-config", "PUT /api/workflow-config", "Define dependsOn for each stage", "Set gapDays between stages", "Timeline overview visualization", "StageCard for each workflow stage"] } },
 
   { id: "hrsp", type: "flowNode", position: { x: 300, y: 420 }, data: { label: "HrspConfigEditor", type: "component", description: "HRSP document & invoice config", items: ["GET /api/hrsp-config", "PUT /api/hrsp-config", "Toggle required docs on/off per phase", "Edit invoice template values", "Company info, equipment specs, pricing", "Download sample invoice PDF"] } },
+
+  { id: "webhooks", type: "flowNode", position: { x: 0, y: 580 }, data: { label: "Webhook Management", type: "action", description: "Asana webhook for real-time sync", items: ["POST /api/webhooks/setup → create webhook", "DELETE /api/webhooks/teardown → remove webhook", "GET /api/webhooks/status → check status", "Receives events at /api/webhooks/asana", "Debounced 2s event queue", "Single-task sync on change"] } },
 
   { id: "uc-rules", type: "flowNode", position: { x: 600, y: 200 }, data: { label: "UcWorkflowLogicEditor", type: "component", description: "UC workflow rule configuration", items: ["GET /api/uc/workflow-rules", "PUT /api/uc/workflow-rules", "Edit hideDays per trigger action", "Toggle requiresFiles, requiresNotes", "Toggle autoEscalate per rule", "Enable/disable individual rules"] } },
 
@@ -26,6 +28,8 @@ const initialEdges: Edge[] = [
   { id: "e2", source: "page", target: "workflow" },
   { id: "e3", source: "page", target: "uc-rules" },
   { id: "e4", source: "sync", target: "auto-sync", label: "related" },
+  { id: "e9", source: "page", target: "webhooks" },
+  { id: "e10", source: "auto-sync", target: "webhooks", label: "real-time alternative", style: { strokeDasharray: "5 5" } },
   { id: "e5", source: "page", target: "hrsp" },
   { id: "e6", source: "workflow", target: "db-workflow" },
   { id: "e7", source: "hrsp", target: "db-workflow" },

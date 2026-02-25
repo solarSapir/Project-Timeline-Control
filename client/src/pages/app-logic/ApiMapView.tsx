@@ -140,6 +140,16 @@ const apiGroups: ApiGroup[] = [
     ],
   },
   {
+    name: "Webhooks",
+    file: "server/routes/webhook.ts",
+    endpoints: [
+      { method: "POST", path: "/api/webhooks/asana", description: "Receive Asana webhook events (handles handshake + debounced sync)", tables: ["projects"], usedBy: ["Asana (external)"] },
+      { method: "POST", path: "/api/webhooks/setup", description: "Create Asana webhook for Project Manage Team", tables: [], usedBy: ["Settings"] },
+      { method: "DELETE", path: "/api/webhooks/teardown", description: "Delete the active Asana webhook", tables: [], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/webhooks/status", description: "Check active webhook status and list existing ones", tables: [], usedBy: ["Settings"] },
+    ],
+  },
+  {
     name: "Misc (inline routes)",
     file: "server/routes.ts",
     endpoints: [

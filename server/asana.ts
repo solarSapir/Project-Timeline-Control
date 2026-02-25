@@ -475,6 +475,71 @@ function extractUcTeamValue(task: any): string | null {
   return null;
 }
 
+export async function fetchSingleAsanaTask(taskGid: string): Promise<any> {
+  const accessToken = await getAccessToken();
+  const optFields = 'name,gid,due_on,completed,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks,memberships,memberships.project,memberships.project.gid';
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}?opt_fields=${optFields}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const errText = await res.text();
+    throw new Error(`Asana API error ${res.status}: ${errText}`);
+  }
+  const data = await res.json();
+  return data?.data || null;
+}
+
+export async function createAsanaWebhook(resourceGid: string, targetUrl: string): Promise<any> {
+  const accessToken = await getAccessToken();
+  const res = await fetch('https://app.asana.com/api/1.0/webhooks', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      data: {
+        resource: resourceGid,
+        target: targetUrl,
+        filters: [
+          { resource_type: 'task', action: 'changed' },
+          { resource_type: 'task', action: 'added' },
+          { resource_type: 'task', action: 'removed' },
+          { resource_type: 'task', action: 'deleted' },
+        ],
+      }
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to create webhook: ${res.status} ${errBody}`);
+  }
+  return await res.json();
+}
+
+export async function deleteAsanaWebhook(webhookGid: string): Promise<void> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/webhooks/${webhookGid}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    const errBody = await res.text();
+    throw new Error(`Failed to delete webhook: ${res.status} ${errBody}`);
+  }
+}
+
+export async function listAsanaWebhooks(workspaceGid: string): Promise<any[]> {
+  const accessToken = await getAccessToken();
+  const res = await fetch(`https://app.asana.com/api/1.0/webhooks?workspace=${workspaceGid}&opt_fields=gid,resource,resource.gid,resource.name,target,active,created_at,last_success_at,last_failure_at,last_failure_content`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data?.data || [];
+}
+
 export function mapAsanaTaskToProject(task: any) {
   return {
     asanaGid: task.gid,

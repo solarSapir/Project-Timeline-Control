@@ -9,7 +9,7 @@ const initialNodes: Node[] = [
   { id: "data-stats", type: "flowNode", position: { x: 0, y: 0 }, data: { label: "Dashboard Stats", type: "data", items: ["GET /api/dashboard/stats", "totalProjects, overdueCount, onTrack", "Stage breakdowns, UC/AHJ breakdowns"] } },
   { id: "data-projects", type: "flowNode", position: { x: 300, y: 0 }, data: { label: "Projects + Deadlines", type: "data", items: ["GET /api/projects", "GET /api/deadlines", "For recent projects table + timeline"] } },
   { id: "data-uc-kpi", type: "flowNode", position: { x: 600, y: 0 }, data: { label: "UC KPI Stats", type: "data", items: ["GET /api/uc/kpi-stats", "dailyCounts, avgDaysToSubmit", "avgDaysToApprove, rejectionsByUtility", "completionsThisWeek, totalUcProjects"] } },
-  { id: "data-rebate-kpi", type: "flowNode", position: { x: 900, y: 0 }, data: { label: "Rebate KPI Stats", type: "data", items: ["GET /api/rebate/kpi-stats", "avgDaysToSubmit, avgDaysToApproval", "rejectionRate, completionsThisWeek", "dailyCounts for bar chart"] } },
+  { id: "data-rebate-kpi", type: "flowNode", position: { x: 900, y: 0 }, data: { label: "Rebate KPI Stats", type: "data", items: ["GET /api/rebate/kpi-stats", "avgDaysToSubmit, avgDaysToApproval", "rejectionRate, avgDaysCloseOffToSubmit", "completionsThisWeek, dailyCounts"] } },
 
   { id: "summary-cards", type: "flowNode", position: { x: 0, y: 200 }, data: { label: "Summary Cards", type: "component", description: "Top-level stats row", items: ["Total Projects", "Install Projects", "Overdue Tasks (red)", "On Track (green)"] } },
 
@@ -17,7 +17,7 @@ const initialNodes: Node[] = [
 
   { id: "drilldown", type: "flowNode", position: { x: 300, y: 420 }, data: { label: "CompletionsDrilldown", type: "dialog", description: "Detailed completions breakdown", items: ["Daily stacked bar chart by action type", "Staff filter dropdown", "Activity log with project names", "Status transitions listed"] } },
 
-  { id: "rebate-kpi", type: "flowNode", position: { x: 600, y: 200 }, data: { label: "RebateKpiSection", type: "component", description: "Rebate Team KPI dashboard section", items: ["5 KPI cards: This Week, Tasks/Day, Submit Time, Hear Back, Rejection Rate", "Daily completions bar chart (30 days)", "Data from rebate_completions table"] } },
+  { id: "rebate-kpi", type: "flowNode", position: { x: 600, y: 200 }, data: { label: "RebateKpiSection", type: "component", description: "Rebate Team KPI dashboard section", items: ["6 KPI cards: This Week, Tasks/Day, Submit Time, Hear Back, Rejection Rate, Close-Off to Submit", "Daily completions bar chart (30 days)", "Data from rebate_completions table"] } },
 
   { id: "recent-table", type: "flowNode", position: { x: 700, y: 420 }, data: { label: "Recent Projects Table", type: "component", description: "Last 10 install projects", items: ["Project name, UC status, AHJ status", "Province, timeline indicator", "Timeline health indicator", "Links to project profile"] } },
 ];
