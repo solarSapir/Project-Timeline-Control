@@ -7,6 +7,17 @@ import { STAGE_COMPLETION_CRITERIA } from "@/lib/stage-dependencies";
 import { STAGE_COLORS } from "@/utils/workflow-config";
 import type { StageConfig } from "@/utils/workflow-config";
 
+const STAGE_TAB_MAP: Record<string, string> = {
+  uc_application: "UC Applications",
+  rebates_payment: "Rebates / Payment Method",
+  contract_signing: "Contracts",
+  site_visit: "Site Visits",
+  ahj_permitting: "AHJ / Permitting",
+  install_booking: "Install Coordination",
+  installation: "Install Calendar",
+  close_off: "Close-off",
+};
+
 interface StageCardProps {
   config: StageConfig;
   cumulativeDays: number;
@@ -29,7 +40,14 @@ export default function StageCard({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`h-3 w-3 rounded-full ${colors.dot} shrink-0`} />
-          <span className={`font-medium text-sm ${colors.text}`}>{STAGE_LABELS[config.stage]}</span>
+          <div className="min-w-0">
+            <span className={`font-medium text-sm ${colors.text}`}>{STAGE_LABELS[config.stage]}</span>
+            {STAGE_TAB_MAP[config.stage] && (
+              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                Tab: {STAGE_TAB_MAP[config.stage]}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Badge variant="outline" className="text-xs tabular-nums">{config.targetDays}d gap</Badge>
