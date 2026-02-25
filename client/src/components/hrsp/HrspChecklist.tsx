@@ -9,12 +9,26 @@ import { HrspPaidInvoiceDialog } from "./HrspPaidInvoiceDialog";
 import type { Project, HrspRequiredDocument } from "@shared/schema";
 import { HRSP_PRE_APPROVAL_STATUSES, HRSP_POST_APPROVAL_STATUSES } from "@shared/schema";
 
-function CheckItem({ done, label, grayed, children }: { done: boolean; label: string; grayed?: boolean; children?: React.ReactNode }) {
+function CheckItem({ done, label, grayed, fileUrl, children }: { done: boolean; label: string; grayed?: boolean; fileUrl?: string | null; children?: React.ReactNode }) {
   const textClass = grayed
     ? "text-[11px] text-muted-foreground/50 line-through"
     : done
       ? "text-[11px] text-green-700 dark:text-green-400"
       : "text-[11px] text-muted-foreground";
+
+  const labelElement = done && fileUrl && !grayed ? (
+    <a
+      href={fileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[11px] text-green-700 dark:text-green-400 hover:underline cursor-pointer"
+      data-testid={`link-doc-${label.toLowerCase().replace(/\s+/g, '-')}`}
+    >
+      {label}
+    </a>
+  ) : (
+    <span className={textClass}>{label}</span>
+  );
 
   return (
     <div className={`flex items-center gap-1.5 ${grayed ? "opacity-50" : ""}`}>
@@ -23,7 +37,7 @@ function CheckItem({ done, label, grayed, children }: { done: boolean; label: st
       ) : (
         <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />
       )}
-      <span className={textClass}>{label}</span>
+      {labelElement}
       {!grayed && children}
     </div>
   );
@@ -65,7 +79,7 @@ function UploadButton({ mutation, inputRef, hasDoc, testId }: {
   );
 }
 
-function getDocStatus(key: string, project: Project): { done: boolean; label: string } {
+function getDocStatus(key: string, project: Project): { done: boolean; label: string; fileUrl: string | null } {
   const map: Record<string, { field: keyof Project; label: string }> = {
     invoice: { field: "hrspInvoiceUrl", label: "Invoice" },
     authorization: { field: "hrspAuthDocUrl", label: "Participation Document" },
@@ -81,12 +95,16 @@ function getDocStatus(key: string, project: Project): { done: boolean; label: st
   if (key === "hydroBill") {
     const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
     const isAutoLinked = !project.hrspPowerConsumptionUrl && !!project.hydroBillUrl;
-    return { done: hasPower, label: isAutoLinked ? "Hydro Bill (from UC)" : "Hydro Bill" };
+    const url = (project.hrspPowerConsumptionUrl || project.hydroBillUrl || null) as string | null;
+    return { done: hasPower, label: isAutoLinked ? "Hydro Bill (from UC)" : "Hydro Bill", fileUrl: url };
   }
 
   const entry = map[key];
-  if (entry) return { done: !!project[entry.field], label: entry.label };
-  return { done: false, label: key };
+  if (entry) {
+    const url = (project[entry.field] || null) as string | null;
+    return { done: !!url, label: entry.label, fileUrl: url };
+  }
+  return { done: false, label: key, fileUrl: null };
 }
 
 const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: string; accept: string }> = {
@@ -98,10 +116,11 @@ const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: 
   inverterNameplate: { endpoint: "hrsp-inverter-nameplate", fieldName: "inverterNameplate", msg: "Inverter nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
   batteryNameplate: { endpoint: "hrsp-battery-nameplate", fieldName: "batteryNameplate", msg: "Battery nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
   esaCert: { endpoint: "hrsp-esa-cert", fieldName: "esaCert", msg: "ESA certificate saved", accept: ".pdf,.jpg,.jpeg,.png" },
+  paidInvoice: { endpoint: "hrsp-paid-invoice-upload", fieldName: "paidInvoice", msg: "Paid invoice uploaded", accept: ".pdf,.jpg,.jpeg,.png" },
 };
 
-function UploadDocItem({ docKey, project, done, label, grayed }: {
-  docKey: string; project: Project; done: boolean; label: string; grayed?: boolean;
+function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
+  docKey: string; project: Project; done: boolean; label: string; fileUrl?: string | null; grayed?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const cfg = UPLOAD_CONFIG[docKey];
@@ -116,7 +135,7 @@ function UploadDocItem({ docKey, project, done, label, grayed }: {
   if (docKey === "hydroBill") {
     const hasPower = !!project.hrspPowerConsumptionUrl || !!project.hydroBillUrl;
     return (
-      <CheckItem done={done} label={label} grayed={grayed}>
+      <CheckItem done={done} label={label} grayed={grayed} fileUrl={fileUrl}>
         {!hasPower && !grayed && cfg && (
           <>
             <UploadButton mutation={mutation} inputRef={ref} hasDoc={false} testId={`button-upload-power-${project.id}`} />
@@ -128,13 +147,46 @@ function UploadDocItem({ docKey, project, done, label, grayed }: {
   }
 
   return (
-    <CheckItem done={done} label={label} grayed={grayed}>
+    <CheckItem done={done} label={label} grayed={grayed} fileUrl={fileUrl}>
       {cfg && !grayed && (
         <>
           <UploadButton mutation={mutation} inputRef={ref} hasDoc={done} testId={`button-upload-${docKey}-${project.id}`} />
           <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
         </>
       )}
+    </CheckItem>
+  );
+}
+
+function PaidInvoiceItem({ project, done, label, fileUrl }: { project: Project; done: boolean; label: string; fileUrl: string | null }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const cfg = UPLOAD_CONFIG.paidInvoice;
+  const mutation = useUpload(project.id, cfg.endpoint, cfg.fieldName, cfg.msg);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) mutation.mutate(file);
+    e.target.value = "";
+  };
+
+  return (
+    <CheckItem done={done} label={label} fileUrl={fileUrl}>
+      {mutation.isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-6 text-[10px] px-2"
+          onClick={() => ref.current?.click()}
+          data-testid={`button-upload-paidInvoice-${project.id}`}
+        >
+          <Upload className="h-3 w-3 mr-1" />
+          {done ? "Replace" : "Upload"}
+        </Button>
+      )}
+      <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
+      <HrspPaidInvoiceDialog project={project} />
     </CheckItem>
   );
 }
@@ -172,11 +224,11 @@ export function HrspChecklist({ project }: { project: Project }) {
         </div>
 
         {preDocs.map(doc => {
-          const { done, label } = getDocStatus(doc.key, project);
+          const { done, label, fileUrl } = getDocStatus(doc.key, project);
 
           if (doc.key === "invoice") {
             return (
-              <CheckItem key={doc.key} done={isPostApproval || done} label={label} grayed={isPostApproval}>
+              <CheckItem key={doc.key} done={isPostApproval || done} label={label} grayed={isPostApproval} fileUrl={fileUrl}>
                 {!isPostApproval && <HrspInvoiceDialog project={project} />}
               </CheckItem>
             );
@@ -189,6 +241,7 @@ export function HrspChecklist({ project }: { project: Project }) {
               project={project}
               done={isPostApproval || done}
               label={label}
+              fileUrl={fileUrl}
               grayed={isPostApproval}
             />
           );
@@ -204,13 +257,11 @@ export function HrspChecklist({ project }: { project: Project }) {
           </div>
 
           {closeoffDocs.map(doc => {
-            const { done, label } = getDocStatus(doc.key, project);
+            const { done, label, fileUrl } = getDocStatus(doc.key, project);
 
             if (doc.key === "paidInvoice") {
               return (
-                <CheckItem key={doc.key} done={done} label={label}>
-                  <HrspPaidInvoiceDialog project={project} />
-                </CheckItem>
+                <PaidInvoiceItem key={doc.key} project={project} done={done} label={label} fileUrl={fileUrl} />
               );
             }
 
@@ -221,6 +272,7 @@ export function HrspChecklist({ project }: { project: Project }) {
                 project={project}
                 done={done}
                 label={label}
+                fileUrl={fileUrl}
               />
             );
           })}

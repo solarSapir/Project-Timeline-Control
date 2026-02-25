@@ -8,6 +8,7 @@ import {
   type HrspRequiredDocument,
 } from "@shared/schema";
 import { saveFileLocally, getDownloadUrl } from "../utils/file-storage";
+import { uploadAttachmentToTask } from "../asana";
 
 export const hrspInvoiceRouter = Router();
 
