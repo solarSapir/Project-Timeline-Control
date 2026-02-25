@@ -217,7 +217,7 @@ export default function PaymentsView() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-semibold" data-testid="text-rebates-title">Rebates</h1>
         <div className="flex gap-2 flex-wrap">
@@ -249,7 +249,7 @@ export default function PaymentsView() {
           <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-rebates" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[260px]" data-testid="select-rebates-filter">
+          <SelectTrigger className="w-full sm:w-[260px]" data-testid="select-rebates-filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -299,62 +299,16 @@ export default function PaymentsView() {
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`link-project-${p.id}`}>
-                          {p.name}
-                        </Link>
-                        {isLdOn && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300" data-testid={`badge-ld-on-${p.id}`}>
-                            Load Displacement - ON
-                          </span>
-                        )}
-                        {displayStatus && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getRebateStatusColor(displayStatus)}`} data-testid={`badge-rebate-status-${p.id}`}>
-                            {isHrspFallback ? `HRSP: ${displayStatus}` : displayStatus}
-                          </span>
-                        )}
-                        {!displayStatus && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground" data-testid={`badge-no-rebate-${p.id}`}>
-                            No rebate status
-                          </span>
-                        )}
-                        <EscalationBadge projectId={p.id} />
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-                        <span>{p.province || 'No province'}</span>
-                        <span>·</span>
-                        <span>UC Team: {p.ucTeam || 'N/A'}</span>
-                        <span>·</span>
-                        <span>PM: {p.pmStatus || 'N/A'}</span>
-                        {closeOffDue && (
-                          <>
-                            <span>·</span>
-                            <span className={`font-medium ${closeOffDue.daysLeft < 0 ? "text-red-600 dark:text-red-400" : closeOffDue.daysLeft <= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} data-testid={`text-closeoff-due-${p.id}`}>
-                              Due {closeOffDue.dueDate} ({closeOffDue.daysLeft < 0 ? `${Math.abs(closeOffDue.daysLeft)}d overdue` : `${closeOffDue.daysLeft}d left`})
-                            </span>
-                          </>
-                        )}
-                        {followUp && (
-                          <>
-                            <span>·</span>
-                            <span className="text-amber-600 dark:text-amber-400 font-medium">follow-up needed</span>
-                          </>
-                        )}
-                      </div>
-
-                      {isLdOn && <HrspInfo project={p} />}
-                      {isLdOn && <HrspChecklist project={p} />}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate shrink-0 max-w-[60%] sm:max-w-none" data-testid={`link-project-${p.id}`}>
+                      {p.name}
+                    </Link>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <RebateFollowUpDialog project={p} />
                       <EscalationDialog projectId={p.id} projectName={p.name} viewType="payments" />
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>
-                        <SelectTrigger className="w-[140px] sm:w-[180px] h-7 text-xs" data-testid={`select-rebate-status-${p.id}`}>
-                          <SelectValue placeholder="Set rebate status" />
+                        <SelectTrigger className="w-[120px] lg:w-[180px] h-7 text-xs" data-testid={`select-rebate-status-${p.id}`}>
+                          <SelectValue placeholder="Set status" />
                         </SelectTrigger>
                         <SelectContent>
                           {rebateStatusOptions.map(s => (
@@ -370,10 +324,54 @@ export default function PaymentsView() {
                         data-testid={`button-focus-${p.id}`}
                       >
                         <Maximize2 className="h-3 w-3" />
-                        Focus
+                        <span className="hidden sm:inline">Focus</span>
                       </Button>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {isLdOn && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300" data-testid={`badge-ld-on-${p.id}`}>
+                        Load Displacement - ON
+                      </span>
+                    )}
+                    {displayStatus && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getRebateStatusColor(displayStatus)}`} data-testid={`badge-rebate-status-${p.id}`}>
+                        {isHrspFallback ? `HRSP: ${displayStatus}` : displayStatus}
+                      </span>
+                    )}
+                    {!displayStatus && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground" data-testid={`badge-no-rebate-${p.id}`}>
+                        No rebate status
+                      </span>
+                    )}
+                    <EscalationBadge projectId={p.id} />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                    <span>{p.province || 'No province'}</span>
+                    <span>·</span>
+                    <span>UC Team: {p.ucTeam || 'N/A'}</span>
+                    <span className="hidden sm:inline">·</span>
+                    <span className="hidden sm:inline">PM: {p.pmStatus || 'N/A'}</span>
+                    {closeOffDue && (
+                      <>
+                        <span>·</span>
+                        <span className={`font-medium ${closeOffDue.daysLeft < 0 ? "text-red-600 dark:text-red-400" : closeOffDue.daysLeft <= 3 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} data-testid={`text-closeoff-due-${p.id}`}>
+                          Due {closeOffDue.dueDate} ({closeOffDue.daysLeft < 0 ? `${Math.abs(closeOffDue.daysLeft)}d overdue` : `${closeOffDue.daysLeft}d left`})
+                        </span>
+                      </>
+                    )}
+                    {followUp && (
+                      <>
+                        <span>·</span>
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">follow-up needed</span>
+                      </>
+                    )}
+                  </div>
+
+                  {isLdOn && <HrspInfo project={p} />}
+                  {isLdOn && <HrspChecklist project={p} />}
                 </CardContent>
               </Card>
             );
