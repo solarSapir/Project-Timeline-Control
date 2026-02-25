@@ -51,8 +51,26 @@ export function FollowUpDialog({ project }: { project: Project }) {
         throw new Error(err.message || 'Failed to submit follow-up');
       }
 
+      const completionRes = await fetch('/api/uc/complete-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          staffName: completedBy,
+          actionType: 'follow_up',
+          fromStatus: project.ucStatus,
+          toStatus: project.ucStatus,
+          notes: combinedNotes,
+          hideDays: 7,
+        }),
+      });
+      if (!completionRes.ok) {
+        console.warn('Failed to record UC completion for follow-up');
+      }
+
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/uc/completions'] });
       toast({ title: "Follow-up posted to Asana timeline" });
       setOpen(false);
       setActionDone("");

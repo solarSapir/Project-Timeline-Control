@@ -1,7 +1,8 @@
-import { eq, and, lte, isNull, or, desc, asc, ilike } from "drizzle-orm";
+import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
+  ucCompletions, ucWorkflowRules,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -12,6 +13,8 @@ import {
   type HrspConfig,
   type ProjectFile, type InsertProjectFile,
   type EscalationTicket, type InsertEscalationTicket,
+  type UcCompletion, type InsertUcCompletion,
+  type UcWorkflowRule, type InsertUcWorkflowRule,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -58,6 +61,13 @@ export interface IStorage {
   getEscalationTicket(id: string): Promise<EscalationTicket | undefined>;
   createEscalationTicket(data: InsertEscalationTicket): Promise<EscalationTicket>;
   updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date }>): Promise<EscalationTicket | undefined>;
+
+  createUcCompletion(data: InsertUcCompletion): Promise<UcCompletion>;
+  getUcCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<UcCompletion[]>;
+  getUcCompletionsByProject(projectId: string): Promise<UcCompletion[]>;
+
+  getUcWorkflowRules(): Promise<UcWorkflowRule[]>;
+  upsertUcWorkflowRule(data: InsertUcWorkflowRule): Promise<UcWorkflowRule>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -320,6 +330,49 @@ export class DatabaseStorage implements IStorage {
       .where(eq(escalationTickets.id, id))
       .returning();
     return ticket;
+  }
+
+  async createUcCompletion(data: InsertUcCompletion): Promise<UcCompletion> {
+    const [completion] = await db.insert(ucCompletions).values(data).returning();
+    return completion;
+  }
+
+  async getUcCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<UcCompletion[]> {
+    const conditions = [];
+    if (filters?.staffName) conditions.push(eq(ucCompletions.staffName, filters.staffName));
+    if (filters?.startDate) conditions.push(gte(ucCompletions.completedAt, new Date(filters.startDate)));
+    if (filters?.endDate) conditions.push(lte(ucCompletions.completedAt, new Date(filters.endDate)));
+
+    if (conditions.length > 0) {
+      return db.select().from(ucCompletions)
+        .where(and(...conditions))
+        .orderBy(desc(ucCompletions.completedAt));
+    }
+    return db.select().from(ucCompletions).orderBy(desc(ucCompletions.completedAt));
+  }
+
+  async getUcCompletionsByProject(projectId: string): Promise<UcCompletion[]> {
+    return db.select().from(ucCompletions)
+      .where(eq(ucCompletions.projectId, projectId))
+      .orderBy(desc(ucCompletions.completedAt));
+  }
+
+  async getUcWorkflowRules(): Promise<UcWorkflowRule[]> {
+    return db.select().from(ucWorkflowRules).orderBy(asc(ucWorkflowRules.triggerAction));
+  }
+
+  async upsertUcWorkflowRule(data: InsertUcWorkflowRule): Promise<UcWorkflowRule> {
+    const existing = await db.select().from(ucWorkflowRules)
+      .where(eq(ucWorkflowRules.triggerAction, data.triggerAction));
+    if (existing.length > 0) {
+      const [updated] = await db.update(ucWorkflowRules)
+        .set(data)
+        .where(eq(ucWorkflowRules.triggerAction, data.triggerAction))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(ucWorkflowRules).values(data).returning();
+    return created;
   }
 }
 

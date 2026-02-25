@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
+import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
 import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
 
 interface SyncStatus {
@@ -110,6 +111,10 @@ export default function SyncView() {
           Configure required documents for HRSP pre-approval applications and close-off submissions. Update the invoice template used for PDF generation.
         </p>
         <HrspConfigEditor />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="UC Workflow Logic" icon={<Workflow className="h-4 w-4" />} defaultOpen={false} testId="section-uc-workflow">
+        <UcWorkflowLogicEditor />
       </CollapsibleSection>
     </div>
   );

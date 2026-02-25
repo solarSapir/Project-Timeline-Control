@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { AlertTriangle, CheckCircle2, Wrench, Zap } from "lucide-react";
+import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
 import { STAGE_LABELS, type Project, type ProjectDeadline } from "@shared/schema";
 import { TimelineIndicator, TimelineHealth } from "@/components/timeline-indicator";
 import { StatusBadge } from "@/components/status-badge";
@@ -215,6 +216,8 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      <UcKpiSection />
     </div>
   );
 }

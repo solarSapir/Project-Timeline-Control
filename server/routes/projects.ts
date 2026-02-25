@@ -97,6 +97,12 @@ projectsRouter.patch("/:id", async (req, res) => {
       }
     }
 
+    const oldPmStatus = ((project as Record<string, unknown>).pmStatus as string || '').toLowerCase();
+    const newPmStatus = (req.body.pmStatus || '').toLowerCase();
+    if (oldPmStatus.includes('project paused') && newPmStatus && !newPmStatus.includes('project paused')) {
+      req.body.lastUnpausedDate = new Date().toISOString().split('T')[0];
+    }
+
     const currentStage = (req.body.installTeamStage || (project as Record<string, unknown>).installTeamStage || '').toLowerCase();
     const newSiteVisit = (req.body.siteVisitStatus || '').toLowerCase();
     if (newSiteVisit && (newSiteVisit.includes('visit complete') || newSiteVisit.includes('visit booked')) && currentStage.includes('pending site visit')) {

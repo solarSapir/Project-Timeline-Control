@@ -75,6 +75,8 @@ export const projects = pgTable("projects", {
   asanaCustomFields: jsonb("asana_custom_fields"),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  lastUnpausedDate: text("last_unpaused_date"),
+  ucConnectionFee: text("uc_connection_fee"),
 });
 
 export const projectDeadlines = pgTable("project_deadlines", {
@@ -343,6 +345,98 @@ export const ESCALATION_VIEW_LABELS: Record<string, string> = {
   site_visits: "Site Visits",
   close_off: "Close-off",
 };
+
+export const ucCompletions = pgTable("uc_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  actionType: text("action_type").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  notes: text("notes"),
+  hideDays: integer("hide_days"),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export const insertUcCompletionSchema = createInsertSchema(ucCompletions).omit({
+  id: true,
+  completedAt: true,
+});
+
+export type UcCompletion = typeof ucCompletions.$inferSelect;
+export type InsertUcCompletion = z.infer<typeof insertUcCompletionSchema>;
+
+export const ucWorkflowRules = pgTable("uc_workflow_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  triggerAction: text("trigger_action").notNull().unique(),
+  hideDays: integer("hide_days").notNull().default(7),
+  requiresFiles: boolean("requires_files").default(false),
+  requiresNotes: boolean("requires_notes").default(true),
+  autoEscalate: boolean("auto_escalate").default(false),
+  label: text("label").notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").default(true),
+});
+
+export const insertUcWorkflowRuleSchema = createInsertSchema(ucWorkflowRules).omit({
+  id: true,
+});
+
+export type UcWorkflowRule = typeof ucWorkflowRules.$inferSelect;
+export type InsertUcWorkflowRule = z.infer<typeof insertUcWorkflowRuleSchema>;
+
+export const DEFAULT_UC_WORKFLOW_RULES: InsertUcWorkflowRule[] = [
+  {
+    triggerAction: "status_to_submitted",
+    hideDays: 7,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "New → Submitted",
+    description: "When a UC application is submitted, hide for 7 days then check in on the status.",
+    enabled: true,
+  },
+  {
+    triggerAction: "follow_up_submitted",
+    hideDays: 7,
+    requiresFiles: false,
+    requiresNotes: true,
+    autoEscalate: false,
+    label: "Follow-up (Submitted)",
+    description: "When following up on a submitted application, push it back for 7 days to check again.",
+    enabled: true,
+  },
+  {
+    triggerAction: "status_to_approved",
+    hideDays: 14,
+    requiresFiles: true,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Submitted → Approved",
+    description: "When approved, upload approval files and hydro connection fee. Hides for 14 days to check in.",
+    enabled: true,
+  },
+  {
+    triggerAction: "status_to_rejected",
+    hideDays: 0,
+    requiresFiles: true,
+    requiresNotes: true,
+    autoEscalate: true,
+    label: "Submitted → Rejected",
+    description: "When rejected, upload rejection files and screenshot. Auto-creates escalation ticket for manager review.",
+    enabled: true,
+  },
+  {
+    triggerAction: "follow_up_approved",
+    hideDays: 14,
+    requiresFiles: false,
+    requiresNotes: true,
+    autoEscalate: false,
+    label: "Follow-up (Approved)",
+    description: "When following up on an approved application, push it back for 14 days.",
+    enabled: true,
+  },
+];
 
 export const HRSP_PRE_APPROVAL_STATUSES = [
   "New/ Check if needed",
