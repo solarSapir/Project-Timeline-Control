@@ -8,6 +8,8 @@ import {
   createSubtaskForTask,
   completeAsanaTask,
   updateSubtaskField,
+  findHrspSubtask,
+  fixHrspRebateField,
 } from "../asana";
 
 export const projectsRouter = Router();
@@ -339,6 +341,63 @@ projectsRouter.get("/:id/hrsp-subtask", async (req, res) => {
       });
       res.json(hrsp);
     }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+projectsRouter.post("/:id/hrsp-resync", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const subtasks = await fetchSubtasksForTask(project.asanaGid);
+    const hrsp = findHrspSubtask(subtasks);
+
+    if (hrsp) {
+      const updates: Record<string, any> = {
+        hrspSubtaskGid: hrsp.gid,
+        hrspStatus: hrsp.status,
+        hrspMissing: false,
+      };
+      if (hrsp.status) updates.rebateStatus = hrsp.status;
+      if (hrsp.createdAt) updates.hrspSubtaskCreatedDate = hrsp.createdAt.split('T')[0];
+
+      await storage.updateProject(project.id, updates);
+
+      if (hrsp.needsRebateFieldFix) {
+        try { await fixHrspRebateField(hrsp.gid); } catch {}
+      }
+
+      res.json({ found: true, gid: hrsp.gid, status: hrsp.status });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+projectsRouter.post("/:id/hrsp-create", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const subtaskName = "Home Renovation Savings Program (ON) - Status";
+    const created = await createSubtaskForTask(project.asanaGid, subtaskName);
+
+    await storage.updateProject(project.id, {
+      hrspSubtaskGid: created.gid,
+      hrspMissing: false,
+      hrspStatus: null,
+      hrspSubtaskCreatedDate: new Date().toISOString().split('T')[0],
+    });
+
+    try { await fixHrspRebateField(created.gid); } catch {}
+
+    res.json({ created: true, gid: created.gid, name: subtaskName });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });

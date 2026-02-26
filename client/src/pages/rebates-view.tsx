@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, AlertTriangle, AlertCircle, Maximize2, MessageSquare } from "lucide-react";
+import { Search, AlertTriangle, AlertCircle, Maximize2, MessageSquare, RefreshCw, Plus, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDaysUntilDue, daysSince } from "@/utils/dates";
@@ -21,19 +21,77 @@ import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDial
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 
 function HrspInfo({ project }: { project: Project }) {
+  const [actionLoading, setActionLoading] = useState<"resync" | "create" | null>(null);
+  const { toast } = useToast();
+
   const isLoadDisplacementOntario =
     project.ucTeam?.toLowerCase().includes('load displacement') &&
     project.province?.toLowerCase().includes('ontario');
 
   if (!isLoadDisplacementOntario) return null;
 
+  const handleResync = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActionLoading("resync");
+    try {
+      const res = await apiRequest("POST", `/api/projects/${project.id}/hrsp-resync`);
+      const data = await res.json();
+      if (data.found) {
+        toast({ title: "HRSP subtask linked", description: `Found and connected: ${data.status || "No status yet"}` });
+      } else {
+        toast({ title: "No HRSP subtask found", description: "Create one in Asana first, then resync", variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    } catch {
+      toast({ title: "Resync failed", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCreate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActionLoading("create");
+    try {
+      await apiRequest("POST", `/api/projects/${project.id}/hrsp-create`);
+      toast({ title: "HRSP subtask created", description: "Subtask added in Asana and linked" });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    } catch {
+      toast({ title: "Failed to create subtask", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (project.hrspMissing) {
     return (
-      <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+      <div className="flex items-center gap-1.5 mt-1 text-[11px] flex-wrap">
         <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
         <span className="text-red-600 dark:text-red-400 font-medium" data-testid={`text-hrsp-missing-${project.id}`}>
-          HRSP subtask missing — needs review
+          HRSP subtask missing
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-5 text-[10px] px-1.5 gap-1"
+          onClick={handleCreate}
+          disabled={!!actionLoading}
+          data-testid={`button-hrsp-create-${project.id}`}
+        >
+          {actionLoading === "create" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Plus className="h-2.5 w-2.5" />}
+          Auto-Create
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-5 text-[10px] px-1.5 gap-1"
+          onClick={handleResync}
+          disabled={!!actionLoading}
+          data-testid={`button-hrsp-resync-${project.id}`}
+        >
+          {actionLoading === "resync" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <RefreshCw className="h-2.5 w-2.5" />}
+          Resync
+        </Button>
       </div>
     );
   }
