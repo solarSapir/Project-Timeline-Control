@@ -10,31 +10,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2, Maximize2 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EscalationTicket, Project } from "@shared/schema";
 import { ESCALATION_VIEW_LABELS } from "@shared/schema";
+import { EscalationInlineCard } from "@/components/shared/EscalationInlineCard";
+import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
+import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
+import { InstallTeamSubtaskPanel, AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 
-const VIEW_TYPE_ROUTES: Record<string, string> = {
-  uc: "/uc",
-  contracts: "/contracts",
-  payments: "/rebates",
-  rebates: "/rebates",
-  ahj: "/ahj",
-  installs: "/installs",
-  site_visits: "/site-visits",
-  close_off: "/close-off",
-};
-
-function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: Project }) {
+function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
   const [respondOpen, setRespondOpen] = useState(false);
   const [response, setResponse] = useState("");
   const [respondedBy, setRespondedBy] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const { toast } = useToast();
-  const [, navigate] = useLocation();
 
   const handleRespond = async () => {
     if (!response.trim() || !respondedBy.trim()) {
@@ -143,12 +135,12 @@ function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: P
                 Resolve
               </Button>
             )}
-            {VIEW_TYPE_ROUTES[ticket.viewType] && (
+            {project && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs gap-1"
-                onClick={() => navigate(`${VIEW_TYPE_ROUTES[ticket.viewType]}?focus=${ticket.projectId}&ticket=${ticket.id}`)}
+                onClick={() => onFocus(ticket, project)}
                 data-testid={`button-focus-${ticket.id}`}
               >
                 <Maximize2 className="h-3 w-3" />
@@ -189,9 +181,70 @@ function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: P
   );
 }
 
+function FocusViewContent({ ticket, project }: { ticket: EscalationTicket; project: Project }) {
+  const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options/ucStatus'],
+    enabled: ticket.viewType === 'uc',
+  });
+  const statusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
+
+  const viewLabel = ESCALATION_VIEW_LABELS[ticket.viewType] || ticket.viewType;
+
+  return (
+    <div className="space-y-4">
+      <EscalationInlineCard ticketId={ticket.id} />
+
+      <div className="border-t pt-4">
+        <p className="text-xs font-medium text-muted-foreground mb-3">{viewLabel} — Project Details</p>
+
+        {ticket.viewType === 'uc' && (
+          <ExpandedProjectView project={project} statusOptions={statusOptions} onStatusChange={() => {}} />
+        )}
+
+        {(ticket.viewType === 'contracts' || ticket.viewType === 'site_visits' || ticket.viewType === 'installs') && (
+          <InstallTeamSubtaskPanel
+            projectId={project.id}
+            subtaskName={ticket.viewType === 'contracts' ? 'Client Contract' : ticket.viewType === 'site_visits' ? 'Site Visit' : 'Install'}
+            label={ticket.viewType === 'contracts' ? 'Client Contract Subtask' : ticket.viewType === 'site_visits' ? 'Site Visit Subtask' : 'Install Subtask'}
+          />
+        )}
+
+        {ticket.viewType === 'ahj' && (
+          <AhjSubtaskPanel projectId={project.id} />
+        )}
+
+        {(ticket.viewType === 'payments' || ticket.viewType === 'rebates' || ticket.viewType === 'close_off') && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">HRSP Status:</span>{" "}
+                <span className="font-medium">{project.hrspStatus || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Province:</span>{" "}
+                <span className="font-medium">{project.province || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">UC Status:</span>{" "}
+                <span className="font-medium">{project.ucStatus || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">PM Status:</span>{" "}
+                <span className="font-medium">{project.pmStatus || '—'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EscalatedTicketsView() {
   const [filter, setFilter] = useState("open");
   const [search, setSearch] = useState("");
+  const [focusTicket, setFocusTicket] = useState<EscalationTicket | null>(null);
+  const [focusProject, setFocusProject] = useState<Project | null>(null);
 
   const { data: tickets, isLoading } = useQuery<EscalationTicket[]>({
     queryKey: ["/api/escalation-tickets"],
@@ -218,6 +271,11 @@ export default function EscalatedTicketsView() {
     }
     return true;
   });
+
+  const handleFocus = (ticket: EscalationTicket, project: Project) => {
+    setFocusTicket(ticket);
+    setFocusProject(project);
+  };
 
   if (isLoading) {
     return <PageLoader title="Loading escalated tickets..." />;
@@ -264,7 +322,7 @@ export default function EscalatedTicketsView() {
             : <>All ({filtered.length})</>}
           </p>
           {filtered.map(ticket => (
-            <TicketCard key={ticket.id} ticket={ticket} project={projectMap.get(ticket.projectId)} />
+            <TicketCard key={ticket.id} ticket={ticket} project={projectMap.get(ticket.projectId)} onFocus={handleFocus} />
           ))}
         </div>
       ) : (
@@ -273,6 +331,23 @@ export default function EscalatedTicketsView() {
           <p>{filter === "open" ? "No open escalation tickets — the team is doing great!" : "No tickets match this filter."}</p>
         </div>
       )}
+
+      <Dialog open={!!focusTicket && !!focusProject} onOpenChange={(open) => { if (!open) { setFocusTicket(null); setFocusProject(null); } }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-ticket-focus">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Maximize2 className="h-5 w-5" />
+              {focusProject?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {focusTicket ? `${ESCALATION_VIEW_LABELS[focusTicket.viewType] || focusTicket.viewType} — Escalation ticket and project details` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {focusTicket && focusProject && (
+            <FocusViewContent ticket={focusTicket} project={focusProject} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

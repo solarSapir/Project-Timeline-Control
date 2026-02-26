@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,7 +14,6 @@ import { UCProjectCard } from "@/components/uc/UCProjectCard";
 import { UcApprovalDialog } from "@/components/uc/UcApprovalDialog";
 import { UcRejectionDialog } from "@/components/uc/UcRejectionDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
-import { EscalationInlineCard } from "@/components/shared/EscalationInlineCard";
 import type { Project, EscalationTicket, UcCompletion } from "@shared/schema";
 
 export default function UCView() {
@@ -22,7 +21,6 @@ export default function UCView() {
   const [search, setSearch] = useState("");
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [focusProject, setFocusProject] = useState<Project | null>(null);
-  const [focusTicketId, setFocusTicketId] = useState<string | null>(null);
   const [approvalProject, setApprovalProject] = useState<Project | null>(null);
   const [rejectionProject, setRejectionProject] = useState<Project | null>(null);
   const [rejectionStatus, setRejectionStatus] = useState("");
@@ -35,24 +33,6 @@ export default function UCView() {
   const { data: ucCompletions } = useQuery<UcCompletion[]>({ queryKey: ['/api/uc/completions'] });
 
   const statusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
-
-  const focusHandled = useRef(false);
-  useEffect(() => {
-    if (focusHandled.current || !projects || projects.length === 0) return;
-    const params = new URLSearchParams(window.location.search);
-    const focusId = params.get('focus');
-    const ticketId = params.get('ticket');
-    if (focusId) {
-      const project = projects.find(p => p.id === focusId);
-      if (project) {
-        setFocusProject(project);
-        setFilter("all");
-        if (ticketId) setFocusTicketId(ticketId);
-        focusHandled.current = true;
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-  }, [projects]);
 
   const openEscalations = new Map<string, EscalationTicket>();
   (escalationTickets || []).forEach(t => {
@@ -298,7 +278,7 @@ export default function UCView() {
         />
       )}
 
-      <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) { setFocusProject(null); setFocusTicketId(null); } }}>
+      <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) setFocusProject(null); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-expanded-view">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
@@ -309,9 +289,6 @@ export default function UCView() {
               Expanded UC project view — all details, hydro info, and subtasks in one place.
             </DialogDescription>
           </DialogHeader>
-          {focusProject && focusTicketId && (
-            <EscalationInlineCard ticketId={focusTicketId} />
-          )}
           {focusProject && (
             <ExpandedProjectView project={focusProject} statusOptions={statusOptions} onStatusChange={handleStatusChange} />
           )}
