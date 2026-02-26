@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, ChevronDown, ChevronRight, ListTodo } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, ChevronDown, ChevronRight, ListTodo, Plus, RefreshCw, Loader2 } from "lucide-react";
 import { SubtaskDetail } from "@/components/uc/SubtaskDetail";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Subtask {
   gid: string;
@@ -113,6 +116,73 @@ export function HrspSubtaskPanel({ projectId }: HrspSubtaskPanelProps) {
   const { data: subtasks = [], isLoading } = useQuery<Subtask[]>({
     queryKey: ['/api/projects', projectId, 'hrsp-subtask'],
   });
+  const [actionLoading, setActionLoading] = useState<"resync" | "create" | null>(null);
+  const { toast } = useToast();
+
+  const handleCreate = async () => {
+    setActionLoading("create");
+    try {
+      await apiRequest("POST", `/api/projects/${projectId}/hrsp-create`);
+      toast({ title: "HRSP subtask created", description: "Subtask added in Asana and linked" });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "hrsp-subtask"] });
+    } catch {
+      toast({ title: "Failed to create subtask", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleResync = async () => {
+    setActionLoading("resync");
+    try {
+      const res = await apiRequest("POST", `/api/projects/${projectId}/hrsp-resync`);
+      const data = await res.json();
+      if (data.found) {
+        toast({ title: "HRSP subtask linked", description: `Found and connected: ${data.status || "No status yet"}` });
+      } else {
+        toast({ title: "No HRSP subtask found", description: "Create one in Asana first, then resync", variant: "destructive" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "hrsp-subtask"] });
+    } catch {
+      toast({ title: "Resync failed", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (!isLoading && subtasks.length === 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">No HRSP subtask found for this project.</p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleCreate}
+            disabled={!!actionLoading}
+            data-testid={`button-modal-hrsp-create-${projectId}`}
+          >
+            {actionLoading === "create" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            Auto-Create Subtask
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleResync}
+            disabled={!!actionLoading}
+            data-testid={`button-modal-hrsp-resync-${projectId}`}
+          >
+            {actionLoading === "resync" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Resync from Asana
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SubtaskExpandPanel
