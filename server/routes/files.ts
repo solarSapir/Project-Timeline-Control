@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { upload } from "../middleware/upload";
 import { saveFileLocally, deleteFileLocally, createFileReadStream, getFileBuffer } from "../utils/file-storage";
 import { FILE_CATEGORIES } from "@shared/schema";
+import { fetchSubtasksForTask, fetchTaskAttachments } from "../asana";
 
 export const filesRouter = Router();
 
@@ -72,6 +73,78 @@ filesRouter.post("/:id/files", upload.array('files', 20), async (req, res) => {
     res.json({ files: results, message: `${results.length} file(s) uploaded` });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+filesRouter.post("/:id/files/recover-from-asana", async (req, res) => {
+  try {
+    const projectId = req.params.id as string;
+    const { category } = req.body;
+    const project = await storage.getProject(projectId);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const existingFiles = await storage.getProjectFiles(projectId, category || 'contract');
+    if (existingFiles.length > 0) {
+      return res.json({ message: "Files already exist locally, no recovery needed", recovered: 0, files: existingFiles });
+    }
+
+    const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
+    console.log(`[Recovery] ${project.name}: found ${topSubtasks.length} top subtasks:`, topSubtasks.map((s: any) => `${s.name} (${s.gid})`));
+    let targetGid: string | null = null;
+
+    if (category === 'contract' || !category) {
+      const installTeam = topSubtasks.find((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase().includes('install team')
+      );
+      if (installTeam) {
+        const children = await fetchSubtasksForTask(installTeam.gid as string);
+        console.log(`[Recovery] Install Team children:`, children.map((s: any) => `${s.name} (${s.gid})`));
+        const clientContract = children.find((st: Record<string, unknown>) =>
+          (st.name as string)?.toLowerCase() === 'client contract'
+        );
+        if (clientContract) {
+          targetGid = clientContract.gid as string;
+          console.log(`[Recovery] Found Client Contract subtask: ${targetGid}`);
+        }
+      } else {
+        console.log(`[Recovery] No Install Team subtask found`);
+      }
+    }
+
+    if (!targetGid) {
+      return res.status(404).json({ message: "Could not find the Asana subtask with attachments", subtasks: topSubtasks.map((s: any) => s.name) });
+    }
+
+    const attachments = await fetchTaskAttachments(targetGid);
+    console.log(`[Recovery] Attachments on ${targetGid}:`, attachments?.length || 0, attachments?.map((a: any) => `${a.name} (host: ${a.host})`));
+    if (!attachments || attachments.length === 0) {
+      return res.status(404).json({ message: "No attachments found on Asana subtask", subtaskGid: targetGid });
+    }
+
+    const recovered = [];
+    for (const att of attachments) {
+      if (!att.download_url) continue;
+      try {
+        const fileRes = await fetch(att.download_url);
+        if (!fileRes.ok) continue;
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+        const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
+        const savedFile = await saveFileLocally(
+          projectId, category || 'contract', buffer,
+          att.name || 'recovered-file', mimeType,
+          'System (recovered from Asana)', 'Recovered from Asana attachment'
+        );
+        recovered.push({ name: att.name, id: savedFile.id });
+      } catch (err) {
+        console.error(`[Recovery] Failed to download attachment ${att.name}:`, err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    res.json({ message: `Recovered ${recovered.length} file(s) from Asana`, recovered: recovered.length, files: recovered });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Recovery] Error:", msg);
     res.status(500).json({ message: msg });
   }
 });
