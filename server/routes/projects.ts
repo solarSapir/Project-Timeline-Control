@@ -35,14 +35,19 @@ projectsRouter.get("/contract-file-counts", async (_req, res) => {
     const { db } = await import("../db");
     const { sql } = await import("drizzle-orm");
     const rows = await db.execute(sql`
-      SELECT project_id, COUNT(*) as file_count
+      SELECT project_id, file_name
       FROM project_files
       WHERE category = 'contract' AND file_data IS NOT NULL
-      GROUP BY project_id
     `);
-    const counts: Record<string, number> = {};
+    const counts: Record<string, { total: number; contract: boolean; proposal: boolean; sitePlan: boolean }> = {};
     for (const row of rows.rows) {
-      counts[row.project_id as string] = Number(row.file_count);
+      const pid = row.project_id as string;
+      const fname = ((row.file_name as string) || '').toUpperCase();
+      if (!counts[pid]) counts[pid] = { total: 0, contract: false, proposal: false, sitePlan: false };
+      counts[pid].total++;
+      if (fname.startsWith('CONTRACT')) counts[pid].contract = true;
+      else if (fname.startsWith('PROPOSAL')) counts[pid].proposal = true;
+      else if (fname.startsWith('SITE PLAN') || fname.startsWith('SITE_PLAN')) counts[pid].sitePlan = true;
     }
     res.json(counts);
   } catch (error: unknown) {

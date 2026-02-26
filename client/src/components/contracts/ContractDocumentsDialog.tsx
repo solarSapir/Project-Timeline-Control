@@ -54,6 +54,7 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'files', 'contract'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects/contract-file-counts'] });
       toast({ title: `${result.uploaded.length} document(s) uploaded`, description: 'Documents stored and synced — pending review' });
       setOpen(false);
       setUploadedBy("");

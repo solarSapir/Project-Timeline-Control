@@ -32,6 +32,7 @@ function getAsanaField(project: Project, fieldName: string): string | null {
 interface ContractExpandedViewProps {
   project: Project;
   docUploaded: boolean;
+  uploadedCount: number;
   docUploadAction: TaskAction | null;
   approved: boolean;
   approvalAction: TaskAction | null;
@@ -43,7 +44,7 @@ interface ContractExpandedViewProps {
 }
 
 export function ContractExpandedView({
-  project: p, docUploaded, docUploadAction, approved, approvalAction,
+  project: p, docUploaded, uploadedCount, docUploadAction, approved, approvalAction,
   lastFollowUp, updating, onContractSent, onContractSigned, onDepositCollected,
 }: ContractExpandedViewProps) {
   const sent = isContractSent(p.installTeamStage);
@@ -155,7 +156,7 @@ export function ContractExpandedView({
             {docUploaded && (
               <div className="space-y-2">
                 <Badge className={`text-xs ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 ring-1 ring-orange-300 dark:ring-orange-700'}`} data-testid={`badge-expanded-doc-status-${p.id}`}>
-                  {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> For Review</>)}
+                  {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> {uploadedCount}/3 Files — For Review</>)}
                 </Badge>
                 {docUploadAction && (
                 <p className="text-xs text-muted-foreground">

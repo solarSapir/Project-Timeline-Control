@@ -21,6 +21,7 @@ interface ContractCardProps {
   project: Project;
   lastFollowUp: TaskAction | null;
   docUploaded: boolean;
+  uploadedCount: number;
   docUploadAction: TaskAction | null;
   approved: boolean;
   approvalAction: TaskAction | null;
@@ -34,7 +35,7 @@ interface ContractCardProps {
 }
 
 export function ContractCard({
-  project: p, lastFollowUp, docUploaded, docUploadAction, approved, approvalAction,
+  project: p, lastFollowUp, docUploaded, uploadedCount, docUploadAction, approved, approvalAction,
   updating, isExpanded, onToggleExpand, onExpand, onContractSent, onContractSigned, onDepositCollected,
 }: ContractCardProps) {
   const contractDueDate = getContractDueDate(p);
@@ -125,7 +126,7 @@ export function ContractCard({
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             {docUploaded && (
               <Badge className={`text-[10px] ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 ring-1 ring-orange-300 dark:ring-orange-700'}`} data-testid={`badge-doc-status-${p.id}`}>
-                {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> For Review</>)}
+                {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> {uploadedCount}/3 Files — For Review</>)}
               </Badge>
             )}
             <div className="flex items-center gap-1.5">
@@ -159,12 +160,15 @@ export function ContractCard({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs gap-1 px-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+            className={`h-7 text-xs gap-1 px-2 ${uploadedCount >= 3
+              ? 'border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950'
+              : 'border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950'
+            }`}
             onClick={onExpand}
             data-testid={`button-upload-files-${p.id}`}
           >
-            <Upload className="h-3 w-3" />
-            Upload Files
+            {uploadedCount >= 3 ? <CheckCircle2 className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
+            {uploadedCount >= 3 ? '3/3 Files Uploaded' : uploadedCount > 0 ? `${uploadedCount}/3 Files` : 'Upload Files'}
           </Button>
           <Button
             size="sm"

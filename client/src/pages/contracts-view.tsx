@@ -17,10 +17,13 @@ import { getLastFollowUp, findAction, hasAction, filterProjects, sortByDue, comp
 import { useQuery } from "@tanstack/react-query";
 import type { Project, TaskAction } from "@shared/schema";
 
+export type ContractFileDetail = { total: number; contract: boolean; proposal: boolean; sitePlan: boolean };
+export type ContractFileCounts = Record<string, ContractFileDetail>;
+
 function ContractCardList({ projects, taskActions, contractFileCounts, updating, onContractSent, onContractSigned, onDepositCollected, onFocus }: {
   projects: Project[];
   taskActions: TaskAction[] | undefined;
-  contractFileCounts: Record<string, number>;
+  contractFileCounts: ContractFileCounts;
   updating: string | null;
   onContractSent: (p: Project, c: boolean) => void;
   onContractSigned: (p: Project, c: boolean) => void;
@@ -31,13 +34,16 @@ function ContractCardList({ projects, taskActions, contractFileCounts, updating,
   return (
     <div className="space-y-3">
       {projects.map((p) => {
-        const hasRealFiles = (contractFileCounts[p.id] || 0) > 0;
+        const detail = contractFileCounts[p.id];
+        const hasRealFiles = detail ? detail.total > 0 : false;
+        const uploadedCount = detail ? (detail.contract ? 1 : 0) + (detail.proposal ? 1 : 0) + (detail.sitePlan ? 1 : 0) : 0;
         return (
           <ContractCard
             key={p.id}
             project={p}
             lastFollowUp={getLastFollowUp(taskActions, p.id)}
             docUploaded={hasRealFiles}
+            uploadedCount={uploadedCount}
             docUploadAction={hasRealFiles ? findAction(taskActions, p.id, 'document_upload') : null}
             approved={hasRealFiles && hasAction(taskActions, p.id, 'contract_approved')}
             approvalAction={hasRealFiles ? findAction(taskActions, p.id, 'contract_approved') : null}
@@ -62,7 +68,7 @@ export default function ContractCreationView() {
   const { residentialProjects, isLoading } = useProjects();
   const { data: taskActions } = useTaskActions('contracts');
   const { data: workflowConfigs } = useWorkflowConfig();
-  const { data: contractFileCounts } = useQuery<Record<string, number>>({ queryKey: ['/api/projects/contract-file-counts'] });
+  const { data: contractFileCounts } = useQuery<ContractFileCounts>({ queryKey: ['/api/projects/contract-file-counts'] });
   const { updating, handleContractSent, handleContractSigned, handleDepositCollected } = useContractActions();
 
   const configs = workflowConfigs as WorkflowConfig[] | undefined;
@@ -163,7 +169,8 @@ export default function ContractCreationView() {
           {focusProject && (
             <ContractExpandedView
               project={focusProject}
-              docUploaded={(fileCounts[focusProject.id] || 0) > 0}
+              docUploaded={fileCounts[focusProject.id] ? fileCounts[focusProject.id].total > 0 : false}
+              uploadedCount={fileCounts[focusProject.id] ? (fileCounts[focusProject.id].contract ? 1 : 0) + (fileCounts[focusProject.id].proposal ? 1 : 0) + (fileCounts[focusProject.id].sitePlan ? 1 : 0) : 0}
               docUploadAction={findAction(taskActions, focusProject.id, 'document_upload')}
               approved={hasAction(taskActions, focusProject.id, 'contract_approved')}
               approvalAction={findAction(taskActions, focusProject.id, 'contract_approved')}

@@ -37,7 +37,10 @@ export function recentlyFollowedUp(p: Project, taskActions: TaskAction[] | undef
   return hrs !== null && hrs < 24;
 }
 
-export function filterProjects(projects: Project[], filter: string, search: string, taskActions: TaskAction[] | undefined, contractFileCounts?: Record<string, number>): Project[] {
+type ContractFileDetail = { total: number; contract: boolean; proposal: boolean; sitePlan: boolean };
+type ContractFileCounts = Record<string, ContractFileDetail>;
+
+export function filterProjects(projects: Project[], filter: string, search: string, taskActions: TaskAction[] | undefined, contractFileCounts?: ContractFileCounts): Project[] {
   return projects.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     const sent = isContractSent(p.installTeamStage);
@@ -50,7 +53,8 @@ export function filterProjects(projects: Project[], filter: string, search: stri
     if (filter === "pending_deposit") return signed && !depositDone;
     if (filter === "complete") return signed && depositDone;
     if (filter === "for_review") {
-      const hasFiles = (contractFileCounts?.[p.id] || 0) > 0;
+      const detail = contractFileCounts?.[p.id];
+      const hasFiles = detail ? detail.total > 0 : false;
       const isApproved = hasAction(taskActions, p.id, 'contract_approved');
       return hasFiles && !isApproved;
     }
@@ -75,7 +79,7 @@ export function sortByDue(projects: Project[]): Project[] {
   });
 }
 
-export function computeCounts(projects: Project[], taskActions: TaskAction[] | undefined, contractFileCounts?: Record<string, number>) {
+export function computeCounts(projects: Project[], taskActions: TaskAction[] | undefined, contractFileCounts?: ContractFileCounts) {
   return {
     needsContract: projects.filter((p) => !isContractSent(p.installTeamStage)).length,
     needsFollowUp: projects.filter((p) => needsFollowUpCheck(p, taskActions)).length,
@@ -89,7 +93,8 @@ export function computeCounts(projects: Project[], taskActions: TaskAction[] | u
       return daysLeft !== null && daysLeft < 0;
     }).length,
     forReview: projects.filter((p) => {
-      const hasFiles = (contractFileCounts?.[p.id] || 0) > 0;
+      const detail = contractFileCounts?.[p.id];
+      const hasFiles = detail ? detail.total > 0 : false;
       const isApproved = hasAction(taskActions, p.id, 'contract_approved');
       return hasFiles && !isApproved;
     }).length,
