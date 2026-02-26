@@ -64,6 +64,30 @@ function useUpload(projectId: string, endpoint: string, fieldName: string, succe
   });
 }
 
+function useMultiUpload(projectId: string, endpoint: string, fieldName: string, successMsg: string) {
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (files: FileList) => {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append(fieldName, files[i]);
+      }
+      const res = await fetch(`/api/projects/${projectId}/${endpoint}`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: (_data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "files"] });
+      const count = _data?.uploadedCount || 1;
+      toast({ title: "Uploaded", description: `${count} ${successMsg}` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 function UploadButton({ mutation, inputRef, hasDoc, testId }: {
   mutation: ReturnType<typeof useUpload>;
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -125,11 +149,19 @@ function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const cfg = UPLOAD_CONFIG[docKey];
-  const mutation = useUpload(project.id, cfg?.endpoint || "", cfg?.fieldName || "", cfg?.msg || "");
+  const isMulti = docKey === "roofPics";
+  const singleMutation = useUpload(project.id, cfg?.endpoint || "", cfg?.fieldName || "", cfg?.msg || "");
+  const multiMutation = useMultiUpload(project.id, cfg?.endpoint || "", cfg?.fieldName || "", cfg?.msg || "");
+  const mutation = isMulti ? multiMutation : singleMutation;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) mutation.mutate(file);
+    if (isMulti) {
+      const files = e.target.files;
+      if (files && files.length > 0) multiMutation.mutate(files);
+    } else {
+      const file = e.target.files?.[0];
+      if (file) singleMutation.mutate(file);
+    }
     e.target.value = "";
   };
 
@@ -139,7 +171,7 @@ function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
       <CheckItem done={done} label={label} grayed={grayed} fileUrl={fileUrl}>
         {!hasPower && !grayed && cfg && (
           <>
-            <UploadButton mutation={mutation} inputRef={ref} hasDoc={false} testId={`button-upload-power-${project.id}`} />
+            <UploadButton mutation={singleMutation} inputRef={ref} hasDoc={false} testId={`button-upload-power-${project.id}`} />
             <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
           </>
         )}
@@ -151,8 +183,8 @@ function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
     <CheckItem done={done} label={label} grayed={grayed} fileUrl={fileUrl}>
       {cfg && !grayed && (
         <>
-          <UploadButton mutation={mutation} inputRef={ref} hasDoc={done} testId={`button-upload-${docKey}-${project.id}`} />
-          <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
+          <UploadButton mutation={mutation as any} inputRef={ref} hasDoc={done} testId={`button-upload-${docKey}-${project.id}`} />
+          <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} multiple={isMulti} />
         </>
       )}
     </CheckItem>

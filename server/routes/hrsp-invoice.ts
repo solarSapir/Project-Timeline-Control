@@ -306,7 +306,39 @@ hrspInvoiceRouter.post("/:id/hrsp-paid-invoice-upload", ...createUploadHandler("
 hrspInvoiceRouter.post("/:id/hrsp-auth-doc", ...createUploadHandler("hrsp-auth-doc", "authDoc", "HRSP AUTH", "hrspAuthDocUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-power-doc", ...createUploadHandler("hrsp-power-doc", "powerDoc", "HRSP POWER CONSUMPTION", "hrspPowerConsumptionUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-sld", ...createUploadHandler("hrsp-sld", "sldDoc", "HRSP SLD", "hrspSldUrl"));
-hrspInvoiceRouter.post("/:id/hrsp-roof-pics", ...createUploadHandler("hrsp-roof-pics", "roofPics", "HRSP ROOF PHOTOS", "hrspRoofPicsUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-roof-pics", upload.array("roofPics", 20), async (req: any, res: any) => {
+  try {
+    const project = await storage.getProject(req.params.id as string);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) return res.status(400).json({ message: "At least one file is required" });
+
+    const savedIds: string[] = [];
+    for (const file of files) {
+      const savedFile = await saveFileLocally(req.params.id as string, 'rebates', file.buffer, `HRSP ROOF PHOTOS - ${file.originalname}`, file.mimetype, undefined, 'HRSP ROOF PHOTOS');
+      savedIds.push(savedFile.id);
+    }
+    const localUrl = getDownloadUrl(req.params.id as string, savedIds[0]);
+    const updated = await storage.updateProject(req.params.id as string, { hrspRoofPicsUrl: localUrl });
+
+    try {
+      await storage.createTaskAction({
+        projectId: req.params.id as string,
+        viewType: "payments",
+        actionType: "document_upload",
+        completedBy: null,
+        notes: `Uploaded: Roof Photos (${files.length} file${files.length > 1 ? 's' : ''}: ${files.map((f: Express.Multer.File) => f.originalname).join(', ')})`,
+        followUpDate: null,
+      });
+    } catch { /* non-critical */ }
+
+    res.json({ project: updated, attachmentUrl: localUrl, uploadedCount: files.length });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[HRSP Roof Pics] Error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
 hrspInvoiceRouter.post("/:id/hrsp-panel-nameplate", ...createUploadHandler("hrsp-panel-nameplate", "panelNameplate", "HRSP PANEL NAMEPLATE", "hrspPanelNameplateUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-inverter-nameplate", ...createUploadHandler("hrsp-inverter-nameplate", "inverterNameplate", "HRSP INVERTER NAMEPLATE", "hrspInverterNameplateUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-battery-nameplate", ...createUploadHandler("hrsp-battery-nameplate", "batteryNameplate", "HRSP BATTERY NAMEPLATE", "hrspBatteryNameplateUrl"));
