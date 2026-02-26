@@ -168,6 +168,38 @@ export function ContractExpandedView({
               </div>
             )}
 
+            {contractFiles && contractFiles.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border/50">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Review Documents</p>
+                {contractFiles.map((file) => (
+                  <a
+                    key={file.id}
+                    href={`/api/projects/${p.id}/files/${file.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 rounded-md border bg-background hover:bg-muted/50 transition-colors group"
+                    data-testid={`link-contract-file-${file.id}`}
+                  >
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{file.fileName}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {file.uploadedBy && `by ${file.uploadedBy}`}
+                        {file.fileSize && ` · ${(file.fileSize / 1024).toFixed(0)} KB`}
+                      </p>
+                    </div>
+                    <ExternalLink className="h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {docUploaded && (!contractFiles || contractFiles.length === 0) && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-md p-2 border border-amber-200 dark:border-amber-800">
+                Documents were uploaded but files are no longer available. Please re-upload using the button below.
+              </div>
+            )}
+
             <div className="space-y-2">
               <ContractDocumentsDialog project={p} hasDocUpload={docUploaded} />
               <ContractApproveDialog project={p} hasDocUpload={docUploaded} isApproved={approved} />
@@ -196,38 +228,6 @@ export function ContractExpandedView({
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          {contractFiles && contractFiles.length > 0 && (
-            <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Uploaded Documents ({contractFiles.length})
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {contractFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={`/api/projects/${p.id}/files/${file.id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors group"
-                    data-testid={`link-contract-file-${file.id}`}
-                  >
-                    <div className="flex-shrink-0 h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{file.fileName}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {file.uploadedBy && `by ${file.uploadedBy}`}
-                        {file.fileSize && ` · ${(file.fileSize / 1024).toFixed(0)} KB`}
-                      </p>
-                    </div>
-                    <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="bg-muted/30 rounded-lg p-4 border">
             <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Client Contract" label="Client Contract Subtask" />
           </div>
