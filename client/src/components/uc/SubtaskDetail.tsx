@@ -72,6 +72,13 @@ interface AsanaStory {
   text: string;
   created_at: string;
   created_by?: { name: string };
+  resource_subtype?: string;
+  attachment?: {
+    gid: string;
+    name: string;
+    view_url?: string;
+    download_url?: string;
+  };
 }
 
 interface AsanaAttachment {
@@ -181,7 +188,7 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
           ) : stories.length > 0 ? (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {stories.map((story) => (
+              {stories.filter(s => s.text?.trim() || s.attachment).map((story) => (
                 <div key={story.gid} className="p-2 rounded bg-muted/30 border text-xs" data-testid={`comment-${story.gid}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-medium">{story.created_by?.name || 'Unknown'}</span>
@@ -189,7 +196,30 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
                       {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
                     </span>
                   </div>
-                  <StoryText text={story.text} />
+                  {story.attachment ? (
+                    <a
+                      href={story.attachment.view_url || story.attachment.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
+                      data-testid={`inline-attachment-${story.attachment.gid}`}
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
+                           story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
+                          {' · Click to view'}
+                        </p>
+                      </div>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                    </a>
+                  ) : (
+                    <StoryText text={story.text} />
+                  )}
                 </div>
               ))}
             </div>

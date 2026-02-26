@@ -73,6 +73,13 @@ interface AsanaStory {
   text: string;
   created_at: string;
   created_by?: { name: string };
+  resource_subtype?: string;
+  attachment?: {
+    gid: string;
+    name: string;
+    view_url?: string;
+    download_url?: string;
+  };
 }
 
 interface AsanaAttachment {
@@ -205,7 +212,7 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
             <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}</div>
           ) : stories.length > 0 ? (
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {stories.map((story) => (
+              {stories.filter(s => s.text?.trim() || s.attachment).map((story) => (
                 <div key={story.gid} className="p-3 rounded-lg bg-muted/30 border text-sm" data-testid={`main-comment-${story.gid}`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-medium text-xs">{story.created_by?.name || 'Unknown'}</span>
@@ -213,7 +220,30 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
                       {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
                     </span>
                   </div>
-                  <StoryText text={story.text} />
+                  {story.attachment ? (
+                    <a
+                      href={story.attachment.view_url || story.attachment.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 p-2.5 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
+                      data-testid={`main-inline-attachment-${story.attachment.gid}`}
+                    >
+                      <div className="flex-shrink-0 w-9 h-9 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                        <FileText className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
+                           story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
+                          {' · Click to view'}
+                        </p>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                    </a>
+                  ) : (
+                    <StoryText text={story.text} />
+                  )}
                 </div>
               ))}
             </div>

@@ -124,13 +124,36 @@ export async function registerRoutes(
   app.get("/api/subtasks/:gid/stories", async (req, res) => {
     try {
       const stories = await fetchTaskStories(req.params.gid);
-      const comments = stories.filter((s: Record<string, unknown>) =>
-        s.resource_subtype === 'comment_added' || s.type === 'comment'
+      const attachments = await fetchTaskAttachments(req.params.gid);
+
+      const relevant = stories.filter((s: Record<string, unknown>) =>
+        s.resource_subtype === 'comment_added' || s.type === 'comment' || s.resource_subtype === 'attachment_added'
       );
-      comments.sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+
+      const enriched = relevant.map((s: any) => {
+        if (s.resource_subtype === 'attachment_added' && (!s.text || s.text.trim() === '')) {
+          const createdAt = s.created_at ? new Date(s.created_at).getTime() : 0;
+          let matchedAtt = null;
+          let closestDiff = Infinity;
+          for (const att of attachments) {
+            const attCreated = att.created_at ? new Date(att.created_at).getTime() : 0;
+            const diff = Math.abs(createdAt - attCreated);
+            if (diff < closestDiff && diff < 60000) {
+              closestDiff = diff;
+              matchedAtt = att;
+            }
+          }
+          if (matchedAtt) {
+            return { ...s, attachment: matchedAtt };
+          }
+        }
+        return s;
+      });
+
+      enriched.sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
         new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime()
       );
-      res.json(comments);
+      res.json(enriched);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       res.status(500).json({ message: msg });

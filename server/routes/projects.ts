@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import {
   updateAsanaTaskField,
   fetchTaskStories,
+  fetchTaskAttachments,
   fetchSubtasksForTask,
   createSubtaskForTask,
   completeAsanaTask,
@@ -183,7 +184,33 @@ projectsRouter.get("/:id/stories", async (req, res) => {
     const project = await storage.getProject(req.params.id);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
     const stories = await fetchTaskStories(project.asanaGid);
-    res.json(stories);
+    const attachments = await fetchTaskAttachments(project.asanaGid);
+    const attachMap = new Map<string, any>();
+    for (const att of attachments) {
+      attachMap.set(att.gid, att);
+    }
+
+    const enriched = stories.map((s: any) => {
+      if (s.resource_subtype === 'attachment_added' && (!s.text || s.text.trim() === '')) {
+        const createdAt = s.created_at ? new Date(s.created_at).getTime() : 0;
+        let matchedAtt = null;
+        let closestDiff = Infinity;
+        for (const att of attachments) {
+          const attCreated = att.created_at ? new Date(att.created_at).getTime() : 0;
+          const diff = Math.abs(createdAt - attCreated);
+          if (diff < closestDiff && diff < 60000) {
+            closestDiff = diff;
+            matchedAtt = att;
+          }
+        }
+        if (matchedAtt) {
+          return { ...s, attachment: matchedAtt };
+        }
+      }
+      return s;
+    });
+
+    res.json(enriched);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });
