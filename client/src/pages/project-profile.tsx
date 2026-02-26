@@ -1,10 +1,11 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { computeExpectedDates } from "@/hooks/use-expected-dates";
 import { GanttChart } from "@/components/project-profile/GanttChart";
@@ -15,6 +16,7 @@ import { InstallationSection } from "@/components/project-profile/InstallationSe
 import { ActivitySection } from "@/components/project-profile/ActivitySection";
 import { CustomerTimeline } from "@/components/project-profile/CustomerTimeline";
 import { DocumentsSection } from "@/components/project-profile/DocumentsSection";
+import { MainTimeline } from "@/components/project-profile/MainTimeline";
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
 import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, Camera } from "lucide-react";
 
@@ -36,20 +38,38 @@ export default function ProjectProfile() {
     queryKey: ["/api/asana/field-options/pmStatus"],
   });
 
-  const pmStatusMutation = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const res = await apiRequest("PATCH", `/api/projects/${projectId}`, { pmStatus: newStatus });
-      return res.json();
-    },
-    onSuccess: () => {
+  const [pmPending, setPmPending] = useState(false);
+
+  const handlePmStatusChange = async (newStatus: string, note: string, staffName: string, files: File[]) => {
+    setPmPending(true);
+    try {
+      const formData = new FormData();
+      formData.append('newStatus', newStatus);
+      formData.append('oldStatus', project?.pmStatus || '');
+      formData.append('note', note);
+      formData.append('staffName', staffName);
+      files.forEach(f => formData.append('files', f));
+
+      const res = await fetch(`/api/uploads/${projectId}/pm-status-change`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: 'Failed to update' }));
+        throw new Error(data.message || 'Failed to update');
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "PM Status updated", description: "Change synced to Asana" });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Error updating PM Status", description: err.message, variant: "destructive" });
-    },
-  });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "stories"] });
+      toast({ title: "PM Status updated", description: "Change posted to Asana timeline" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast({ title: "Error updating PM Status", description: msg, variant: "destructive" });
+      throw err;
+    } finally {
+      setPmPending(false);
+    }
+  };
 
   if (projectLoading || actionsLoading) {
     return <PageLoader title="Loading project..." />;
@@ -75,7 +95,7 @@ export default function ProjectProfile() {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
       </div>
-      <ProjectHeader project={project} pmOptions={pmOptions} pmStatusMutation={pmStatusMutation} />
+      <ProjectHeader project={project} pmOptions={pmOptions} onPmStatusChange={handlePmStatusChange} isPending={pmPending} />
       <Card>
         <CardHeader className="py-3 px-4">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -127,6 +147,7 @@ export default function ProjectProfile() {
       </div>
       <DocumentsSection project={project} projectId={projectId!} />
       <CustomerTimeline projectId={projectId!} taskActions={taskActions} />
+      <MainTimeline projectId={projectId!} asanaGid={project.asanaGid} />
       {project.customerNotes && (
         <Card>
           <CardHeader className="py-3 px-4"><CardTitle className="text-sm font-medium">Customer Notes</CardTitle></CardHeader>

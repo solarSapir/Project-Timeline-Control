@@ -5,6 +5,7 @@ import {
   fetchSubtasksForTask,
   createSubtaskForTask,
   uploadAttachmentToTask,
+  updateAsanaTaskField,
 } from "../asana";
 import { upload } from "../middleware/upload";
 import { addDays, format } from "date-fns";
@@ -232,6 +233,65 @@ uploadsRouter.post("/:id/status-note", async (req, res) => {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Status note error:", error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+uploadsRouter.post("/:id/pm-status-change", upload.array('files', 10), async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id as string);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const { note, staffName, newStatus, oldStatus } = req.body;
+    if (!note || !staffName) return res.status(400).json({ message: "Note and staff name are required" });
+
+    const updateData: Record<string, unknown> = { pmStatus: newStatus };
+    const oldPmLower = (oldStatus || '').toLowerCase();
+    const newPmLower = newStatus.toLowerCase();
+    if (oldPmLower.includes('project paused') && !newPmLower.includes('project paused')) {
+      updateData.lastUnpausedDate = new Date().toISOString().split('T')[0];
+    }
+    await storage.updateProject(project.id, updateData);
+
+    if (project.asanaCustomFields) {
+      try {
+        const asanaFields = project.asanaCustomFields as Record<string, unknown>[];
+        await updateAsanaTaskField(project.asanaGid, asanaFields, 'pmStatus', newStatus);
+      } catch (err) {
+        console.error(`[PM-Status] Failed to sync Asana field:`, err);
+      }
+    }
+
+    const statusLine = oldStatus ? `${oldStatus} → ${newStatus}` : `→ ${newStatus}`;
+    const commentText = `PM Status Change by ${staffName}:\n${statusLine}\n\n${note}`;
+
+    await postCommentToTask(project.asanaGid, commentText);
+
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          await uploadAttachmentToTask(project.asanaGid, file.buffer, file.originalname, file.mimetype);
+        } catch (err) {
+          console.error(`[PM-Status] Failed to upload attachment ${file.originalname}:`, err);
+        }
+        await saveFileLocally(project.id, 'pm_status', file.buffer, file.originalname, file.mimetype, staffName, `PM Status Change: ${statusLine}`);
+      }
+    }
+
+    await storage.createTaskAction({
+      projectId: project.id,
+      viewType: "pm_status",
+      actionType: "status_change",
+      completedBy: staffName,
+      notes: `${statusLine}\n${note}`,
+      followUpDate: null,
+    });
+
+    res.json({ success: true, message: "PM Status updated and posted to Asana timeline" });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("PM Status change error:", error);
     res.status(500).json({ message: msg });
   }
 });

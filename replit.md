@@ -29,9 +29,11 @@ Solar PM is a project management application designed for solar installation com
 - **Property Sector Filtering**: Project views exclude non-residential projects based on an Asana custom field.
 - **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, including invoice template editing. All document uploads are logged as task_actions for audit trail and timeline visibility.
 - **UC & Rebate KPI Systems**: Track application and rebate workflow completions, hide/reappear logic, and key performance indicators with dashboards, configurable workflow rules, and drill-down views for both UC and Rebate completions. "Avg Days to Submit" KPI uses HRSP subtask creation date (falls back to project creation date if unavailable).
-- **Escalated Tickets System**: Staff can flag "stuck" projects, creating escalation tickets with a 48-hour hide period for manager resolution.
+- **Escalated Tickets System**: Staff can flag "stuck" projects, creating escalation tickets with a 48-hour hide period for manager resolution. Structured 3-section reporting (done so far / stuck on / need from manager) with file uploads.
 - **Local File Storage System**: All file uploads are stored locally on the server filesystem, organized by project and category. Asana attachments remain viewable.
 - **Project Documents Section**: Project profile includes a Documents section with categorized folders, file management, and SharePoint links.
+- **PM Status Change Dialog**: Changing PM Status on the project profile page triggers a required-note popup (with optional file upload) that posts the note and attachments to the Asana main task timeline. Staff name selection required.
+- **Main Timeline View**: Project profile page includes a scrollable "Project Main Timeline" section at the bottom, showing all comments and attachments from the Asana parent task — similar to how subtask comments are displayed in individual tabs. Users can also post new comments and upload files directly from this view.
 - **Internal App Logic Documentation**: Visual documentation at `/app-logic` with interactive React Flow diagrams for database schema, API map, and workflow logic flows.
 
 ### Database Tables
