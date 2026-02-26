@@ -50,7 +50,7 @@ export default function ProjectProfile() {
       formData.append('staffName', staffName);
       files.forEach(f => formData.append('files', f));
 
-      const res = await fetch(`/api/uploads/${projectId}/pm-status-change`, {
+      const res = await fetch(`/api/projects/${projectId}/pm-status-change`, {
         method: 'POST',
         body: formData,
       });
