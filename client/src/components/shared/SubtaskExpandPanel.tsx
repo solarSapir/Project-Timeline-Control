@@ -154,29 +154,29 @@ export function HrspSubtaskPanel({ projectId }: HrspSubtaskPanelProps) {
 
   if (!isLoading && subtasks.length === 0) {
     return (
-      <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">No HRSP subtask found for this project.</p>
-        <div className="flex gap-2">
+      <div className="space-y-3 p-3 border rounded-md bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+        <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">No HRSP subtask found for this project.</p>
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs gap-1.5"
+            className="h-8 text-xs gap-1.5 border-amber-300 dark:border-amber-700"
             onClick={handleCreate}
             disabled={!!actionLoading}
             data-testid={`button-modal-hrsp-create-${projectId}`}
           >
-            {actionLoading === "create" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            {actionLoading === "create" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
             Auto-Create Subtask
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-xs gap-1.5"
+            className="h-8 text-xs gap-1.5 border-amber-300 dark:border-amber-700"
             onClick={handleResync}
             disabled={!!actionLoading}
             data-testid={`button-modal-hrsp-resync-${projectId}`}
           >
-            {actionLoading === "resync" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {actionLoading === "resync" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Resync from Asana
           </Button>
         </div>
