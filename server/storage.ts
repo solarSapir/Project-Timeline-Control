@@ -58,6 +58,7 @@ export interface IStorage {
 
   getProjectFiles(projectId: string, category?: string): Promise<ProjectFile[]>;
   getProjectFile(id: string): Promise<ProjectFile | undefined>;
+  getProjectFileWithData(id: string): Promise<ProjectFile | undefined>;
   createProjectFile(data: InsertProjectFile): Promise<ProjectFile>;
   deleteProjectFile(id: string): Promise<boolean>;
 
@@ -301,17 +302,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectFiles(projectId: string, category?: string): Promise<ProjectFile[]> {
+    const columns = {
+      id: projectFiles.id,
+      projectId: projectFiles.projectId,
+      category: projectFiles.category,
+      fileName: projectFiles.fileName,
+      storedName: projectFiles.storedName,
+      mimeType: projectFiles.mimeType,
+      fileSize: projectFiles.fileSize,
+      uploadedBy: projectFiles.uploadedBy,
+      notes: projectFiles.notes,
+      createdAt: projectFiles.createdAt,
+    };
     if (category) {
-      return db.select().from(projectFiles)
+      return db.select(columns).from(projectFiles)
         .where(and(eq(projectFiles.projectId, projectId), eq(projectFiles.category, category)))
-        .orderBy(desc(projectFiles.createdAt));
+        .orderBy(desc(projectFiles.createdAt)) as any;
     }
-    return db.select().from(projectFiles)
+    return db.select(columns).from(projectFiles)
       .where(eq(projectFiles.projectId, projectId))
-      .orderBy(desc(projectFiles.createdAt));
+      .orderBy(desc(projectFiles.createdAt)) as any;
   }
 
   async getProjectFile(id: string): Promise<ProjectFile | undefined> {
+    const [file] = await db.select({
+      id: projectFiles.id,
+      projectId: projectFiles.projectId,
+      category: projectFiles.category,
+      fileName: projectFiles.fileName,
+      storedName: projectFiles.storedName,
+      mimeType: projectFiles.mimeType,
+      fileSize: projectFiles.fileSize,
+      uploadedBy: projectFiles.uploadedBy,
+      notes: projectFiles.notes,
+      createdAt: projectFiles.createdAt,
+    }).from(projectFiles).where(eq(projectFiles.id, id));
+    return file as ProjectFile | undefined;
+  }
+
+  async getProjectFileWithData(id: string): Promise<ProjectFile | undefined> {
     const [file] = await db.select().from(projectFiles).where(eq(projectFiles.id, id));
     return file;
   }

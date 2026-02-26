@@ -44,14 +44,14 @@ Solar PM is a project management application designed for solar installation com
 - Document uploads, task actions, comments, and status changes are all stored in our database. Asana gets a copy for backwards compatibility.
 - Subtask hierarchy (Parent → Install Team → Client Contract, etc.) is managed in Asana but will eventually be replaced with local task/subtask tracking.
 - When reviewing or building features, wrap all Asana API calls in try/catch with non-blocking error handling. The app must function if Asana is unreachable.
-- File attachments are always stored locally in `data/uploads/` AND uploaded to Asana subtasks. The local copy is the source of truth.
+- File attachments are stored in PostgreSQL (`project_files.file_data` bytea column) AND on disk in `data/uploads/`. The database is the persistent source of truth; disk is a cache that auto-restores from DB if files are missing. Files also get uploaded to Asana subtasks for backwards compatibility.
 
 ## External Dependencies
 - **Asana API**: For project synchronization, task management, custom field data, and project stories. (Planned for eventual removal — see Asana Independence Strategy above.)
 - **Replit Connector**: Secure authentication and connection to Asana.
 - **OpenAI Vision (gpt-4o)**: AI-powered data extraction from hydro bill images.
 - **PostgreSQL**: Relational database.
-- **Local Filesystem**: For storing uploaded project files (source of truth for all documents).
+- **PostgreSQL + Local Filesystem**: File uploads stored in DB (persistent) + disk cache. DB is source of truth.
 
 ## App Logic Documentation (Maintenance Convention)
 - **Location**: `/app-logic` route with sub-routes for schema, API map, and 10 tab-specific flow diagrams

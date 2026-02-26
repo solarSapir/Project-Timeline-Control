@@ -45,9 +45,11 @@ export async function saveFileLocally(
     fileSize: buffer.length,
     uploadedBy: uploadedBy || null,
     notes: notes || null,
+    fileData: buffer,
   });
 
-  return record;
+  const { fileData: _, ...withoutData } = record;
+  return withoutData as ProjectFile;
 }
 
 export async function deleteFileLocally(fileId: string): Promise<boolean> {
@@ -68,6 +70,28 @@ export function createFileReadStream(projectId: string, category: string, stored
   const filePath = getFilePath(projectId, category, storedName);
   if (!existsSync(filePath)) return null;
   return createReadStream(filePath);
+}
+
+export async function getFileBuffer(fileId: string): Promise<Buffer | null> {
+  const metaFile = await storage.getProjectFile(fileId);
+  if (!metaFile) return null;
+
+  const filePath = getFilePath(metaFile.projectId, metaFile.category, metaFile.storedName);
+  if (existsSync(filePath)) {
+    const { readFileSync } = await import("fs");
+    return readFileSync(filePath);
+  }
+
+  const fullFile = await storage.getProjectFileWithData(fileId);
+  if (fullFile?.fileData) {
+    try {
+      ensureUploadDir(fullFile.projectId, fullFile.category);
+      await writeFile(filePath, fullFile.fileData);
+    } catch {}
+    return fullFile.fileData instanceof Buffer ? fullFile.fileData : Buffer.from(fullFile.fileData as any);
+  }
+
+  return null;
 }
 
 export function getDownloadUrl(projectId: string, fileId: string): string {

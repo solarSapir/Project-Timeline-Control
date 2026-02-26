@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { upload } from "../middleware/upload";
-import { saveFileLocally, deleteFileLocally, createFileReadStream } from "../utils/file-storage";
+import { saveFileLocally, deleteFileLocally, createFileReadStream, getFileBuffer } from "../utils/file-storage";
 import { FILE_CATEGORIES } from "@shared/schema";
 
 export const filesRouter = Router();
@@ -25,12 +25,22 @@ filesRouter.get("/:id/files/:fileId/download", async (req, res) => {
     if (file.projectId !== req.params.id) return res.status(403).json({ message: "File does not belong to this project" });
 
     const stream = createFileReadStream(file.projectId, file.category, file.storedName);
-    if (!stream) return res.status(404).json({ message: "File not found on disk" });
+    if (stream) {
+      res.setHeader("Content-Type", file.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
+      if (file.fileSize) res.setHeader("Content-Length", file.fileSize);
+      return stream.pipe(res);
+    }
 
-    res.setHeader("Content-Type", file.mimeType || "application/octet-stream");
-    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
-    if (file.fileSize) res.setHeader("Content-Length", file.fileSize);
-    stream.pipe(res);
+    const buffer = await getFileBuffer(req.params.fileId as string);
+    if (buffer) {
+      res.setHeader("Content-Type", file.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
+      res.setHeader("Content-Length", buffer.length);
+      return res.send(buffer);
+    }
+
+    return res.status(404).json({ message: "File not found on disk or in database. Please re-upload." });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });

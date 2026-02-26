@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, date, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, date, boolean, jsonb, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -276,6 +276,12 @@ export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
   { key: "paidInvoice", label: "Paid Invoice", type: "generate", phase: "closeoff", enabled: true, description: "Same quote marked as PAID with installation date" },
 ];
 
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
 export const projectFiles = pgTable("project_files", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull(),
@@ -286,6 +292,7 @@ export const projectFiles = pgTable("project_files", {
   fileSize: integer("file_size"),
   uploadedBy: text("uploaded_by"),
   notes: text("notes"),
+  fileData: bytea("file_data"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
