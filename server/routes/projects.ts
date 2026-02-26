@@ -319,14 +319,24 @@ projectsRouter.get("/:id/hrsp-subtask", async (req, res) => {
     const project = await storage.getProject(req.params.id);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
 
+    const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
+
     if (project.hrspSubtaskGid) {
-      res.json([{ gid: project.hrspSubtaskGid, name: "Home Renovation Savings Program", completed: false }]);
+      const linked = allSubtasks.find((st: any) => st.gid === project.hrspSubtaskGid);
+      if (linked) {
+        res.json([{ gid: linked.gid, name: linked.name, completed: !!linked.completed }]);
+      } else {
+        res.json([{ gid: project.hrspSubtaskGid, name: project.hrspStatus ? `HRSP - ${project.hrspStatus}` : "Home Renovation Savings Program", completed: false }]);
+      }
     } else {
-      const allSubtasks = await fetchSubtasksForTask(project.asanaGid);
-      const hrsp = allSubtasks.filter((st: Record<string, unknown>) =>
-        (st.name as string)?.toLowerCase().includes('home renovation savings program') ||
-        (st.name as string)?.toLowerCase().includes('hrsp')
-      );
+      const hrsp = allSubtasks.filter((st: any) => {
+        const name = (st.name || '').toLowerCase();
+        return name.includes('home renovation savings program') ||
+               name.includes('home energy savings program') ||
+               name.includes('home energy saving program') ||
+               name.includes('hrsp') ||
+               st.custom_fields?.some((f: any) => f.name?.toLowerCase().includes('grants status'));
+      });
       res.json(hrsp);
     }
   } catch (error: unknown) {
