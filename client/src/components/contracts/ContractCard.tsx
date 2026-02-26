@@ -130,6 +130,11 @@ export function ContractCard({
             )}
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-1">
+                <Checkbox id={`files-${p.id}`} checked={docUploaded} disabled className="h-3.5 w-3.5" data-testid={`checkbox-files-uploaded-${p.id}`} />
+                <label className={`text-[10px] ${docUploaded ? 'text-green-700 dark:text-green-400 font-medium' : 'text-muted-foreground/50'}`}>Files</label>
+                {docUploaded && <Upload className="h-3 w-3 text-green-600" />}
+              </div>
+              <div className="flex items-center gap-1">
                 <Checkbox id={`sent-${p.id}`} checked={sent} disabled={sent || updating === p.id + '-sent'} onCheckedChange={(checked) => onContractSent(p, !!checked)} className="h-3.5 w-3.5" data-testid={`checkbox-contract-sent-${p.id}`} />
                 <label htmlFor={`sent-${p.id}`} className={`text-[10px] cursor-pointer ${sent ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>Sent</label>
                 {sent && <Send className="h-3 w-3 text-green-600" />}
