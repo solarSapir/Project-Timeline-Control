@@ -53,6 +53,7 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
       const result = await res.json();
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'files', 'contract'] });
       toast({ title: `${result.uploaded.length} document(s) uploaded`, description: 'Documents added to Asana — pending review' });
       setOpen(false);
       setUploadedBy("");

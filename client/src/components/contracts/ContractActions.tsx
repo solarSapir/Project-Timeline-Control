@@ -1,7 +1,8 @@
-import type { Project, TaskAction } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import type { Project, TaskAction, ProjectFile } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, Clock, DollarSign, Send, ShieldCheck, Upload } from "lucide-react";
+import { CheckCircle2, Clock, DollarSign, Send, ShieldCheck, Upload, FileText, ExternalLink } from "lucide-react";
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { isContractSent, isContractSigned, isDepositCollected } from "@/utils/stages";
 import { ContractDocumentsDialog } from "./ContractDocumentsDialog";
@@ -24,6 +25,16 @@ export function ContractActions({ project: p, docUploaded, docUploadAction, appr
   const signed = isContractSigned(p.installTeamStage);
   const depositDone = isDepositCollected(p.installTeamStage);
 
+  const { data: contractFiles } = useQuery<ProjectFile[]>({
+    queryKey: ['/api/projects', p.id, 'files', 'contract'],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${p.id}/files?category=contract`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: docUploaded,
+  });
+
   return (
     <div className="flex flex-col gap-3 min-w-[240px]">
       <div className="border rounded-md p-2 bg-muted/20 space-y-2">
@@ -44,6 +55,24 @@ export function ContractActions({ project: p, docUploaded, docUploadAction, appr
                 Approved by {approvalAction.completedBy || 'Manager'} on {new Date(approvalAction.completedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </p>
             )}
+          </div>
+        )}
+        {contractFiles && contractFiles.length > 0 && (
+          <div className="space-y-1 pt-1 border-t border-border/50">
+            {contractFiles.map((file) => (
+              <a
+                key={file.id}
+                href={`/api/projects/${p.id}/files/${file.id}/download`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline py-0.5 group"
+                data-testid={`link-contract-file-${file.id}`}
+              >
+                <FileText className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate max-w-[180px]">{file.fileName}</span>
+                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
+            ))}
           </div>
         )}
         <ContractDocumentsDialog project={p} hasDocUpload={docUploaded} />
