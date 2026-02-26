@@ -83,6 +83,13 @@ function isRebateHidden(p: Project, hideDays: number): boolean {
   return days !== null && days < hideDays;
 }
 
+function daysUntilReappear(p: Project, hideDays: number): number | null {
+  const days = daysSince(p.rebateSubmittedDate);
+  if (days === null) return null;
+  const remaining = hideDays - days;
+  return remaining > 0 ? Math.ceil(remaining) : 0;
+}
+
 function needsRebateFollowUp(p: Project, followUpDays: number): boolean {
   const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
   const eligible = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.includes(s));
@@ -304,11 +311,13 @@ export default function PaymentsView() {
             const displayStatus = p.rebateStatus || (isLdOn && p.hrspStatus ? p.hrspStatus : null);
             const isHrspFallback = !p.rebateStatus && isLdOn && !!p.hrspStatus;
             const closeOffDue = getCloseOffDueInfo(p, closeOffDueWindowDays);
+            const hidden = isRebateHidden(p, hideDays);
+            const daysLeft = hidden ? daysUntilReappear(p, hideDays) : null;
 
             return (
               <Card
                 key={p.id}
-                className={`transition-colors ${followUp ? "border-l-4 border-l-amber-400" : hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
+                className={`transition-colors ${hidden ? "border-l-4 border-l-blue-400 opacity-75" : followUp ? "border-l-4 border-l-amber-400" : hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">
@@ -379,6 +388,14 @@ export default function PaymentsView() {
                       <>
                         <span>·</span>
                         <span className="text-amber-600 dark:text-amber-400 font-medium">follow-up needed</span>
+                      </>
+                    )}
+                    {hidden && daysLeft !== null && (
+                      <>
+                        <span>·</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-medium" data-testid={`text-hidden-days-${p.id}`}>
+                          {daysLeft === 0 ? "reappearing today" : `reappears in ${daysLeft}d`}
+                        </span>
                       </>
                     )}
                   </div>
