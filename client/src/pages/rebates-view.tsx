@@ -134,12 +134,6 @@ export default function PaymentsView() {
 
   const rebateStatusOptions = Array.isArray(rebateOptions) ? rebateOptions.map(o => o.name) : [];
 
-  const allInstallProjects = (projects || []).filter((p: Project) =>
-    p.installType?.toLowerCase() === 'install' &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
-    !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
-  );
-
   const isRebateEligible = (p: Project) =>
     p.ucTeam?.toLowerCase().includes('load displacement') &&
     p.province?.toLowerCase().includes('ontario');
@@ -149,7 +143,18 @@ export default function PaymentsView() {
     return s.includes('pre approved') || s.includes('pre-approved') || s === 'complete - (pre approved, waiting for job to complete)';
   };
 
-  const installProjects = allInstallProjects.filter((p: Project) => isRebateEligible(p) && !isWaitingForInstall(p));
+  const isClosedPmStatus = (p: Project) =>
+    ['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '');
+
+  const baseProjects = (projects || []).filter((p: Project) =>
+    p.installType?.toLowerCase() === 'install' &&
+    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
+    isRebateEligible(p)
+  );
+
+  const allInstallProjects = baseProjects.filter((p: Project) => !isClosedPmStatus(p));
+
+  const installProjects = allInstallProjects.filter((p: Project) => !isWaitingForInstall(p));
 
   const hasHrspIssue = (p: Project) => {
     const isLdOn = isRebateEligible(p);
@@ -160,7 +165,7 @@ export default function PaymentsView() {
     return false;
   };
 
-  const filtered = installProjects.filter((p: Project) => {
+  const filtered = (filter === "all" ? baseProjects : installProjects).filter((p: Project) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "needs_attention") {
       return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
@@ -170,7 +175,6 @@ export default function PaymentsView() {
     if (filter === "needs_followup") return needsRebateFollowUp(p, followUpDays);
     if (filter === "hidden") return isRebateHidden(p, hideDays);
     if (filter !== "all" && p.rebateStatus !== filter) return false;
-    if (filter === "all" && isRebateHidden(p, hideDays)) return false;
     return true;
   });
 
