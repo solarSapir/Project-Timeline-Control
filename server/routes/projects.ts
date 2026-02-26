@@ -16,7 +16,8 @@ const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contra
 projectsRouter.get("/", async (_req, res) => {
   try {
     const allProjects = await storage.getProjects();
-    res.json(allProjects);
+    const slim = allProjects.map(({ asanaCustomFields, ...rest }) => rest);
+    res.json(slim);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });

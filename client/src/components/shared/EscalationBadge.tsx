@@ -10,23 +10,25 @@ import type { EscalationTicket } from "@shared/schema";
 
 interface EscalationBadgeProps {
   projectId: string;
+  tickets?: EscalationTicket[];
 }
 
-export function EscalationBadge({ projectId }: EscalationBadgeProps) {
+export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationBadgeProps) {
   const [viewOpen, setViewOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const { toast } = useToast();
 
-  const { data: tickets } = useQuery<EscalationTicket[]>({
-    queryKey: ["/api/escalation-tickets", { projectId }],
-    queryFn: async () => {
-      const res = await fetch(`/api/escalation-tickets?projectId=${projectId}`);
-      if (!res.ok) throw new Error("Failed to fetch tickets");
-      return res.json();
-    },
+  const { data: allTickets } = useQuery<EscalationTicket[]>({
+    queryKey: ["/api/escalation-tickets"],
+    enabled: !ticketsProp,
+    staleTime: 60000,
   });
 
-  const activeTicket = tickets?.find(t => t.status === "open" || t.status === "responded");
+  const tickets = ticketsProp || allTickets;
+
+  const activeTicket = tickets?.find(t =>
+    (t.projectId === projectId) && (t.status === "open" || t.status === "responded")
+  );
   if (!activeTicket) return null;
 
   const handleResolve = async () => {

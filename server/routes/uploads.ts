@@ -325,7 +325,7 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
       if (!clientContract) {
         clientContract = await createSubtaskForTask(installTeam.gid as string, "Client Contract");
       }
-      clientContractGid = clientContract.gid as string;
+      const contractGid = clientContract.gid as string;
 
       const fileEntries: { buffer: Buffer; name: string; mime: string }[] = [];
       if (files?.contract?.[0]) {
@@ -341,7 +341,7 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
         fileEntries.push({ buffer: f.buffer, name: `SITE PLAN - ${f.originalname}`, mime: f.mimetype });
       }
       for (const entry of fileEntries) {
-        await uploadAttachmentToTask(clientContractGid, entry.buffer, entry.name, entry.mime);
+        await uploadAttachmentToTask(contractGid, entry.buffer, entry.name, entry.mime);
       }
 
       const commentParts = [`Contract documents uploaded by ${uploadedBy || 'Team'}:`];
@@ -350,7 +350,7 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
       }
       if (notes) commentParts.push(`\nNotes: ${notes}`);
       commentParts.push('\nStatus: PENDING REVIEW');
-      await postCommentToTask(clientContractGid, commentParts.join('\n'));
+      await postCommentToTask(contractGid, commentParts.join('\n'));
     } catch (asanaErr) {
       console.error("Asana subtask/attachment error (non-blocking):", asanaErr);
     }

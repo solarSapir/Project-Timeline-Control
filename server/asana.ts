@@ -70,7 +70,7 @@ export async function fetchAsanaProjects(workspaceGid: string) {
   return (result?.data || []).filter((p: any) => !p.archived);
 }
 
-export async function fetchAsanaTasksFromProject(projectGid: string) {
+export async function fetchAsanaTasksFromProject(projectGid: string): Promise<any[]> {
   const accessToken = await getAccessToken();
   const allTasks: any[] = [];
   let offset: string | undefined;
@@ -101,6 +101,37 @@ export async function fetchAsanaTasksFromProject(projectGid: string) {
 
   console.log(`[Asana Fetch] ${allTasks.length} tasks fetched in ${pageCount} pages`);
   return allTasks;
+}
+
+export async function* fetchAsanaTasksPaginated(projectGid: string): AsyncGenerator<{ tasks: any[]; totalSoFar: number; pageCount: number }> {
+  const accessToken = await getAccessToken();
+  let offset: string | undefined;
+  let pageCount = 0;
+  let totalSoFar = 0;
+  const optFields = 'name,gid,due_on,completed,created_at,custom_fields,custom_fields.name,custom_fields.display_value,custom_fields.enum_value,custom_fields.enum_value.name,custom_fields.text_value,custom_fields.number_value,assignee,assignee.name,notes,num_subtasks';
+
+  do {
+    const url = new URL(`https://app.asana.com/api/1.0/projects/${projectGid}/tasks`);
+    url.searchParams.set('opt_fields', optFields);
+    url.searchParams.set('limit', '100');
+    if (offset) url.searchParams.set('offset', offset);
+
+    const response = await fetch(url.toString(), {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Asana API error ${response.status}: ${errText}`);
+    }
+
+    const result = await response.json();
+    pageCount++;
+    const pageData = result?.data || [];
+    totalSoFar += pageData.length;
+    yield { tasks: pageData, totalSoFar, pageCount };
+    offset = result?.next_page?.offset;
+  } while (offset);
 }
 
 export function extractCustomFieldValue(task: any, fieldName: string): string | null {
@@ -627,6 +658,6 @@ export function mapAsanaTaskToProject(task: any) {
     installTeamStage: extractCustomFieldValue(task, 'install team stage'),
     propertySector: extractCustomFieldValue(task, 'property sector'),
     projectCreatedDate: task.created_at ? task.created_at.split('T')[0] : null,
-    asanaCustomFields: task.custom_fields || [],
+    asanaCustomFields: (task.custom_fields || []).map((f: any) => ({ gid: f.gid, name: f.name, enum_value: f.enum_value })),
   };
 }

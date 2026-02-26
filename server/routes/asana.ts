@@ -3,7 +3,7 @@ import { storage } from "../storage";
 import {
   fetchAsanaWorkspaces,
   fetchAsanaProjects,
-  fetchAsanaTasksFromProject,
+  fetchAsanaTasksPaginated,
   mapAsanaTaskToProject,
   updateAsanaTaskField,
   getAsanaEnumOptions,
@@ -24,11 +24,15 @@ import { DEFAULT_DEADLINES_WEEKS, DEFAULT_STAGE_GAPS, PROJECT_STAGES } from "@sh
 export const asanaRouter = Router();
 
 async function syncProjectFromAsana(projectGid: string) {
-  const tasks = await fetchAsanaTasksFromProject(projectGid);
-  const synced = [];
+  let syncedCount = 0;
+  const syncedGids = new Set<string>();
 
-  for (const task of tasks) {
-    if (!task.name || task.name.trim() === '') continue;
+  for await (const page of fetchAsanaTasksPaginated(projectGid)) {
+    console.log(`[Sync] Processing page ${page.pageCount} (${page.tasks.length} tasks, ${page.totalSoFar} total)`);
+    for (const task of page.tasks) {
+    if (!task.name || task.name.trim() === '') {
+      continue;
+    }
     const mapped: Record<string, unknown> = mapAsanaTaskToProject(task);
 
     if (mapped.projectCreatedDate) {
@@ -190,10 +194,13 @@ async function syncProjectFromAsana(projectGid: string) {
       }
     }
 
-    synced.push(project);
+    if (task.gid) syncedGids.add(task.gid as string);
+    syncedCount++;
+    }
   }
 
-  const syncedGids = new Set(tasks.map((t: Record<string, unknown>) => t.gid as string));
+  console.log(`[Sync] ${syncedCount} tasks processed total`);
+
   const allLocal = await storage.getProjects();
   let removedCount = 0;
   for (const local of allLocal) {
@@ -207,7 +214,7 @@ async function syncProjectFromAsana(projectGid: string) {
     console.log(`[Sync Cleanup] Removed ${removedCount} projects deleted from Asana`);
   }
 
-  return synced;
+  return syncedCount;
 }
 
 let cachedProjectGid: string | null = null;
@@ -253,10 +260,10 @@ asanaRouter.get("/projects/:workspaceGid", async (req, res) => {
 asanaRouter.post("/sync-all", async (_req, res) => {
   try {
     const projectGid = await findProjectManageTeamGid();
-    const synced = await syncProjectFromAsana(projectGid);
+    const syncedCount = await syncProjectFromAsana(projectGid);
     lastSyncTime = new Date().toISOString();
-    console.log(`[Auto-Sync] Synced ${synced.length} projects at ${lastSyncTime}`);
-    res.json({ synced: synced.length, lastSyncTime, projectGid });
+    console.log(`[Auto-Sync] Synced ${syncedCount} projects at ${lastSyncTime}`);
+    res.json({ synced: syncedCount, lastSyncTime, projectGid });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Sync error:", error);
@@ -270,9 +277,9 @@ asanaRouter.get("/sync-status", async (_req, res) => {
 
 asanaRouter.post("/sync/:projectGid", async (req, res) => {
   try {
-    const synced = await syncProjectFromAsana(req.params.projectGid);
+    const syncedCount = await syncProjectFromAsana(req.params.projectGid);
     lastSyncTime = new Date().toISOString();
-    res.json({ synced: synced.length, projects: synced });
+    res.json({ synced: syncedCount });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Sync error:", error);
@@ -299,10 +306,12 @@ const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
 async function runAutoSync() {
   try {
+    if (global.gc) global.gc();
     const projectGid = await findProjectManageTeamGid();
-    const synced = await syncProjectFromAsana(projectGid);
+    const syncedCount = await syncProjectFromAsana(projectGid);
     lastSyncTime = new Date().toISOString();
-    console.log(`[Auto-Sync] Synced ${synced.length} projects at ${lastSyncTime}`);
+    console.log(`[Auto-Sync] Synced ${syncedCount} projects at ${lastSyncTime}`);
+    if (global.gc) global.gc();
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[Auto-Sync] Error:", msg);
@@ -352,10 +361,12 @@ async function setupWebhookOnStart() {
 
 export function startAutoSync() {
   setTimeout(async () => {
-    await runAutoSync();
     setupWebhookOnStart();
-    setInterval(runAutoSync, AUTO_SYNC_INTERVAL_MS);
   }, 10000);
+  setTimeout(async () => {
+    await runAutoSync();
+    setInterval(runAutoSync, AUTO_SYNC_INTERVAL_MS);
+  }, 60000);
 }
 
 export const hrspRouter = Router();

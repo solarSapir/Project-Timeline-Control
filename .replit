@@ -6,6 +6,10 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 channel = "stable-24_05"
 
 [[ports]]
+localPort = 3333
+externalPort = 3000
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
@@ -38,6 +42,9 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0"]
