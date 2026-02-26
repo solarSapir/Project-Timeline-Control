@@ -7,6 +7,27 @@ import { fetchSubtasksForTask, fetchTaskAttachments } from "../asana";
 
 export const filesRouter = Router();
 
+filesRouter.get("/contract-file-counts", async (req, res) => {
+  try {
+    const { db } = await import("../db");
+    const { sql } = await import("drizzle-orm");
+    const rows = await db.execute(sql`
+      SELECT project_id, COUNT(*) as file_count
+      FROM project_files
+      WHERE category = 'contract' AND file_data IS NOT NULL
+      GROUP BY project_id
+    `);
+    const counts: Record<string, number> = {};
+    for (const row of rows.rows) {
+      counts[row.project_id as string] = Number(row.file_count);
+    }
+    res.json(counts);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 filesRouter.get("/:id/files", async (req, res) => {
   try {
     const projectId = req.params.id as string;
