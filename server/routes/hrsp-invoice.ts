@@ -301,6 +301,7 @@ function createUploadHandler(_endpoint: string, fieldName: string, asanaPrefix: 
   }];
 }
 
+hrspInvoiceRouter.post("/:id/hrsp-invoice-upload", ...createUploadHandler("hrsp-invoice-upload", "invoice", "HRSP INVOICE", "hrspInvoiceUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-paid-invoice-upload", ...createUploadHandler("hrsp-paid-invoice-upload", "paidInvoice", "HRSP PAID INVOICE", "hrspPaidInvoiceUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-auth-doc", ...createUploadHandler("hrsp-auth-doc", "authDoc", "HRSP AUTH", "hrspAuthDocUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-power-doc", ...createUploadHandler("hrsp-power-doc", "powerDoc", "HRSP POWER CONSUMPTION", "hrspPowerConsumptionUrl"));

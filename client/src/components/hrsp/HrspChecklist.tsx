@@ -108,6 +108,7 @@ function getDocStatus(key: string, project: Project): { done: boolean; label: st
 }
 
 const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: string; accept: string }> = {
+  invoice: { endpoint: "hrsp-invoice-upload", fieldName: "invoice", msg: "Invoice uploaded", accept: ".pdf,.jpg,.jpeg,.png" },
   authorization: { endpoint: "hrsp-auth-doc", fieldName: "authDoc", msg: "Participation document saved", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
   hydroBill: { endpoint: "hrsp-power-doc", fieldName: "powerDoc", msg: "Power consumption document saved", accept: ".pdf,.jpg,.jpeg,.png" },
   sld: { endpoint: "hrsp-sld", fieldName: "sldDoc", msg: "SLD document saved", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
@@ -151,6 +152,45 @@ function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
       {cfg && !grayed && (
         <>
           <UploadButton mutation={mutation} inputRef={ref} hasDoc={done} testId={`button-upload-${docKey}-${project.id}`} />
+          <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
+        </>
+      )}
+    </CheckItem>
+  );
+}
+
+function InvoiceItem({ project, done, label, fileUrl, grayed }: {
+  project: Project; done: boolean; label: string; fileUrl?: string | null; grayed?: boolean;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const cfg = UPLOAD_CONFIG.invoice;
+  const mutation = useUpload(project.id, cfg.endpoint, cfg.fieldName, cfg.msg);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) mutation.mutate(file);
+    e.target.value = "";
+  };
+
+  return (
+    <CheckItem done={done} label={label} grayed={grayed} fileUrl={fileUrl}>
+      {!grayed && (
+        <>
+          <HrspInvoiceDialog project={project} />
+          {mutation.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => ref.current?.click()}
+              data-testid={`button-upload-invoice-${project.id}`}
+            >
+              <Upload className="h-3 w-3 mr-1" />
+              {done ? "Replace" : "Upload"}
+            </Button>
+          )}
           <input ref={ref} type="file" className="hidden" onChange={handleFile} accept={cfg.accept} />
         </>
       )}
@@ -228,9 +268,14 @@ export function HrspChecklist({ project }: { project: Project }) {
 
           if (doc.key === "invoice") {
             return (
-              <CheckItem key={doc.key} done={isPostApproval || done} label={label} grayed={isPostApproval} fileUrl={fileUrl}>
-                {!isPostApproval && <HrspInvoiceDialog project={project} />}
-              </CheckItem>
+              <InvoiceItem
+                key={doc.key}
+                project={project}
+                done={isPostApproval || done}
+                label={label}
+                fileUrl={fileUrl}
+                grayed={isPostApproval}
+              />
             );
           }
 
