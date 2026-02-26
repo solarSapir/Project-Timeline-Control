@@ -143,7 +143,7 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
   }
 });
 
-uploadsRouter.post("/:id/status-note", async (req, res) => {
+uploadsRouter.post("/:id/status-note", upload.array('files', 10), async (req, res) => {
   try {
     const project = await storage.getProject(req.params.id as string);
     if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
@@ -195,6 +195,18 @@ uploadsRouter.post("/:id/status-note", async (req, res) => {
 
     console.log(`[Status-note] Posting to ${targetGid} for ${project.name} (${viewType})`);
     await postCommentToTask(targetGid, commentText);
+
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          await uploadAttachmentToTask(targetGid, file.buffer, file.originalname, file.mimetype);
+        } catch (err) {
+          console.error(`[Status-note] Failed to upload attachment ${file.originalname}:`, err);
+        }
+        await saveFileLocally(project.id, viewType || 'status', file.buffer, file.originalname, file.mimetype, completedBy, `${label}: ${statusLine}`);
+      }
+    }
 
     await storage.createTaskAction({
       projectId: project.id,
