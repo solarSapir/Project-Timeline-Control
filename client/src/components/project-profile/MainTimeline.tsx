@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Send, Loader2, Paperclip, FileText, ExternalLink, Upload, ImageIcon } from "lucide-react";
+import { MessageSquare, Send, Loader2, Paperclip, FileText, ExternalLink, Upload, ImageIcon, Activity, Zap } from "lucide-react";
 
 const ASANA_ASSET_REGEX = /https:\/\/app\.asana\.com\/app\/asana\/-\/get_asset\?asset_id=(\d+)/g;
 
@@ -74,6 +74,7 @@ interface AsanaStory {
   created_at: string;
   created_by?: { name: string };
   resource_subtype?: string;
+  type?: string;
   attachment?: {
     gid: string;
     name: string;
@@ -89,9 +90,65 @@ interface AsanaAttachment {
   download_url?: string;
 }
 
+function isComment(s: AsanaStory): boolean {
+  return s.resource_subtype === 'comment_added' || s.type === 'comment' || s.resource_subtype === 'attachment_added';
+}
+
+function isSystemEvent(s: AsanaStory): boolean {
+  return !isComment(s);
+}
+
+function StoryCard({ story }: { story: AsanaStory }) {
+  const isSystem = isSystemEvent(story);
+
+  return (
+    <div
+      className={`p-3 rounded-lg border text-sm ${isSystem ? 'bg-muted/20 border-muted' : 'bg-muted/30'}`}
+      data-testid={`main-comment-${story.gid}`}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
+          {isSystem && <Zap className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+          <span className={`font-medium text-xs ${isSystem ? 'text-muted-foreground' : ''}`}>
+            {story.created_by?.name || 'Unknown'}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+        </span>
+      </div>
+      {story.attachment ? (
+        <a
+          href={story.attachment.view_url || story.attachment.download_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 p-2.5 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
+          data-testid={`main-inline-attachment-${story.attachment.gid}`}
+        >
+          <div className="flex-shrink-0 w-9 h-9 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+            <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
+               story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
+              {' · Click to view'}
+            </p>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+        </a>
+      ) : (
+        <StoryText text={story.text} />
+      )}
+    </div>
+  );
+}
+
 export function MainTimeline({ projectId, asanaGid }: { projectId: string; asanaGid: string | null }) {
   const { toast } = useToast();
   const [commentText, setCommentText] = useState("");
+  const [activeTab, setActiveTab] = useState<'comments' | 'all'>('comments');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: stories = [], isLoading: storiesLoading, refetch: refetchStories } = useQuery<AsanaStory[]>({
@@ -141,6 +198,18 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
   if (!asanaGid) {
     return null;
   }
+
+  const visibleStories = stories.filter(s => s.text?.trim() || s.attachment);
+  const filtered = activeTab === 'comments'
+    ? visibleStories.filter(s => isComment(s))
+    : visibleStories;
+
+  const sorted = [...filtered].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const commentCount = visibleStories.filter(s => isComment(s)).length;
+  const allCount = visibleStories.length;
 
   return (
     <Card data-testid="main-timeline-card">
@@ -205,50 +274,47 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
         )}
 
         <div className="border-t pt-3">
-          <h5 className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1">
-            <MessageSquare className="h-3 w-3" /> Timeline Comments ({stories.length})
-          </h5>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex gap-0 border rounded-md overflow-hidden">
+              <button
+                onClick={() => setActiveTab('comments')}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'comments'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
+                data-testid="tab-comments"
+              >
+                <MessageSquare className="h-3 w-3" />
+                Comments ({commentCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'all'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-muted-foreground hover:bg-muted'
+                }`}
+                data-testid="tab-all-activity"
+              >
+                <Activity className="h-3 w-3" />
+                All activity ({allCount})
+              </button>
+            </div>
+          </div>
+
           {storiesLoading ? (
             <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}</div>
-          ) : stories.length > 0 ? (
+          ) : sorted.length > 0 ? (
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {stories.filter(s => s.text?.trim() || s.attachment).map((story) => (
-                <div key={story.gid} className="p-3 rounded-lg bg-muted/30 border text-sm" data-testid={`main-comment-${story.gid}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-medium text-xs">{story.created_by?.name || 'Unknown'}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
-                    </span>
-                  </div>
-                  {story.attachment ? (
-                    <a
-                      href={story.attachment.view_url || story.attachment.download_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 p-2.5 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
-                      data-testid={`main-inline-attachment-${story.attachment.gid}`}
-                    >
-                      <div className="flex-shrink-0 w-9 h-9 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
-                        <FileText className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
-                           story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
-                          {' · Click to view'}
-                        </p>
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
-                    </a>
-                  ) : (
-                    <StoryText text={story.text} />
-                  )}
-                </div>
+              {sorted.map((story) => (
+                <StoryCard key={story.gid} story={story} />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">No comments on the project timeline yet</p>
+            <p className="text-sm text-muted-foreground text-center py-4">
+              {activeTab === 'comments' ? 'No comments on the project timeline yet' : 'No activity on the project timeline yet'}
+            </p>
           )}
         </div>
       </CardContent>
