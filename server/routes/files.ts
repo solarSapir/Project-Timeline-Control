@@ -186,6 +186,123 @@ filesRouter.post("/:id/files/recover-from-asana", async (req, res) => {
   }
 });
 
+filesRouter.post("/bulk-recover-contracts", async (req, res) => {
+  try {
+    const allProjects = await storage.getProjects();
+    const installProjects = allProjects.filter(p =>
+      p.asanaGid &&
+      p.installType?.toLowerCase() === 'install' &&
+      p.installTeamStage &&
+      !['project complete'].includes(p.installTeamStage?.toLowerCase() || '')
+    );
+
+    const results: { projectId: string; name: string; recovered: number; files: string[]; error?: string }[] = [];
+    let totalRecovered = 0;
+    let skipped = 0;
+
+    for (const project of installProjects) {
+      const existingFiles = await storage.getProjectFiles(project.id, 'contract');
+      if (existingFiles.length > 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const topSubtasks = await fetchSubtasksForTask(project.asanaGid!);
+        const installTeam = topSubtasks.find((st: any) =>
+          (st.name as string)?.toLowerCase().includes('install team')
+        );
+
+        let contractAtts: any[] = [];
+        let source = '';
+
+        if (installTeam) {
+          const children = await fetchSubtasksForTask(installTeam.gid as string);
+          const clientContract = children.find((st: any) =>
+            (st.name as string)?.toLowerCase() === 'client contract'
+          );
+          if (clientContract) {
+            const atts = await fetchTaskAttachments(clientContract.gid as string);
+            if (atts && atts.length > 0) {
+              contractAtts = atts;
+              source = 'Client Contract subtask';
+            }
+          }
+        }
+
+        if (contractAtts.length === 0) {
+          const parentAtts = await fetchTaskAttachments(project.asanaGid!);
+          if (parentAtts && parentAtts.length > 0) {
+            const contractKeywords = ['contract', 'proposal', 'site plan', 'site_plan', 'siteplan'];
+            contractAtts = parentAtts.filter((att: any) => {
+              const name = (att.name || '').toLowerCase();
+              return contractKeywords.some(kw => name.includes(kw));
+            });
+            if (contractAtts.length > 0) source = 'Parent task';
+          }
+        }
+
+        if (contractAtts.length === 0) {
+          continue;
+        }
+
+        const recoveredFiles: string[] = [];
+        const seenNames = new Set<string>();
+        for (const att of contractAtts) {
+          if (!att.download_url) continue;
+          const name = att.name || 'recovered-file';
+          if (seenNames.has(name.toLowerCase())) continue;
+          seenNames.add(name.toLowerCase());
+
+          try {
+            const fileRes = await fetch(att.download_url);
+            if (!fileRes.ok) continue;
+            const buffer = Buffer.from(await fileRes.arrayBuffer());
+            const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
+            await saveFileLocally(
+              project.id, 'contract', buffer, name, mimeType,
+              'System (recovered from Asana)', `Recovered from ${source}`
+            );
+            recoveredFiles.push(name);
+          } catch (dlErr) {
+            console.error(`[Bulk Recovery] Failed to download ${name} for ${project.name}:`, dlErr instanceof Error ? dlErr.message : String(dlErr));
+          }
+        }
+
+        if (recoveredFiles.length > 0) {
+          await storage.createTaskAction({
+            projectId: project.id,
+            viewType: 'contracts',
+            actionType: 'document_upload',
+            completedBy: 'System (recovered)',
+            notes: `Recovered from Asana: ${recoveredFiles.join(', ')}`,
+            followUpDate: null,
+          });
+          totalRecovered += recoveredFiles.length;
+          results.push({ projectId: project.id, name: project.name || project.id, recovered: recoveredFiles.length, files: recoveredFiles });
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (err) {
+        results.push({ projectId: project.id, name: project.name || project.id, recovered: 0, files: [], error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    res.json({
+      message: `Bulk recovery complete. Recovered ${totalRecovered} files across ${results.length} projects. ${skipped} projects already had files.`,
+      totalRecovered,
+      projectsRecovered: results.filter(r => r.recovered > 0).length,
+      skipped,
+      checked: installProjects.length,
+      details: results,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Bulk Recovery] Error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
 filesRouter.delete("/:id/files/:fileId", async (req, res) => {
   try {
     const file = await storage.getProjectFile(req.params.fileId as string);
