@@ -90,7 +90,6 @@ filesRouter.post("/:id/files/recover-from-asana", async (req, res) => {
     }
 
     const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
-    console.log(`[Recovery] ${project.name}: found ${topSubtasks.length} top subtasks:`, topSubtasks.map((s: any) => `${s.name} (${s.gid})`));
     let targetGid: string | null = null;
 
     if (category === 'contract' || !category) {
@@ -99,31 +98,69 @@ filesRouter.post("/:id/files/recover-from-asana", async (req, res) => {
       );
       if (installTeam) {
         const children = await fetchSubtasksForTask(installTeam.gid as string);
-        console.log(`[Recovery] Install Team children:`, children.map((s: any) => `${s.name} (${s.gid})`));
         const clientContract = children.find((st: Record<string, unknown>) =>
           (st.name as string)?.toLowerCase() === 'client contract'
         );
-        if (clientContract) {
-          targetGid = clientContract.gid as string;
-          console.log(`[Recovery] Found Client Contract subtask: ${targetGid}`);
-        }
-      } else {
-        console.log(`[Recovery] No Install Team subtask found`);
+        if (clientContract) targetGid = clientContract.gid as string;
       }
     }
 
-    if (!targetGid) {
-      return res.status(404).json({ message: "Could not find the Asana subtask with attachments", subtasks: topSubtasks.map((s: any) => s.name) });
+    const gidsToCheck: { gid: string; label: string }[] = [];
+    if (targetGid) {
+      gidsToCheck.push({ gid: targetGid, label: 'Client Contract' });
+    }
+    gidsToCheck.push({ gid: project.asanaGid, label: 'Parent Task' });
+    for (const st of topSubtasks) {
+      if ((st as any).gid !== targetGid) {
+        const stName = (st as any).name || 'unknown';
+        if (stName.toLowerCase().includes('install') || stName.toLowerCase().includes('contract') || stName.toLowerCase().includes('planning')) {
+          gidsToCheck.push({ gid: (st as any).gid, label: stName });
+        }
+      }
     }
 
-    const attachments = await fetchTaskAttachments(targetGid);
-    console.log(`[Recovery] Attachments on ${targetGid}:`, attachments?.length || 0, attachments?.map((a: any) => `${a.name} (host: ${a.host})`));
-    if (!attachments || attachments.length === 0) {
-      return res.status(404).json({ message: "No attachments found on Asana subtask", subtaskGid: targetGid });
+    let allAttachments: any[] = [];
+    let foundOn = '';
+    for (const entry of gidsToCheck) {
+      try {
+        const atts = await fetchTaskAttachments(entry.gid);
+        if (atts && atts.length > 0) {
+          allAttachments = atts;
+          foundOn = entry.label;
+          break;
+        }
+      } catch (err) {
+        console.log(`[Recovery] Error checking ${entry.label}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (allAttachments.length === 0) {
+      return res.status(404).json({
+        message: "No attachments found on any Asana subtask. The files were stored locally on disk but were lost during a server restart before database persistence was added. They will need to be re-uploaded.",
+        checkedLocations: gidsToCheck.map(g => g.label),
+      });
+    }
+
+    const attachments = allAttachments;
+
+
+    const contractKeywords = ['contract', 'proposal', 'site plan', 'site_plan', 'siteplan'];
+    const filteredAttachments = foundOn === 'Client Contract'
+      ? attachments
+      : attachments.filter((att: any) => {
+          const name = (att.name || '').toLowerCase();
+          return contractKeywords.some(kw => name.includes(kw));
+        });
+
+    if (filteredAttachments.length === 0 && attachments.length > 0) {
+      return res.status(404).json({
+        message: "Found attachments on Asana but none appear to be contract documents. The contract-specific files (Contract, Proposal, Site Plan) were lost before they could be uploaded to Asana. They will need to be re-uploaded.",
+        foundAttachments: attachments.map((a: any) => a.name),
+      });
     }
 
     const recovered = [];
-    for (const att of attachments) {
+    for (const att of filteredAttachments) {
       if (!att.download_url) continue;
       try {
         const fileRes = await fetch(att.download_url);
