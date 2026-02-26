@@ -274,5 +274,60 @@ export async function registerRoutes(
     console.error("[Startup] Completions backfill from task_actions failed:", err);
   });
 
+  backfillEscalationCompletions().catch(err => {
+    console.error("[Startup] Escalation completions backfill failed:", err);
+  });
+
   return httpServer;
+}
+
+async function backfillEscalationCompletions() {
+  const tickets = await storage.getEscalationTickets();
+  const ucCompletions = await storage.getUcCompletions({});
+  const rebateCompletions = await storage.getRebateCompletions({});
+
+  const ucKeys = new Set(ucCompletions.filter(c => c.actionType === 'escalation').map(c => `${c.projectId}|${c.staffName}|${c.completedAt ? new Date(c.completedAt).toISOString().substring(0, 16) : ''}`));
+  const rebateKeys = new Set(rebateCompletions.filter(c => c.actionType === 'escalation').map(c => `${c.projectId}|${c.staffName}|${c.completedAt ? new Date(c.completedAt).toISOString().substring(0, 16) : ''}`));
+
+  let inserted = 0;
+  for (const ticket of tickets) {
+    const key = `${ticket.projectId}|${ticket.createdBy}|${ticket.createdAt ? new Date(ticket.createdAt).toISOString().substring(0, 16) : ''}`;
+    const truncatedIssue = (ticket.issue || '').length > 100 ? ticket.issue!.substring(0, 100) + '...' : (ticket.issue || '');
+
+    const completedAt = ticket.createdAt ? new Date(ticket.createdAt) : new Date();
+
+    if (ticket.viewType === 'rebates' || ticket.viewType === 'payments') {
+      if (rebateKeys.has(key)) continue;
+      await storage.createRebateCompletion({
+        projectId: ticket.projectId,
+        staffName: ticket.createdBy,
+        actionType: 'escalation',
+        fromStatus: null,
+        toStatus: null,
+        notes: `Escalation: ${truncatedIssue}`,
+        completedAt,
+      });
+      rebateKeys.add(key);
+      inserted++;
+    } else {
+      if (ucKeys.has(key)) continue;
+      await storage.createUcCompletion({
+        projectId: ticket.projectId,
+        staffName: ticket.createdBy,
+        actionType: 'escalation',
+        fromStatus: null,
+        toStatus: null,
+        notes: `Escalation (${ticket.viewType}): ${truncatedIssue}`,
+        hideDays: null,
+        completedAt,
+      });
+      ucKeys.add(key);
+      inserted++;
+    }
+  }
+  if (inserted > 0) {
+    console.log(`[Escalation Backfill] Inserted ${inserted} missing escalation completion(s)`);
+  } else {
+    console.log(`[Escalation Backfill] All ${tickets.length} escalation tickets already have completions`);
+  }
 }
