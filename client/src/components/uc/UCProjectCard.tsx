@@ -88,7 +88,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
                 {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            {isSubmitted && <FollowUpDialog project={project} />}
+            {(isSubmitted || project.ucStatus?.toLowerCase() === 'revision required') && <FollowUpDialog project={project} />}
             <EscalationDialog projectId={project.id} projectName={project.name} viewType="uc" />
             <Button
               size="sm"

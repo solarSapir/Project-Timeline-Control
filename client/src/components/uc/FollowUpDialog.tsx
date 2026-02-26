@@ -19,7 +19,8 @@ export function FollowUpDialog({ project }: { project: Project }) {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
-  if (project.ucStatus?.toLowerCase() !== 'submitted') return null;
+  const status = project.ucStatus?.toLowerCase();
+  if (status !== 'submitted' && status !== 'revision required') return null;
 
   const handleSubmit = async () => {
     if (!completedBy.trim()) {

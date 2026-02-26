@@ -122,7 +122,7 @@ export function ExpandedProjectView({ project, statusOptions, onStatusChange }: 
               </div>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
-              {isSubmitted && <FollowUpDialog project={project} />}
+              {(isSubmitted || project.ucStatus?.toLowerCase() === 'revision required') && <FollowUpDialog project={project} />}
               <Link href={`/project/${project.id}`}>
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" data-testid={`button-profile-${project.id}`}>
                   <Eye className="h-3 w-3" /> Full Profile
