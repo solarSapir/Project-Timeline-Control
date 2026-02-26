@@ -89,14 +89,35 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
         followUpDays = 5;
       }
     }
+    const newFollowUpDate = format(addDays(new Date(), followUpDays), 'yyyy-MM-dd');
     const action = await storage.createTaskAction({
       projectId: projectId,
       viewType: viewType || 'uc',
       actionType: 'follow_up',
       completedBy: completedBy || null,
       notes: notes || null,
-      followUpDate: format(addDays(new Date(), followUpDays), 'yyyy-MM-dd'),
+      followUpDate: newFollowUpDate,
     });
+
+    if (isRebate) {
+      try {
+        await storage.createRebateCompletion({
+          projectId,
+          staffName: completedBy || 'Unknown',
+          actionType: 'follow_up_push',
+          fromStatus: null,
+          toStatus: null,
+          notes: notes || null,
+          hideDays: followUpDays,
+          followUpDate: newFollowUpDate,
+        });
+        await storage.updateProject(projectId, {
+          rebateSubmittedDate: format(new Date(), 'yyyy-MM-dd'),
+        });
+      } catch (err) {
+        console.error("[Follow-up] Failed to create rebate completion:", err instanceof Error ? err.message : String(err));
+      }
+    }
 
     res.json({ success: true, action, message: `${commentPrefix} posted to Asana` });
   } catch (error: unknown) {

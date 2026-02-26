@@ -55,6 +55,8 @@ export function RebateFollowUpDialog({ project }: { project: Project }) {
 
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rebate/completions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rebate/kpi-stats'] });
       toast({ title: "Rebate follow-up posted to HRSP subtask" });
       setOpen(false);
       setActionDone("");
