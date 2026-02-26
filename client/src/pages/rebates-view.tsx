@@ -223,7 +223,8 @@ export default function PaymentsView() {
     return false;
   };
 
-  const filtered = (filter === "all" ? baseProjects : installProjects).filter((p: Project) => {
+  const useBaseList = filter === "all" || filter === "needs_attention" || filter === "hrsp_issues";
+  const filtered = (useBaseList ? baseProjects : installProjects).filter((p: Project) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "needs_attention") {
       return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
@@ -236,11 +237,11 @@ export default function PaymentsView() {
     return true;
   });
 
-  const needsAttention = installProjects.filter((p: Project) =>
+  const needsAttention = baseProjects.filter((p: Project) =>
     !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
   ).length;
 
-  const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
+  const hrspIssueCount = baseProjects.filter((p: Project) => hasHrspIssue(p)).length;
   const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p, followUpDays)).length;
   const hiddenCount = installProjects.filter((p: Project) => isRebateHidden(p, hideDays)).length;
 
