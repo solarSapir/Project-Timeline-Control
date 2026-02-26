@@ -468,33 +468,54 @@ export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
 }
 
 export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null; needsRebateFieldFix: boolean; createdAt: string | null } | null {
-  let hrsp = subtasks.find((st: any) => {
-    const name = st.name?.toLowerCase() || '';
-    return name.includes('home renovation savings program') ||
-           name.includes('home energy savings program') ||
-           name.includes('home energy saving program');
-  });
-  if (hrsp) {
-    const grantsField = hrsp.custom_fields?.find((f: any) =>
-      f.name?.toLowerCase().includes('grants status')
-    );
-    const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
-    return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: false, createdAt: hrsp.created_at || null };
+  const hrspNamePatterns = [
+    'home renovation savings program',
+    'home energy savings program',
+    'home energy saving program',
+  ];
+
+  function isHrspName(name: string): boolean {
+    const lower = name.toLowerCase();
+    return hrspNamePatterns.some(p => lower.includes(p));
   }
 
-  hrsp = subtasks.find((st: any) => {
-    const hasGrantsField = st.custom_fields?.some((f: any) =>
+  function hasGrantsField(st: any): boolean {
+    return st.custom_fields?.some((f: any) =>
+      f.name?.toLowerCase().includes('grants status')
+    ) ?? false;
+  }
+
+  function isActionItem(name: string): boolean {
+    const lower = name.toLowerCase().trim();
+    return lower.startsWith('apply to') || lower.startsWith('submit') || lower.startsWith('check if');
+  }
+
+  function getStatus(st: any): string | null {
+    const grantsField = st.custom_fields?.find((f: any) =>
       f.name?.toLowerCase().includes('grants status')
     );
-    return hasGrantsField;
-  });
-  if (!hrsp) return null;
+    return grantsField?.enum_value?.name || grantsField?.display_value || null;
+  }
 
-  const grantsField = hrsp.custom_fields?.find((f: any) =>
-    f.name?.toLowerCase().includes('grants status')
+  function buildResult(st: any, needsFix: boolean) {
+    return { gid: st.gid, name: st.name, status: getStatus(st), needsRebateFieldFix: needsFix, createdAt: st.created_at || null };
+  }
+
+  const candidates = subtasks.filter((st: any) => isHrspName(st.name || '') || hasGrantsField(st));
+  if (candidates.length === 0) return null;
+
+  const statusSubtask = candidates.find((st: any) =>
+    st.name?.toLowerCase().includes('status') && !isActionItem(st.name || '')
   );
-  const status = grantsField?.enum_value?.name || grantsField?.display_value || null;
-  return { gid: hrsp.gid, name: hrsp.name, status, needsRebateFieldFix: true, createdAt: hrsp.created_at || null };
+  if (statusSubtask) return buildResult(statusSubtask, !isHrspName(statusSubtask.name || ''));
+
+  const withGrants = candidates.find((st: any) => hasGrantsField(st) && !isActionItem(st.name || ''));
+  if (withGrants) return buildResult(withGrants, !isHrspName(withGrants.name || ''));
+
+  const nonAction = candidates.find((st: any) => !isActionItem(st.name || ''));
+  if (nonAction) return buildResult(nonAction, !isHrspName(nonAction.name || ''));
+
+  return buildResult(candidates[0], !isHrspName(candidates[0].name || ''));
 }
 
 export async function fixHrspRebateField(subtaskGid: string): Promise<boolean> {
