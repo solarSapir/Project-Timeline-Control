@@ -73,26 +73,34 @@ escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (r
     const project = await storage.getProject(projectId);
     const truncatedIssue = issue.length > 100 ? issue.substring(0, 100) + '...' : issue;
 
-    if (viewType === 'uc') {
-      await storage.createUcCompletion({
-        projectId,
-        staffName: createdBy,
-        actionType: 'escalation',
-        fromStatus: project?.ucStatus || null,
-        toStatus: null,
-        notes: `Escalation: ${truncatedIssue}`,
-        hideDays: null,
-      });
-    } else if (viewType === 'rebates') {
+    if (viewType === 'rebates' || viewType === 'payments') {
       await storage.createRebateCompletion({
         projectId,
         staffName: createdBy,
         actionType: 'escalation',
-        fromStatus: project?.hrspStatus || null,
+        fromStatus: project?.hrspStatus || project?.rebateStatus || null,
         toStatus: null,
         notes: `Escalation: ${truncatedIssue}`,
       });
+    } else {
+      await storage.createUcCompletion({
+        projectId,
+        staffName: createdBy,
+        actionType: 'escalation',
+        fromStatus: viewType === 'uc' ? (project?.ucStatus || null) : (project?.pmStatus || null),
+        toStatus: null,
+        notes: `Escalation (${viewType}): ${truncatedIssue}`,
+        hideDays: null,
+      });
     }
+
+    await storage.createTaskAction({
+      projectId,
+      viewType,
+      actionType: 'escalation',
+      completedBy: createdBy,
+      notes: `Escalation: ${truncatedIssue}`,
+    });
 
     res.json(ticket);
   } catch (error: unknown) {
