@@ -158,6 +158,16 @@ export function ContractCard({
           <EscalationDialog projectId={p.id} projectName={p.name} viewType="contracts" />
           <Button
             size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1 px-2 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+            onClick={onExpand}
+            data-testid={`button-upload-files-${p.id}`}
+          >
+            <Upload className="h-3 w-3" />
+            Upload Files
+          </Button>
+          <Button
+            size="sm"
             variant={isExpanded ? "secondary" : "ghost"}
             className="h-7 text-xs gap-1 px-2"
             onClick={onToggleExpand}
