@@ -75,6 +75,14 @@ function getCloseOffDueInfo(p: Project, dueWindowDays: number): { daysLeft: numb
   return { daysLeft, dueDate };
 }
 
+function isRebateHidden(p: Project, hideDays: number): boolean {
+  const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
+  const eligible = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.includes(s));
+  if (!eligible) return false;
+  const days = daysSince(p.rebateSubmittedDate);
+  return days !== null && days < hideDays;
+}
+
 function needsRebateFollowUp(p: Project, followUpDays: number): boolean {
   const status = (p.rebateStatus || p.hrspStatus || '').toLowerCase();
   const eligible = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'].some(s => status.includes(s));
@@ -114,6 +122,7 @@ export default function PaymentsView() {
   }, [workflowRules]);
 
   const followUpDays = ruleMap["follow_up_submitted"] ?? ruleMap["status_to_submitted"] ?? 5;
+  const hideDays = ruleMap["status_to_submitted"] ?? 7;
   const closeOffDueWindowDays = ruleMap["closeoff_due_window"] ?? 14;
 
   const rebateStatusOptions = Array.isArray(rebateOptions) ? rebateOptions.map(o => o.name) : [];
@@ -152,7 +161,9 @@ export default function PaymentsView() {
     if (filter === "not_required") return p.rebateStatus?.toLowerCase().includes('not required');
     if (filter === "hrsp_issues") return hasHrspIssue(p);
     if (filter === "needs_followup") return needsRebateFollowUp(p, followUpDays);
+    if (filter === "hidden") return isRebateHidden(p, hideDays);
     if (filter !== "all" && p.rebateStatus !== filter) return false;
+    if (filter === "all" && isRebateHidden(p, hideDays)) return false;
     return true;
   });
 
@@ -162,6 +173,7 @@ export default function PaymentsView() {
 
   const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
   const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p, followUpDays)).length;
+  const hiddenCount = installProjects.filter((p: Project) => isRebateHidden(p, hideDays)).length;
 
   const handleRebateStatus = (projectId: string, status: string) => {
     const lower = status.toLowerCase();
@@ -234,6 +246,11 @@ export default function PaymentsView() {
               {needsAttention} need attention
             </Badge>
           )}
+          {hiddenCount > 0 && (
+            <Badge variant="outline" className="border-blue-400 text-blue-700 dark:text-blue-300 cursor-pointer" onClick={() => setFilter("hidden")} data-testid="badge-hidden-count">
+              {hiddenCount} hidden ({hideDays}d wait)
+            </Badge>
+          )}
           <Badge variant="outline" data-testid="badge-project-count">{filtered.length} projects</Badge>
         </div>
       </div>
@@ -251,6 +268,7 @@ export default function PaymentsView() {
             <SelectItem value="all">All Projects</SelectItem>
             <SelectItem value="needs_attention">Needs Attention</SelectItem>
             <SelectItem value="needs_followup">Needs Follow-Up</SelectItem>
+            <SelectItem value="hidden">Hidden (Waiting {hideDays}d)</SelectItem>
             <SelectItem value="hrsp_issues">HRSP Issues (ON Load Displacement)</SelectItem>
             <SelectItem value="not_required">Not Required</SelectItem>
             {rebateStatusOptions.map(s => (

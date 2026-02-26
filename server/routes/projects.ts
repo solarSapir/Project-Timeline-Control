@@ -64,7 +64,8 @@ projectsRouter.patch("/:id", async (req, res) => {
       const rebateFollowUpStatuses = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'];
       if (rebateFollowUpStatuses.some(s => rebateLower.includes(s))) {
         const oldLower = (project.rebateStatus || '').toLowerCase();
-        if (!rebateFollowUpStatuses.some(s => oldLower.includes(s))) {
+        const isCloseOffSubmitted = rebateLower.includes('close-off') && rebateLower.includes('submitted');
+        if (!rebateFollowUpStatuses.some(s => oldLower.includes(s)) || isCloseOffSubmitted) {
           req.body.rebateSubmittedDate = new Date().toISOString();
         }
       }
