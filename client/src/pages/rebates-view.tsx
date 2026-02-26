@@ -236,25 +236,45 @@ export default function PaymentsView() {
         <h1 className="text-2xl font-semibold" data-testid="text-rebates-title">Rebates</h1>
         <div className="flex gap-2 flex-wrap">
           {hrspIssueCount > 0 && (
-            <Badge variant="destructive" data-testid="badge-hrsp-issues-count">
+            <Badge
+              variant="destructive"
+              className={`cursor-pointer ${filter === "hrsp_issues" ? "ring-2 ring-red-400" : ""}`}
+              onClick={() => setFilter(filter === "hrsp_issues" ? "all" : "hrsp_issues")}
+              data-testid="badge-hrsp-issues-count"
+            >
               <AlertCircle className="h-3 w-3 mr-1" />
               {hrspIssueCount} HRSP issue{hrspIssueCount > 1 ? 's' : ''}
             </Badge>
           )}
           {followUpCount > 0 && (
-            <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300" data-testid="badge-followup-count">
+            <Badge
+              variant="outline"
+              className={`cursor-pointer border-amber-400 text-amber-700 dark:text-amber-300 ${filter === "needs_followup" ? "bg-amber-100 dark:bg-amber-950" : ""}`}
+              onClick={() => setFilter(filter === "needs_followup" ? "all" : "needs_followup")}
+              data-testid="badge-followup-count"
+            >
               <MessageSquare className="h-3 w-3 mr-1" />
               {followUpCount} need follow-up
             </Badge>
           )}
           {needsAttention > 0 && (
-            <Badge variant="outline" data-testid="badge-needs-attention-count">
+            <Badge
+              variant="outline"
+              className={`cursor-pointer ${filter === "needs_attention" ? "bg-muted" : ""}`}
+              onClick={() => setFilter(filter === "needs_attention" ? "all" : "needs_attention")}
+              data-testid="badge-needs-attention-count"
+            >
               <AlertTriangle className="h-3 w-3 mr-1" />
               {needsAttention} need attention
             </Badge>
           )}
           {hiddenCount > 0 && (
-            <Badge variant="outline" className="border-blue-400 text-blue-700 dark:text-blue-300 cursor-pointer" onClick={() => setFilter("hidden")} data-testid="badge-hidden-count">
+            <Badge
+              variant="outline"
+              className={`cursor-pointer border-blue-400 text-blue-700 dark:text-blue-300 ${filter === "hidden" ? "bg-blue-100 dark:bg-blue-950" : ""}`}
+              onClick={() => setFilter(filter === "hidden" ? "all" : "hidden")}
+              data-testid="badge-hidden-count"
+            >
               {hiddenCount} hidden ({hideDays}d wait)
             </Badge>
           )}
