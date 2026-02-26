@@ -72,6 +72,7 @@ export const projects = pgTable("projects", {
   hrspBatteryNameplateUrl: text("hrsp_battery_nameplate_url"),
   hrspEsaCertUrl: text("hrsp_esa_cert_url"),
   hrspPaidInvoiceUrl: text("hrsp_paid_invoice_url"),
+  hrspLdcAgreementUrl: text("hrsp_ldc_agreement_url"),
   hrspInstallDate: text("hrsp_install_date"),
   asanaCustomFields: jsonb("asana_custom_fields"),
   lastSyncedAt: timestamp("last_synced_at"),
@@ -274,6 +275,7 @@ export const DEFAULT_HRSP_DOCUMENTS: HrspRequiredDocument[] = [
   { key: "batteryNameplate", label: "Battery Nameplate Photo", type: "upload", phase: "closeoff", enabled: true, description: "Photo of the battery nameplate" },
   { key: "esaCert", label: "ESA Certificate of Acceptance", type: "upload", phase: "closeoff", enabled: true, description: "Contractor's ESA certificate of acceptance" },
   { key: "paidInvoice", label: "Paid Invoice", type: "generate", phase: "closeoff", enabled: true, description: "Same quote marked as PAID with installation date" },
+  { key: "ldcAgreement", label: "LDC Agreement", type: "upload", phase: "closeoff", enabled: true, description: "Load Displacement Commitment agreement document" },
 ];
 
 const bytea = customType<{ data: Buffer }>({

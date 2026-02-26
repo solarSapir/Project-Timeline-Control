@@ -343,3 +343,4 @@ hrspInvoiceRouter.post("/:id/hrsp-panel-nameplate", ...createUploadHandler("hrsp
 hrspInvoiceRouter.post("/:id/hrsp-inverter-nameplate", ...createUploadHandler("hrsp-inverter-nameplate", "inverterNameplate", "HRSP INVERTER NAMEPLATE", "hrspInverterNameplateUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-battery-nameplate", ...createUploadHandler("hrsp-battery-nameplate", "batteryNameplate", "HRSP BATTERY NAMEPLATE", "hrspBatteryNameplateUrl"));
 hrspInvoiceRouter.post("/:id/hrsp-esa-cert", ...createUploadHandler("hrsp-esa-cert", "esaCert", "HRSP ESA CERTIFICATE", "hrspEsaCertUrl"));
+hrspInvoiceRouter.post("/:id/hrsp-ldc-agreement", ...createUploadHandler("hrsp-ldc-agreement", "ldcAgreement", "HRSP LDC AGREEMENT", "hrspLdcAgreementUrl"));

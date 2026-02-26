@@ -114,6 +114,7 @@ function getDocStatus(key: string, project: Project): { done: boolean; label: st
     batteryNameplate: { field: "hrspBatteryNameplateUrl", label: "Battery Nameplate" },
     esaCert: { field: "hrspEsaCertUrl", label: "ESA Certificate" },
     paidInvoice: { field: "hrspPaidInvoiceUrl", label: "Paid Invoice" },
+    ldcAgreement: { field: "hrspLdcAgreementUrl", label: "LDC Agreement" },
   };
 
   if (key === "hydroBill") {
@@ -142,6 +143,7 @@ const UPLOAD_CONFIG: Record<string, { endpoint: string; fieldName: string; msg: 
   batteryNameplate: { endpoint: "hrsp-battery-nameplate", fieldName: "batteryNameplate", msg: "Battery nameplate photo saved", accept: ".jpg,.jpeg,.png,.heic" },
   esaCert: { endpoint: "hrsp-esa-cert", fieldName: "esaCert", msg: "ESA certificate saved", accept: ".pdf,.jpg,.jpeg,.png" },
   paidInvoice: { endpoint: "hrsp-paid-invoice-upload", fieldName: "paidInvoice", msg: "Paid invoice uploaded", accept: ".pdf,.jpg,.jpeg,.png" },
+  ldcAgreement: { endpoint: "hrsp-ldc-agreement", fieldName: "ldcAgreement", msg: "LDC Agreement uploaded", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
 };
 
 function UploadDocItem({ docKey, project, done, label, fileUrl, grayed }: {
