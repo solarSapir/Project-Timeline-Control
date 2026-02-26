@@ -3,24 +3,27 @@ import { Badge } from "@/components/ui/badge";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, CheckCircle2, AlertTriangle, DollarSign, MessageSquare } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Search, FileText, CheckCircle2, AlertTriangle, DollarSign, MessageSquare, Maximize2 } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useTaskActions } from "@/hooks/use-task-actions";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
 import { useContractActions } from "@/hooks/use-contract-actions";
 import { areDependenciesMet, type WorkflowConfig } from "@/lib/stage-dependencies";
 import { ContractCard } from "@/components/contracts/ContractCard";
+import { ContractExpandedView } from "@/components/contracts/ContractExpandedView";
 import { WaitingDepsCard } from "@/components/contracts/WaitingDepsCard";
 import { getLastFollowUp, findAction, hasAction, filterProjects, sortByDue, computeCounts } from "@/hooks/use-contract-filters";
 import type { Project, TaskAction } from "@shared/schema";
 
-function ContractCardList({ projects, taskActions, updating, onContractSent, onContractSigned, onDepositCollected }: {
+function ContractCardList({ projects, taskActions, updating, onContractSent, onContractSigned, onDepositCollected, onFocus }: {
   projects: Project[];
   taskActions: TaskAction[] | undefined;
   updating: string | null;
   onContractSent: (p: Project, c: boolean) => void;
   onContractSigned: (p: Project, c: boolean) => void;
   onDepositCollected: (p: Project, c: boolean) => void;
+  onFocus: (p: Project) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   return (
@@ -37,6 +40,7 @@ function ContractCardList({ projects, taskActions, updating, onContractSent, onC
           updating={updating}
           isExpanded={expandedId === p.id}
           onToggleExpand={() => setExpandedId(expandedId === p.id ? null : p.id)}
+          onExpand={() => onFocus(p)}
           onContractSent={onContractSent}
           onContractSigned={onContractSigned}
           onDepositCollected={onDepositCollected}
@@ -49,6 +53,7 @@ function ContractCardList({ projects, taskActions, updating, onContractSent, onC
 export default function ContractCreationView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("needs_contract");
+  const [focusProject, setFocusProject] = useState<Project | null>(null);
   const { residentialProjects, isLoading } = useProjects();
   const { data: taskActions } = useTaskActions('contracts');
   const { data: workflowConfigs } = useWorkflowConfig();
@@ -130,8 +135,37 @@ export default function ContractCreationView() {
           onContractSent={handleContractSent}
           onContractSigned={handleContractSigned}
           onDepositCollected={handleDepositCollected}
+          onFocus={(p) => setFocusProject(p)}
         />
       )}
+
+      <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) setFocusProject(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-contract-focus">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Maximize2 className="h-5 w-5" />
+              {focusProject?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Contract focus view — project details, documents, approval status, and subtasks.
+            </DialogDescription>
+          </DialogHeader>
+          {focusProject && (
+            <ContractExpandedView
+              project={focusProject}
+              docUploaded={hasAction(taskActions, focusProject.id, 'document_upload')}
+              docUploadAction={findAction(taskActions, focusProject.id, 'document_upload')}
+              approved={hasAction(taskActions, focusProject.id, 'contract_approved')}
+              approvalAction={findAction(taskActions, focusProject.id, 'contract_approved')}
+              lastFollowUp={getLastFollowUp(taskActions, focusProject.id)}
+              updating={updating}
+              onContractSent={handleContractSent}
+              onContractSigned={handleContractSigned}
+              onDepositCollected={handleDepositCollected}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

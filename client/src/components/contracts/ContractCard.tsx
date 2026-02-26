@@ -1,14 +1,18 @@
 import type { Project, TaskAction } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
-import { CheckCircle2, Clock, FolderOpen, MessageSquare, Wallet } from "lucide-react";
+import {
+  CheckCircle2, Clock, DollarSign, FolderOpen, Maximize2,
+  MessageSquare, Send, ShieldCheck, Upload, Wallet,
+} from "lucide-react";
 import { isContractSent, isContractSigned, isDepositCollected, isPendingSignature, getInstallStageBadgeClass, getInstallStageLabel } from "@/utils/stages";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { getContractDueDate, getContractSentDate, getContractFollowUpDate } from "./contract-helpers";
 import { DueIndicator } from "@/components/uc/DueIndicator";
 import { ContractFollowUpDialog } from "./ContractFollowUpDialog";
-import { ContractActions } from "./ContractActions";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
@@ -23,6 +27,7 @@ interface ContractCardProps {
   updating: string | null;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  onExpand: () => void;
   onContractSent: (project: Project, checked: boolean) => void;
   onContractSigned: (project: Project, checked: boolean) => void;
   onDepositCollected: (project: Project, checked: boolean) => void;
@@ -30,7 +35,7 @@ interface ContractCardProps {
 
 export function ContractCard({
   project: p, lastFollowUp, docUploaded, docUploadAction, approved, approvalAction,
-  updating, isExpanded, onToggleExpand, onContractSent, onContractSigned, onDepositCollected,
+  updating, isExpanded, onToggleExpand, onExpand, onContractSent, onContractSigned, onDepositCollected,
 }: ContractCardProps) {
   const contractDueDate = getContractDueDate(p);
   const contractSentAsana = getContractSentDate(p);
@@ -53,9 +58,9 @@ export function ContractCard({
       }`}
       data-testid={`card-project-${p.id}`}
     >
-      <CardContent className="py-3 px-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
+      <CardContent className="py-3 px-4 space-y-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <Link href={`/project/${p.id}`} className="font-medium text-sm text-primary hover:underline truncate" data-testid={`text-project-name-${p.id}`}>
                 {p.name}
@@ -73,78 +78,103 @@ export function ContractCard({
                 {getInstallStageLabel(p.installTeamStage)}
               </span>
               <EscalationBadge projectId={p.id} />
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 ${
-                p.paymentMethod
-                  ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300"
-                  : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-              }`} data-testid={`badge-payment-method-${p.id}`}>
-                <Wallet className="h-3 w-3" />
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+              {p.province && <span>{p.province}</span>}
+              {p.province && <span>·</span>}
+              <span>PM: {p.pmStatus || '—'}</span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-0.5">
+                <Wallet className="h-2.5 w-2.5" />
                 {p.paymentMethod || "No payment method"}
               </span>
+              {contractDueDate && !completed && (
+                <>
+                  <span>·</span>
+                  <DueIndicator dueDate={contractDueDate} completed={completed} />
+                </>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-              {p.province && <span>{p.province}</span>}
-              {p.province && p.pmStatus && <span>·</span>}
-              {p.pmStatus && <span>PM: {p.pmStatus}</span>}
-              {(p.province || p.pmStatus) && p.ucTeam && <span>·</span>}
-              {p.ucTeam && <span>UC Team: {p.ucTeam}</span>}
-              {(p.province || p.pmStatus || p.ucTeam) && contractDueDate && !completed && <span>·</span>}
-              <DueIndicator dueDate={contractDueDate} completed={completed} />
-            </div>
-
-            <div className="flex items-center gap-2 mt-1 text-[11px] flex-wrap">
-              {contractSentAsana && (
-                <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-300 font-medium" data-testid={`badge-contract-sent-${p.id}`}>
-                  <CheckCircle2 className="h-3 w-3" />
-                  Sent {formatShortDate(contractSentAsana)}
-                </span>
-              )}
-              {followUpAsana && (
-                <span className="inline-flex items-center gap-1 text-muted-foreground" data-testid={`badge-follow-up-${p.id}`}>
-                  <Clock className="h-3 w-3" />
-                  Asana follow-up {formatShortDate(followUpAsana)}
-                </span>
-              )}
-              {lastFollowUp && (
-                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400" data-testid={`badge-last-followup-${p.id}`}>
-                  <MessageSquare className="h-3 w-3" />
-                  Last follow-up: {new Date(lastFollowUp.completedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  {lastFollowUp.completedBy && ` by ${lastFollowUp.completedBy}`}
-                </span>
-              )}
-              <ContractFollowUpDialog project={p} lastFollowUp={lastFollowUp} />
-            </div>
+            {(contractSentAsana || followUpAsana || lastFollowUp) && (
+              <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                {contractSentAsana && (
+                  <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-300 font-medium" data-testid={`badge-contract-sent-${p.id}`}>
+                    <CheckCircle2 className="h-3 w-3" />
+                    Sent {formatShortDate(contractSentAsana)}
+                  </span>
+                )}
+                {followUpAsana && (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground" data-testid={`badge-follow-up-${p.id}`}>
+                    <Clock className="h-3 w-3" />
+                    Asana follow-up {formatShortDate(followUpAsana)}
+                  </span>
+                )}
+                {lastFollowUp && (
+                  <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400" data-testid={`badge-last-followup-${p.id}`}>
+                    <MessageSquare className="h-3 w-3" />
+                    Follow-up {new Date(lastFollowUp.completedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {lastFollowUp.completedBy && ` by ${lastFollowUp.completedBy}`}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <EscalationDialog projectId={p.id} projectName={p.name} viewType="contracts" />
-            <Button
-              size="sm"
-              variant={isExpanded ? "secondary" : "ghost"}
-              className="h-7 text-xs gap-1 px-2"
-              onClick={onToggleExpand}
-              data-testid={`button-subtasks-${p.id}`}
-            >
-              <FolderOpen className="h-3 w-3" />
-              Subtasks
-            </Button>
-            <ContractActions
-              project={p}
-              docUploaded={docUploaded}
-              docUploadAction={docUploadAction}
-              approved={approved}
-              approvalAction={approvalAction}
-              updating={updating}
-              onContractSent={onContractSent}
-              onContractSigned={onContractSigned}
-              onDepositCollected={onDepositCollected}
-            />
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            {docUploaded && (
+              <Badge className={`text-[10px] ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`} data-testid={`badge-doc-status-${p.id}`}>
+                {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Docs Approved</>) : (<><Clock className="h-3 w-3 mr-1" /> Pending Review</>)}
+              </Badge>
+            )}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
+                <Checkbox id={`sent-${p.id}`} checked={sent} disabled={sent || updating === p.id + '-sent'} onCheckedChange={(checked) => onContractSent(p, !!checked)} className="h-3.5 w-3.5" data-testid={`checkbox-contract-sent-${p.id}`} />
+                <label htmlFor={`sent-${p.id}`} className={`text-[10px] cursor-pointer ${sent ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>Sent</label>
+                {sent && <Send className="h-3 w-3 text-green-600" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <Checkbox id={`signed-${p.id}`} checked={signed} disabled={!sent || signed || updating === p.id + '-contract'} onCheckedChange={(checked) => onContractSigned(p, !!checked)} className="h-3.5 w-3.5" data-testid={`checkbox-contract-signed-${p.id}`} />
+                <label htmlFor={`signed-${p.id}`} className={`text-[10px] cursor-pointer ${signed ? 'text-green-700 dark:text-green-400' : !sent ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>Signed</label>
+                {signed && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+              </div>
+              <div className="flex items-center gap-1">
+                <Checkbox id={`deposit-${p.id}`} checked={depositDone} disabled={!signed || updating === p.id + '-deposit'} onCheckedChange={(checked) => onDepositCollected(p, !!checked)} className="h-3.5 w-3.5" data-testid={`checkbox-deposit-collected-${p.id}`} />
+                <label htmlFor={`deposit-${p.id}`} className={`text-[10px] cursor-pointer ${depositDone ? 'text-green-700 dark:text-green-400' : !signed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>Deposit</label>
+                {depositDone && <DollarSign className="h-3 w-3 text-green-600" />}
+              </div>
+            </div>
           </div>
         </div>
 
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <ContractFollowUpDialog project={p} lastFollowUp={lastFollowUp} />
+          <EscalationDialog projectId={p.id} projectName={p.name} viewType="contracts" />
+          <Button
+            size="sm"
+            variant={isExpanded ? "secondary" : "ghost"}
+            className="h-7 text-xs gap-1 px-2"
+            onClick={onToggleExpand}
+            data-testid={`button-subtasks-${p.id}`}
+          >
+            <FolderOpen className="h-3 w-3" />
+            Subtasks
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1 px-2"
+            onClick={onExpand}
+            data-testid={`button-expand-${p.id}`}
+          >
+            <Maximize2 className="h-3 w-3" />
+            Focus
+          </Button>
+        </div>
+
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t">
+          <div className="pt-3 border-t">
             <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Contract Creation" label="Contract Subtask" />
           </div>
         )}
