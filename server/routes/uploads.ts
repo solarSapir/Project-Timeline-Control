@@ -117,6 +117,21 @@ uploadsRouter.post("/:id/follow-up", upload.single('screenshot'), async (req, re
       } catch (err) {
         console.error("[Follow-up] Failed to create rebate completion:", err instanceof Error ? err.message : String(err));
       }
+    } else {
+      try {
+        await storage.createUcCompletion({
+          projectId,
+          staffName: completedBy || 'Unknown',
+          actionType: 'follow_up',
+          fromStatus: null,
+          toStatus: null,
+          notes: notes || null,
+          hideDays: followUpDays,
+          followUpDate: newFollowUpDate,
+        });
+      } catch (err) {
+        console.error("[Follow-up] Failed to create UC completion:", err instanceof Error ? err.message : String(err));
+      }
     }
 
     res.json({ success: true, action, message: `${commentPrefix} posted to Asana` });
@@ -188,6 +203,30 @@ uploadsRouter.post("/:id/status-note", async (req, res) => {
       notes: notes || null,
       followUpDate: null,
     });
+
+    try {
+      if (viewType === "payments") {
+        await storage.createRebateCompletion({
+          projectId: project.id,
+          staffName: completedBy || "Unknown",
+          actionType: "status_change",
+          fromStatus: fromStatus || null,
+          toStatus: toStatus || null,
+          notes: notes || null,
+        });
+      } else {
+        await storage.createUcCompletion({
+          projectId: project.id,
+          staffName: completedBy || "Unknown",
+          actionType: "status_change",
+          fromStatus: fromStatus || null,
+          toStatus: toStatus || null,
+          notes: notes || null,
+        });
+      }
+    } catch (err) {
+      console.error("[Status-note] Failed to create completion entry:", err instanceof Error ? err.message : String(err));
+    }
 
     res.json({ success: true, message: `${label} posted to Asana` });
   } catch (error: unknown) {
