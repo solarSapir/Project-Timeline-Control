@@ -223,8 +223,7 @@ export default function PaymentsView() {
     return false;
   };
 
-  const useBaseList = filter === "all" || filter === "needs_attention" || filter === "hrsp_issues";
-  const filtered = (useBaseList ? baseProjects : installProjects).filter((p: Project) => {
+  const filtered = (filter === "all" ? baseProjects : installProjects).filter((p: Project) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "needs_attention") {
       return !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check');
@@ -237,11 +236,11 @@ export default function PaymentsView() {
     return true;
   });
 
-  const needsAttention = baseProjects.filter((p: Project) =>
+  const needsAttention = installProjects.filter((p: Project) =>
     !p.rebateStatus || p.rebateStatus.toLowerCase().includes('new') || p.rebateStatus.toLowerCase().includes('check')
   ).length;
 
-  const hrspIssueCount = baseProjects.filter((p: Project) => hasHrspIssue(p)).length;
+  const hrspIssueCount = installProjects.filter((p: Project) => hasHrspIssue(p)).length;
   const followUpCount = installProjects.filter((p: Project) => needsRebateFollowUp(p, followUpDays)).length;
   const hiddenCount = installProjects.filter((p: Project) => isRebateHidden(p, hideDays)).length;
 
@@ -345,27 +344,38 @@ export default function PaymentsView() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-rebates" />
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-rebates" />
+          </div>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-full sm:w-[260px]" data-testid="select-rebates-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="needs_attention">Needs Attention</SelectItem>
+              <SelectItem value="needs_followup">Needs Follow-Up</SelectItem>
+              <SelectItem value="hidden">Hidden (Waiting {hideDays}d)</SelectItem>
+              <SelectItem value="hrsp_issues">Overdue Tasks</SelectItem>
+              <SelectItem value="not_required">Not Required</SelectItem>
+              {rebateStatusOptions.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-full sm:w-[260px]" data-testid="select-rebates-filter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            <SelectItem value="needs_attention">Needs Attention</SelectItem>
-            <SelectItem value="needs_followup">Needs Follow-Up</SelectItem>
-            <SelectItem value="hidden">Hidden (Waiting {hideDays}d)</SelectItem>
-            <SelectItem value="hrsp_issues">Overdue Tasks</SelectItem>
-            <SelectItem value="not_required">Not Required</SelectItem>
-            {rebateStatusOptions.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <p className="text-[11px] text-muted-foreground px-1" data-testid="text-filter-description">
+          {filter === "all" && "Showing all rebate-eligible projects (Install, Residential, Load Displacement ON) including paused, lost, and completed."}
+          {filter === "needs_attention" && "Showing active projects with no rebate status, or status containing \"New\" or \"Check\". Excludes Complete, Paused, and Lost PM statuses."}
+          {filter === "needs_followup" && `Showing projects submitted ${followUpDays}+ days ago that haven't been updated. Excludes Complete, Paused, and Lost.`}
+          {filter === "hidden" && `Showing projects hidden for ${hideDays} days after status was set to Submitted. Excludes Complete, Paused, and Lost.`}
+          {filter === "hrsp_issues" && "Showing active projects with missing HRSP subtask or overdue HRSP due date. Excludes Complete, Paused, and Lost."}
+          {filter === "not_required" && "Showing projects where rebate status is \"Not Required\". Excludes Complete, Paused, and Lost."}
+          {!["all", "needs_attention", "needs_followup", "hidden", "hrsp_issues", "not_required"].includes(filter) && `Showing projects with rebate status "${filter}". Excludes Complete, Paused, and Lost.`}
+        </p>
       </div>
 
       {filtered.length === 0 ? (
