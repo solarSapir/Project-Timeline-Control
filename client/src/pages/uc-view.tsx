@@ -69,6 +69,15 @@ export default function UCView() {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === "escalated") return openEscalations.has(p.id);
     if (filter === "hidden") return isHiddenByWorkflow(p.id);
+    if (filter === "overdue") {
+      if (isUcComplete(p.ucStatus)) return false;
+      return (getDaysUntilDue(p.ucDueDate) ?? 1) < 0;
+    }
+    if (filter === "needs_followup") {
+      if (p.ucStatus?.toLowerCase() !== 'submitted') return false;
+      const days = daysSince(p.ucSubmittedDate);
+      return days !== null && days >= 7;
+    }
     if (filter !== "all" && filter !== "escalated" && filter !== "hidden") {
       if (isHiddenByEscalation(p.id) || isHiddenByWorkflow(p.id)) return false;
     }
@@ -132,15 +141,72 @@ export default function UCView() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-semibold" data-testid="text-uc-title">UC Applications</h1>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {overdueCount > 0 && <span className="text-red-600 dark:text-red-400 font-medium">{overdueCount} overdue</span>}
-          {needsFollowUpCount > 0 && <span className="text-amber-600 dark:text-amber-400 font-medium">{needsFollowUpCount} need follow-up</span>}
-          {hiddenCount > 0 && <span className="text-purple-600 dark:text-purple-400 font-medium">{hiddenCount} hidden</span>}
-          <span>{totalNeedAction} active</span>
-          <span className="text-muted-foreground/60">|</span>
-          <span>{totalSubmitted} submitted</span>
-          <span className="text-muted-foreground/60">|</span>
-          <span>{totalCompleted} complete</span>
+        <div className="flex items-center gap-1 text-xs">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "all" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+            data-testid="filter-tab-all"
+          >
+            {installProjects.length} total
+          </button>
+          {overdueCount > 0 && (
+            <button
+              onClick={() => setFilter("overdue")}
+              className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "overdue" ? "bg-red-600 text-white" : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"}`}
+              data-testid="filter-tab-overdue"
+            >
+              {overdueCount} overdue
+            </button>
+          )}
+          {needsFollowUpCount > 0 && (
+            <button
+              onClick={() => setFilter("needs_followup")}
+              className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "needs_followup" ? "bg-amber-600 text-white" : "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"}`}
+              data-testid="filter-tab-needs-followup"
+            >
+              {needsFollowUpCount} need follow-up
+            </button>
+          )}
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setFilter("hidden")}
+              className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "hidden" ? "bg-purple-600 text-white" : "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950"}`}
+              data-testid="filter-tab-hidden"
+            >
+              {hiddenCount} hidden
+            </button>
+          )}
+          {escalatedCount > 0 && (
+            <button
+              onClick={() => setFilter("escalated")}
+              className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "escalated" ? "bg-amber-600 text-white" : "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"}`}
+              data-testid="filter-tab-escalated"
+            >
+              {escalatedCount} escalated
+            </button>
+          )}
+          <span className="text-muted-foreground/40 mx-0.5">|</span>
+          <button
+            onClick={() => setFilter("needs_action")}
+            className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "needs_action" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+            data-testid="filter-tab-active"
+          >
+            {totalNeedAction} active
+          </button>
+          <button
+            onClick={() => setFilter("submitted")}
+            className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "submitted" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+            data-testid="filter-tab-submitted"
+          >
+            {totalSubmitted} submitted
+          </button>
+          <button
+            onClick={() => setFilter("completed")}
+            className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "completed" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+            data-testid="filter-tab-complete"
+          >
+            {totalCompleted} complete
+          </button>
         </div>
       </div>
 
@@ -155,11 +221,13 @@ export default function UCView() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="needs_action">Needs Action ({totalNeedAction})</SelectItem>
+            {overdueCount > 0 && <SelectItem value="overdue">Overdue ({overdueCount})</SelectItem>}
+            {needsFollowUpCount > 0 && <SelectItem value="needs_followup">Need Follow-up ({needsFollowUpCount})</SelectItem>}
             <SelectItem value="submitted">Submitted ({totalSubmitted})</SelectItem>
             {escalatedCount > 0 && <SelectItem value="escalated">Escalated ({escalatedCount})</SelectItem>}
             {hiddenCount > 0 && <SelectItem value="hidden">Hidden ({hiddenCount})</SelectItem>}
             <SelectItem value="completed">Completed ({totalCompleted})</SelectItem>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All ({installProjects.length})</SelectItem>
             {statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -234,6 +302,8 @@ export default function UCView() {
             : filter === "submitted" ? <><Clock className="h-3.5 w-3.5" /> Submitted ({sortedFiltered.length})</>
             : filter === "escalated" ? <><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Escalated ({sortedFiltered.length})</>
             : filter === "hidden" ? <><EyeOff className="h-3.5 w-3.5 text-purple-500" /> Hidden ({sortedFiltered.length})</>
+            : filter === "overdue" ? <><AlertTriangle className="h-3.5 w-3.5 text-red-500" /> Overdue ({sortedFiltered.length})</>
+            : filter === "needs_followup" ? <><Clock className="h-3.5 w-3.5 text-amber-500" /> Need Follow-up ({sortedFiltered.length})</>
             : filter === "needs_action" ? <><AlertTriangle className="h-3.5 w-3.5" /> Action Required ({sortedFiltered.length})</>
             : <>All ({sortedFiltered.length})</>}
           </p>
