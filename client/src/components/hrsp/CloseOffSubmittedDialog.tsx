@@ -38,6 +38,8 @@ export function CloseOffSubmittedDialog({ open, onOpenChange, projectId, project
       formData.append("category", "rebates");
       formData.append("notes", "Close-off submission screenshot");
       formData.append("uploadedBy", staffName.trim());
+      formData.append("uploadToAsana", "true");
+      formData.append("asanaLabel", "CLOSE-OFF SUBMISSION");
       await fetch(`/api/projects/${projectId}/files`, { method: "POST", body: formData });
 
       await apiRequest("POST", "/api/rebate/complete-action", {
@@ -98,7 +100,7 @@ export function CloseOffSubmittedDialog({ open, onOpenChange, projectId, project
           <Button
             className="w-full"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !staffName.trim() || !screenshot}
             data-testid="button-submit-closeoff-submitted"
           >
             {submitting ? "Uploading..." : "Upload Screenshot & Change Status"}

@@ -48,10 +48,10 @@ filesRouter.get("/:id/files/:fileId/download", async (req, res) => {
   }
 });
 
-filesRouter.post("/:id/files", upload.array('files', 20), async (req, res) => {
+filesRouter.post("/:id/files", upload.any(), async (req, res) => {
   try {
     const projectId = req.params.id as string;
-    const { category, uploadedBy, notes } = req.body;
+    const { category, uploadedBy, notes, uploadToAsana, asanaLabel } = req.body;
 
     if (!category || !(FILE_CATEGORIES as readonly string[]).includes(category)) {
       return res.status(400).json({ message: `Invalid category. Must be one of: ${FILE_CATEGORIES.join(', ')}` });
@@ -64,10 +64,36 @@ filesRouter.post("/:id/files", upload.array('files', 20), async (req, res) => {
 
     const results = [];
     for (const file of files) {
+      const label = asanaLabel ? `${asanaLabel} - ${file.originalname}` : file.originalname;
       const record = await saveFileLocally(
-        projectId, category, file.buffer, file.originalname, file.mimetype, uploadedBy, notes
+        projectId, category, file.buffer, label, file.mimetype, uploadedBy, notes
       );
       results.push(record);
+    }
+
+    if (uploadToAsana === 'true') {
+      try {
+        const project = await storage.getProject(projectId);
+        if (project?.hrspSubtaskGid) {
+          const { uploadAttachmentToTask, postCommentToTask } = await import("../asana");
+          for (const file of files) {
+            const label = asanaLabel ? `${asanaLabel} - ${file.originalname}` : file.originalname;
+            await uploadAttachmentToTask(project.hrspSubtaskGid, file.buffer, label, file.mimetype);
+          }
+          const commentText = `${asanaLabel || 'Document'} uploaded by ${uploadedBy || 'Team'}:\n${files.map(f => `- ${f.originalname}`).join('\n')}`;
+          await postCommentToTask(project.hrspSubtaskGid, commentText);
+        } else if (project?.asanaGid) {
+          const { uploadAttachmentToTask, postCommentToTask } = await import("../asana");
+          for (const file of files) {
+            const label = asanaLabel ? `${asanaLabel} - ${file.originalname}` : file.originalname;
+            await uploadAttachmentToTask(project.asanaGid, file.buffer, label, file.mimetype);
+          }
+          const commentText = `${asanaLabel || 'Document'} uploaded by ${uploadedBy || 'Team'}:\n${files.map(f => `- ${f.originalname}`).join('\n')}`;
+          await postCommentToTask(project.asanaGid, commentText);
+        }
+      } catch (asanaErr) {
+        console.error("[File Upload] Asana upload error (non-blocking):", asanaErr instanceof Error ? asanaErr.message : String(asanaErr));
+      }
     }
 
     res.json({ files: results, message: `${results.length} file(s) uploaded` });
