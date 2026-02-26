@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, MessageSquare, CheckCircle2, Loader2, Paperclip } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EscalationTicket } from "@shared/schema";
+import { EscalationIssueDisplay } from "./EscalationIssueDisplay";
 
 interface Props {
   ticketId: string;
@@ -101,9 +102,7 @@ export function EscalationInlineCard({ ticketId }: Props) {
               by {ticket.createdBy} · {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
             </span>
           </div>
-          <div className="p-2.5 rounded bg-white dark:bg-muted text-sm mb-2">
-            {ticket.issue}
-          </div>
+          <EscalationIssueDisplay issue={ticket.issue} projectId={ticket.projectId} ticketId={ticket.id} />
           {(ticket.status === "responded" || ticket.status === "resolved") && ticket.managerResponse && (
             <div className="p-2.5 rounded bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 mb-2">
               <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { addHours } from "date-fns";
+import { upload } from "../middleware/upload";
+import { saveFileLocally } from "../utils/file-storage";
 
 export const escalationRouter = Router();
 
@@ -32,7 +34,7 @@ escalationRouter.get("/escalation-tickets/:id", async (req, res) => {
   }
 });
 
-escalationRouter.post("/escalation-tickets", async (req, res) => {
+escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (req, res) => {
   try {
     const { projectId, viewType, createdBy, issue } = req.body;
     if (!projectId || !viewType || !createdBy || !issue) {
@@ -48,8 +50,27 @@ escalationRouter.post("/escalation-tickets", async (req, res) => {
       hideUntil,
     });
 
+    const uploadedFiles = (req as any).files as Express.Multer.File[] | undefined;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        try {
+          await saveFileLocally(
+            projectId,
+            'escalation',
+            file.buffer,
+            `ESCALATION-${ticket.id} - ${file.originalname}`,
+            file.mimetype,
+            createdBy,
+            `Escalation ticket attachment (${ticket.id})`
+          );
+        } catch (err) {
+          console.error(`[Escalation] Failed to save file ${file.originalname}:`, err instanceof Error ? err.message : String(err));
+        }
+      }
+      console.log(`[Escalation] Saved ${uploadedFiles.length} attachment(s) for ticket ${ticket.id}`);
+    }
+
     const project = await storage.getProject(projectId);
-    const projectName = project?.name || 'Unknown Project';
     const truncatedIssue = issue.length > 100 ? issue.substring(0, 100) + '...' : issue;
 
     if (viewType === 'uc') {

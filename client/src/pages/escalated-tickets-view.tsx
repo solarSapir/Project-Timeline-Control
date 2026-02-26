@@ -19,6 +19,7 @@ import { EscalationInlineCard } from "@/components/shared/EscalationInlineCard";
 import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
 import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import { InstallTeamSubtaskPanel, AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
+import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
 
 function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
   const [respondOpen, setRespondOpen] = useState(false);
@@ -111,9 +112,9 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
               Created by {ticket.createdBy} on{" "}
               {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Unknown'}
             </div>
-            <div className="mt-2 p-2.5 rounded bg-muted text-sm">
+            <div className="mt-2">
               <p className="text-xs font-medium text-muted-foreground mb-1">Issue:</p>
-              {ticket.issue}
+              <EscalationIssueDisplay issue={ticket.issue} projectId={ticket.projectId} ticketId={ticket.id} />
             </div>
             {ticket.status === "responded" && ticket.managerResponse && (
               <div className="mt-2 p-2.5 rounded bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
