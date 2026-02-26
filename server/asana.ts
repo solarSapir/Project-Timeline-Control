@@ -494,7 +494,13 @@ export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; s
     const grantsField = st.custom_fields?.find((f: any) =>
       f.name?.toLowerCase().includes('grants status')
     );
-    return grantsField?.enum_value?.name || grantsField?.display_value || null;
+    const fieldStatus = grantsField?.enum_value?.name || grantsField?.display_value || null;
+    if (fieldStatus) return fieldStatus;
+
+    const nameMatch = (st.name || '').match(/\[([^\]]+)\]/);
+    if (nameMatch) return nameMatch[1];
+
+    return null;
   }
 
   function buildResult(st: any, needsFix: boolean) {
