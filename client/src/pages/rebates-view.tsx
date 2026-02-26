@@ -100,7 +100,7 @@ function needsRebateFollowUp(p: Project, followUpDays: number): boolean {
 
 export default function PaymentsView() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("needs_attention");
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [closeOffSubmitProject, setCloseOffSubmitProject] = useState<Project | null>(null);
   const [statusChangeInfo, setStatusChangeInfo] = useState<{ project: Project; newStatus: string } | null>(null);
@@ -247,7 +247,7 @@ export default function PaymentsView() {
               data-testid="badge-hrsp-issues-count"
             >
               <AlertCircle className="h-3 w-3 mr-1" />
-              {hrspIssueCount} HRSP issue{hrspIssueCount > 1 ? 's' : ''}
+              {hrspIssueCount} Overdue task{hrspIssueCount > 1 ? 's' : ''}
             </Badge>
           )}
           {followUpCount > 0 && (
@@ -300,7 +300,7 @@ export default function PaymentsView() {
             <SelectItem value="needs_attention">Needs Attention</SelectItem>
             <SelectItem value="needs_followup">Needs Follow-Up</SelectItem>
             <SelectItem value="hidden">Hidden (Waiting {hideDays}d)</SelectItem>
-            <SelectItem value="hrsp_issues">HRSP Issues (ON Load Displacement)</SelectItem>
+            <SelectItem value="hrsp_issues">Overdue Tasks</SelectItem>
             <SelectItem value="not_required">Not Required</SelectItem>
             {rebateStatusOptions.map(s => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
