@@ -4,7 +4,7 @@ import { PageLoader } from "@/components/ui/logo-spinner";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Search, FileText, CheckCircle2, AlertTriangle, DollarSign, MessageSquare, Maximize2 } from "lucide-react";
+import { Search, FileText, CheckCircle2, AlertTriangle, DollarSign, MessageSquare, Maximize2, Upload } from "lucide-react";
 import { useProjects } from "@/hooks/use-projects";
 import { useTaskActions } from "@/hooks/use-task-actions";
 import { useWorkflowConfig } from "@/hooks/use-workflow-config";
@@ -37,7 +37,7 @@ function ContractCardList({ projects, taskActions, contractFileCounts, updating,
             key={p.id}
             project={p}
             lastFollowUp={getLastFollowUp(taskActions, p.id)}
-            docUploaded={hasRealFiles && hasAction(taskActions, p.id, 'document_upload')}
+            docUploaded={hasRealFiles}
             docUploadAction={hasRealFiles ? findAction(taskActions, p.id, 'document_upload') : null}
             approved={hasRealFiles && hasAction(taskActions, p.id, 'contract_approved')}
             approvalAction={hasRealFiles ? findAction(taskActions, p.id, 'contract_approved') : null}
@@ -69,8 +69,9 @@ export default function ContractCreationView() {
   const depsMetProjects = residentialProjects.filter((p) => areDependenciesMet(p, "contract_signing", configs));
   const waitingDepsProjects = residentialProjects.filter((p) => !areDependenciesMet(p, "contract_signing", configs));
 
-  const sortedFiltered = sortByDue(filterProjects(depsMetProjects, filter, search, taskActions));
-  const counts = computeCounts(depsMetProjects, taskActions);
+  const fileCounts = contractFileCounts || {};
+  const sortedFiltered = sortByDue(filterProjects(depsMetProjects, filter, search, taskActions, fileCounts));
+  const counts = computeCounts(depsMetProjects, taskActions, fileCounts);
 
   if (isLoading) {
     return <PageLoader title="Loading contracts..." />;
@@ -91,6 +92,7 @@ export default function ContractCreationView() {
           {counts.needsFollowUp > 0 && <Badge variant="destructive" data-testid="badge-needs-followup-count"><MessageSquare className="h-3 w-3 mr-1" />Needs Follow-up: {counts.needsFollowUp}</Badge>}
           {counts.followedUp > 0 && <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" data-testid="badge-followed-up-count"><CheckCircle2 className="h-3 w-3 mr-1" />Followed Up: {counts.followedUp}</Badge>}
           {counts.pendingDeposit > 0 && <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300" data-testid="badge-pending-deposit-count"><DollarSign className="h-3 w-3 mr-1" />Pending Deposit: {counts.pendingDeposit}</Badge>}
+          {counts.forReview > 0 && <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 ring-1 ring-orange-300 dark:ring-orange-700 cursor-pointer" onClick={() => setFilter("for_review")} data-testid="badge-for-review-count"><Upload className="h-3 w-3 mr-1" />For Review: {counts.forReview}</Badge>}
           {counts.overdue > 0 && <Badge variant="destructive" data-testid="badge-overdue-count"><AlertTriangle className="h-3 w-3 mr-1" />Overdue: {counts.overdue}</Badge>}
         </div>
       </div>
@@ -112,6 +114,7 @@ export default function ContractCreationView() {
           <SelectContent>
             <SelectItem value="all">All UC-Ready ({depsMetProjects.length})</SelectItem>
             <SelectItem value="needs_contract">Needs Contract ({counts.needsContract})</SelectItem>
+            <SelectItem value="for_review">For Review ({counts.forReview})</SelectItem>
             <SelectItem value="needs_followup">Needs Follow-up ({counts.needsFollowUp})</SelectItem>
             <SelectItem value="followed_up">Recently Followed Up ({counts.followedUp})</SelectItem>
             <SelectItem value="pending_signature">All Pending Signature ({counts.pendingSig})</SelectItem>
@@ -160,7 +163,7 @@ export default function ContractCreationView() {
           {focusProject && (
             <ContractExpandedView
               project={focusProject}
-              docUploaded={hasAction(taskActions, focusProject.id, 'document_upload')}
+              docUploaded={(fileCounts[focusProject.id] || 0) > 0}
               docUploadAction={findAction(taskActions, focusProject.id, 'document_upload')}
               approved={hasAction(taskActions, focusProject.id, 'contract_approved')}
               approvalAction={findAction(taskActions, focusProject.id, 'contract_approved')}

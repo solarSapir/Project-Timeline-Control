@@ -124,8 +124,8 @@ export function ContractCard({
 
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             {docUploaded && (
-              <Badge className={`text-[10px] ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`} data-testid={`badge-doc-status-${p.id}`}>
-                {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Docs Approved</>) : (<><Clock className="h-3 w-3 mr-1" /> Pending Review</>)}
+              <Badge className={`text-[10px] ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 ring-1 ring-orange-300 dark:ring-orange-700'}`} data-testid={`badge-doc-status-${p.id}`}>
+                {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> For Review</>)}
               </Badge>
             )}
             <div className="flex items-center gap-1.5">

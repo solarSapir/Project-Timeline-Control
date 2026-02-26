@@ -152,14 +152,16 @@ export function ContractExpandedView({
               <Upload className="h-4 w-4" /> Documents & Approval
             </h3>
 
-            {docUploaded && docUploadAction && (
+            {docUploaded && (
               <div className="space-y-2">
-                <Badge className={`text-xs ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`} data-testid={`badge-expanded-doc-status-${p.id}`}>
-                  {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Clock className="h-3 w-3 mr-1" /> Pending Review</>)}
+                <Badge className={`text-xs ${approved ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 ring-1 ring-orange-300 dark:ring-orange-700'}`} data-testid={`badge-expanded-doc-status-${p.id}`}>
+                  {approved ? (<><ShieldCheck className="h-3 w-3 mr-1" /> Approved</>) : (<><Upload className="h-3 w-3 mr-1" /> For Review</>)}
                 </Badge>
+                {docUploadAction && (
                 <p className="text-xs text-muted-foreground">
                   Uploaded by {docUploadAction.completedBy || 'Unknown'} on {new Date(docUploadAction.completedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </p>
+                )}
                 {approvalAction && (
                   <p className="text-xs text-green-700 dark:text-green-400 font-medium">
                     Approved by {approvalAction.completedBy || 'Manager'} on {new Date(approvalAction.completedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

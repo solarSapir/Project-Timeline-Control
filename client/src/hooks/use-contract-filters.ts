@@ -37,7 +37,7 @@ export function recentlyFollowedUp(p: Project, taskActions: TaskAction[] | undef
   return hrs !== null && hrs < 24;
 }
 
-export function filterProjects(projects: Project[], filter: string, search: string, taskActions: TaskAction[] | undefined): Project[] {
+export function filterProjects(projects: Project[], filter: string, search: string, taskActions: TaskAction[] | undefined, contractFileCounts?: Record<string, number>): Project[] {
   return projects.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     const sent = isContractSent(p.installTeamStage);
@@ -49,6 +49,11 @@ export function filterProjects(projects: Project[], filter: string, search: stri
     if (filter === "pending_signature") return isPendingSignature(p.installTeamStage);
     if (filter === "pending_deposit") return signed && !depositDone;
     if (filter === "complete") return signed && depositDone;
+    if (filter === "for_review") {
+      const hasFiles = (contractFileCounts?.[p.id] || 0) > 0;
+      const isApproved = hasAction(taskActions, p.id, 'contract_approved');
+      return hasFiles && !isApproved;
+    }
     if (filter === "overdue") {
       const daysLeft = getDaysUntilDue(getContractDueDate(p));
       return !sent && daysLeft !== null && daysLeft < 0;
@@ -70,7 +75,7 @@ export function sortByDue(projects: Project[]): Project[] {
   });
 }
 
-export function computeCounts(projects: Project[], taskActions: TaskAction[] | undefined) {
+export function computeCounts(projects: Project[], taskActions: TaskAction[] | undefined, contractFileCounts?: Record<string, number>) {
   return {
     needsContract: projects.filter((p) => !isContractSent(p.installTeamStage)).length,
     needsFollowUp: projects.filter((p) => needsFollowUpCheck(p, taskActions)).length,
@@ -82,6 +87,11 @@ export function computeCounts(projects: Project[], taskActions: TaskAction[] | u
       if (isContractSent(p.installTeamStage)) return false;
       const daysLeft = getDaysUntilDue(getContractDueDate(p));
       return daysLeft !== null && daysLeft < 0;
+    }).length,
+    forReview: projects.filter((p) => {
+      const hasFiles = (contractFileCounts?.[p.id] || 0) > 0;
+      const isApproved = hasAction(taskActions, p.id, 'contract_approved');
+      return hasFiles && !isApproved;
     }).length,
   };
 }
