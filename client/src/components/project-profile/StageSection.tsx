@@ -11,7 +11,7 @@ interface StageSectionProps {
 
 export function StageSection({ title, icon: Icon, status, children }: StageSectionProps) {
   return (
-    <Card data-testid={`section-${title.toLowerCase().replace(/[\s/]+/g, "-")}`}>
+    <Card className="overflow-hidden" data-testid={`section-${title.toLowerCase().replace(/[\s/]+/g, "-")}`}>
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-sm font-medium flex items-center gap-2">

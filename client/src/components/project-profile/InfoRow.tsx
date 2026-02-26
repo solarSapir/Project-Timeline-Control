@@ -9,9 +9,9 @@ interface InfoRowProps {
 
 export function InfoRow({ label, value, testId }: InfoRowProps) {
   return (
-    <div className="flex items-center justify-between py-1 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium" data-testid={testId}>
+    <div className="flex items-start justify-between py-1 text-sm gap-2 min-w-0">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right break-words min-w-0" data-testid={testId}>
         {value || "--"}
       </span>
     </div>

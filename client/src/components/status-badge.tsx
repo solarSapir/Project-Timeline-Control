@@ -27,7 +27,7 @@ export function StatusBadge({ status, className }: { status: string | null; clas
   if (!status) return <Badge variant="outline" className={className}>--</Badge>;
   const colorClass = statusColors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
   return (
-    <Badge variant="outline" className={`${colorClass} border-0 ${className || ''}`} data-testid={`badge-status-${status.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Badge variant="outline" className={`${colorClass} border-0 whitespace-normal text-right ${className || ''}`} data-testid={`badge-status-${status.toLowerCase().replace(/\s+/g, '-')}`}>
       {status}
     </Badge>
   );
