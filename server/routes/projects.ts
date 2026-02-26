@@ -10,6 +10,9 @@ import {
   updateSubtaskField,
   findHrspSubtask,
   fixHrspRebateField,
+  addTaskToProject,
+  findGrantsProjectGid,
+  getAccessToken,
 } from "../asana";
 
 export const projectsRouter = Router();
@@ -388,11 +391,35 @@ projectsRouter.post("/:id/hrsp-create", async (req, res) => {
     const subtaskName = "Home Renovation Savings Program (ON) - Status";
     const created = await createSubtaskForTask(project.asanaGid, subtaskName);
 
+    const grantsProjectGid = await findGrantsProjectGid();
+    if (grantsProjectGid) {
+      try {
+        await addTaskToProject(created.gid, grantsProjectGid);
+        console.log(`[HRSP Create] Added subtask ${created.gid} to Grants/Financing project`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[HRSP Create] Could not add to Grants/Financing project: ${msg}`);
+      }
+    }
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    const dueDateStr = dueDate.toISOString().split('T')[0];
+    try {
+      const token = await getAccessToken();
+      await fetch(`https://app.asana.com/api/1.0/tasks/${created.gid}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { due_on: dueDateStr } }),
+      });
+    } catch {}
+
     await storage.updateProject(project.id, {
       hrspSubtaskGid: created.gid,
       hrspMissing: false,
       hrspStatus: null,
       hrspSubtaskCreatedDate: new Date().toISOString().split('T')[0],
+      hrspDueDate: dueDateStr,
     });
 
     try { await fixHrspRebateField(created.gid); } catch {}

@@ -435,6 +435,43 @@ export async function uploadAttachmentToTask(taskGid: string, fileBuffer: Buffer
   return await res.json();
 }
 
+export async function addTaskToProject(taskGid: string, projectGid: string, sectionGid?: string): Promise<void> {
+  const accessToken = await getAccessToken();
+  const body: any = { data: { project: projectGid } };
+  if (sectionGid) body.data.section = sectionGid;
+  const res = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/addProject`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Failed to add task to project: ${res.status} ${errBody}`);
+  }
+}
+
+let cachedGrantsProjectGid: string | null = null;
+
+export async function findGrantsProjectGid(): Promise<string | null> {
+  if (cachedGrantsProjectGid) return cachedGrantsProjectGid;
+  const workspaces = await fetchAsanaWorkspaces();
+  for (const ws of workspaces) {
+    const projects = await fetchAsanaProjects(ws.gid);
+    const target = projects.find((p: any) => {
+      const name = (p.name as string).toLowerCase();
+      return name.includes('grants') && (name.includes('financing') || name.includes('rebate'));
+    });
+    if (target) {
+      cachedGrantsProjectGid = target.gid as string;
+      return cachedGrantsProjectGid;
+    }
+  }
+  return null;
+}
+
 export async function createSubtaskForTask(parentTaskGid: string, subtaskName: string): Promise<any> {
   const accessToken = await getAccessToken();
   const res = await fetch(`https://app.asana.com/api/1.0/tasks/${parentTaskGid}/subtasks`, {
