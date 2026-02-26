@@ -22,8 +22,11 @@ import { InstallTeamSubtaskPanel, AhjSubtaskPanel } from "@/components/shared/Su
 
 function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
   const [respondOpen, setRespondOpen] = useState(false);
+  const [resolveOpen, setResolveOpen] = useState(false);
   const [response, setResponse] = useState("");
   const [respondedBy, setRespondedBy] = useState("");
+  const [resolutionNote, setResolutionNote] = useState("");
+  const [resolvedBy, setResolvedBy] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const { toast } = useToast();
@@ -53,11 +56,21 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
   };
 
   const handleResolve = async () => {
+    if (!resolutionNote.trim() || !resolvedBy.trim()) {
+      toast({ title: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
     setResolving(true);
     try {
-      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/resolve`, {});
+      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/resolve`, {
+        resolutionNote: resolutionNote.trim(),
+        resolvedBy: resolvedBy.trim(),
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
       toast({ title: "Ticket resolved" });
+      setResolveOpen(false);
+      setResolutionNote("");
+      setResolvedBy("");
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to resolve";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -121,6 +134,19 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
                 <p className="text-muted-foreground">{ticket.managerResponse}</p>
               </div>
             )}
+            {ticket.status === "resolved" && ticket.resolutionNote && (
+              <div className="mt-2 p-2.5 rounded bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+                  Resolution by {ticket.resolvedBy}
+                  {ticket.resolvedAt && (
+                    <span className="font-normal ml-1">
+                      ({new Date(ticket.resolvedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })})
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">{ticket.resolutionNote}</p>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {ticket.status === "open" && (
@@ -130,8 +156,8 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
               </Button>
             )}
             {(ticket.status === "open" || ticket.status === "responded") && (
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleResolve} disabled={resolving} data-testid={`button-resolve-${ticket.id}`}>
-                {resolving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResolveOpen(true)} data-testid={`button-resolve-${ticket.id}`}>
+                <CheckCircle2 className="h-3 w-3" />
                 Resolve
               </Button>
             )}
@@ -173,6 +199,33 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
             <Button className="w-full" onClick={handleRespond} disabled={submitting} data-testid="button-submit-response">
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
               {submitting ? "Sending..." : "Send Response"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resolveOpen} onOpenChange={setResolveOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-resolve-ticket">
+          <DialogHeader>
+            <DialogTitle>Resolve Escalation Ticket</DialogTitle>
+            <DialogDescription>Describe what was done to resolve this issue before marking it as resolved.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-2.5 rounded bg-muted text-sm">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Issue from {ticket.createdBy}:</p>
+              {ticket.issue}
+            </div>
+            <div>
+              <Label htmlFor="resolvedBy">Your Name</Label>
+              <Input id="resolvedBy" value={resolvedBy} onChange={(e) => setResolvedBy(e.target.value)} placeholder="Enter your name" data-testid="input-resolved-by" />
+            </div>
+            <div>
+              <Label htmlFor="resolutionNote">Resolution Description</Label>
+              <Textarea id="resolutionNote" value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Describe what was done to resolve this issue..." rows={4} data-testid="input-resolution-note" />
+            </div>
+            <Button className="w-full" onClick={handleResolve} disabled={resolving || !resolutionNote.trim() || !resolvedBy.trim()} data-testid="button-submit-resolve">
+              {resolving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              {resolving ? "Resolving..." : "Mark as Resolved"}
             </Button>
           </div>
         </DialogContent>

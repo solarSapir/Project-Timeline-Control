@@ -102,9 +102,18 @@ escalationRouter.patch("/escalation-tickets/:id/respond", async (req, res) => {
 
 escalationRouter.patch("/escalation-tickets/:id/resolve", async (req, res) => {
   try {
+    const { resolutionNote, resolvedBy } = req.body || {};
+    if (!resolutionNote || !resolutionNote.trim()) {
+      return res.status(400).json({ message: "Resolution description is required" });
+    }
+    if (!resolvedBy || !resolvedBy.trim()) {
+      return res.status(400).json({ message: "Your name is required" });
+    }
     const ticket = await storage.updateEscalationTicket(req.params.id, {
       status: "resolved",
       resolvedAt: new Date(),
+      resolutionNote: resolutionNote.trim(),
+      resolvedBy: resolvedBy.trim(),
     });
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
     res.json(ticket);

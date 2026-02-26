@@ -332,6 +332,8 @@ export const escalationTickets = pgTable("escalation_tickets", {
   respondedBy: text("responded_by"),
   respondedAt: timestamp("responded_at"),
   resolvedAt: timestamp("resolved_at"),
+  resolutionNote: text("resolution_note"),
+  resolvedBy: text("resolved_by"),
   hideUntil: timestamp("hide_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
