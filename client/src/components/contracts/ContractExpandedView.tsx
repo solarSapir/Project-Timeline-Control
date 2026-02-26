@@ -168,26 +168,6 @@ export function ContractExpandedView({
               </div>
             )}
 
-            {contractFiles && contractFiles.length > 0 && (
-              <div className="space-y-1.5 border rounded-md p-2 bg-background">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Uploaded Files</p>
-                {contractFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={`/api/projects/${p.id}/files/${file.id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-primary hover:underline py-1 px-1.5 rounded hover:bg-muted/50 transition-colors group"
-                    data-testid={`link-contract-file-${file.id}`}
-                  >
-                    <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate flex-1">{file.fileName}</span>
-                    <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                ))}
-              </div>
-            )}
-
             <div className="space-y-2">
               <ContractDocumentsDialog project={p} hasDocUpload={docUploaded} />
               <ContractApproveDialog project={p} hasDocUpload={docUploaded} isApproved={approved} />
@@ -215,9 +195,41 @@ export function ContractExpandedView({
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
+          {contractFiles && contractFiles.length > 0 && (
+            <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Uploaded Documents ({contractFiles.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {contractFiles.map((file) => (
+                  <a
+                    key={file.id}
+                    href={`/api/projects/${p.id}/files/${file.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors group"
+                    data-testid={`link-contract-file-${file.id}`}
+                  >
+                    <div className="flex-shrink-0 h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{file.fileName}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {file.uploadedBy && `by ${file.uploadedBy}`}
+                        {file.fileSize && ` · ${(file.fileSize / 1024).toFixed(0)} KB`}
+                      </p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-muted/30 rounded-lg p-4 border">
-            <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Contract Creation" label="Contract Subtask" />
+            <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Client Contract" label="Client Contract Subtask" />
           </div>
         </div>
       </div>

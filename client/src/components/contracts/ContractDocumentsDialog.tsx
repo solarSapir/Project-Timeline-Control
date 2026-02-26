@@ -54,7 +54,7 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id, 'files', 'contract'] });
-      toast({ title: `${result.uploaded.length} document(s) uploaded`, description: 'Documents added to Asana — pending review' });
+      toast({ title: `${result.uploaded.length} document(s) uploaded`, description: 'Documents stored and synced — pending review' });
       setOpen(false);
       setUploadedBy("");
       setNotes("");
@@ -83,7 +83,7 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload the contract, proposal, and site plan for review. All files will be attached to the Asana task with clear labels. Once uploaded, the contract will be reviewed and approved before sending via DocuSign.
+            Upload the contract, proposal, and site plan for review. Files are stored locally and attached to the Client Contract subtask. Once uploaded, the contract will be reviewed and approved before sending via DocuSign.
           </p>
           <div>
             <StaffSelect
@@ -136,7 +136,7 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
             <Textarea id="docNotes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about the contract, changes made, or things to review..." data-testid="input-doc-notes" />
           </div>
           <Button className="w-full" onClick={handleSubmit} disabled={submitting} data-testid="button-submit-docs">
-            {submitting ? "Uploading to Asana..." : "Upload Documents for Review"}
+            {submitting ? "Uploading..." : "Upload Documents for Review"}
           </Button>
         </div>
       </DialogContent>

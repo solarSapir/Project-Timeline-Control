@@ -4,6 +4,7 @@ import {
   postCommentToTask,
   fetchSubtasksForTask,
   createSubtaskForTask,
+  uploadAttachmentToTask,
 } from "../asana";
 import { upload } from "../middleware/upload";
 import { addDays, format } from "date-fns";
@@ -287,7 +288,7 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
   try {
     const projectId = req.params.id as string;
     const project = await storage.getProject(projectId);
-    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+    if (!project) return res.status(404).json({ message: "Project not found" });
 
     const { uploadedBy, notes } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -309,14 +310,50 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
       results.push({ type: 'Site Plan', fileName: file.originalname });
     }
 
-    const commentParts = [`Contract documents uploaded by ${uploadedBy || 'Team'}:`];
-    for (const r of results) {
-      commentParts.push(`- ${r.type}: ${r.fileName}`);
-    }
-    if (notes) commentParts.push(`\nNotes: ${notes}`);
-    commentParts.push('\nStatus: PENDING REVIEW');
+    if (project.asanaGid) try {
+      const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
+      let installTeam = topSubtasks.find((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase().includes('install team')
+      );
+      if (!installTeam) {
+        installTeam = await createSubtaskForTask(project.asanaGid, "Install Team");
+      }
+      const children = await fetchSubtasksForTask(installTeam.gid as string);
+      let clientContract = children.find((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase() === 'client contract'
+      );
+      if (!clientContract) {
+        clientContract = await createSubtaskForTask(installTeam.gid as string, "Client Contract");
+      }
+      clientContractGid = clientContract.gid as string;
 
-    await postCommentToTask(project.asanaGid, commentParts.join('\n'));
+      const fileEntries: { buffer: Buffer; name: string; mime: string }[] = [];
+      if (files?.contract?.[0]) {
+        const f = files.contract[0];
+        fileEntries.push({ buffer: f.buffer, name: `CONTRACT - ${f.originalname}`, mime: f.mimetype });
+      }
+      if (files?.proposal?.[0]) {
+        const f = files.proposal[0];
+        fileEntries.push({ buffer: f.buffer, name: `PROPOSAL - ${f.originalname}`, mime: f.mimetype });
+      }
+      if (files?.sitePlan?.[0]) {
+        const f = files.sitePlan[0];
+        fileEntries.push({ buffer: f.buffer, name: `SITE PLAN - ${f.originalname}`, mime: f.mimetype });
+      }
+      for (const entry of fileEntries) {
+        await uploadAttachmentToTask(clientContractGid, entry.buffer, entry.name, entry.mime);
+      }
+
+      const commentParts = [`Contract documents uploaded by ${uploadedBy || 'Team'}:`];
+      for (const r of results) {
+        commentParts.push(`- ${r.type}: ${r.fileName}`);
+      }
+      if (notes) commentParts.push(`\nNotes: ${notes}`);
+      commentParts.push('\nStatus: PENDING REVIEW');
+      await postCommentToTask(clientContractGid, commentParts.join('\n'));
+    } catch (asanaErr) {
+      console.error("Asana subtask/attachment error (non-blocking):", asanaErr);
+    }
 
     const action = await storage.createTaskAction({
       projectId: projectId,
@@ -327,7 +364,7 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
       followUpDate: null,
     });
 
-    res.json({ success: true, action, uploaded: results, message: `${results.length} document(s) uploaded to Asana` });
+    res.json({ success: true, action, uploaded: results, message: `${results.length} document(s) uploaded and stored locally` });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Contract documents upload error:", error);
@@ -339,11 +376,30 @@ uploadsRouter.post("/:id/contract-approve", async (req, res) => {
   try {
     const projectId = req.params.id as string;
     const project = await storage.getProject(projectId);
-    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+    if (!project) return res.status(404).json({ message: "Project not found" });
 
     const { approvedBy, notes } = req.body;
-    const commentText = `CONTRACT APPROVED by ${approvedBy || 'Manager'}\n${notes ? `Notes: ${notes}` : 'Ready to send via DocuSign.'}`;
-    await postCommentToTask(project.asanaGid, commentText);
+
+    if (project.asanaGid) try {
+      const commentText = `CONTRACT APPROVED by ${approvedBy || 'Manager'}\n${notes ? `Notes: ${notes}` : 'Ready to send via DocuSign.'}`;
+      const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
+      let installTeam = topSubtasks.find((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase().includes('install team')
+      );
+      if (!installTeam) {
+        installTeam = await createSubtaskForTask(project.asanaGid, "Install Team");
+      }
+      const children = await fetchSubtasksForTask(installTeam.gid as string);
+      let clientContract = children.find((st: Record<string, unknown>) =>
+        (st.name as string)?.toLowerCase() === 'client contract'
+      );
+      if (!clientContract) {
+        clientContract = await createSubtaskForTask(installTeam.gid as string, "Client Contract");
+      }
+      await postCommentToTask(clientContract.gid as string, commentText);
+    } catch (asanaErr) {
+      console.error("Asana approval comment error (non-blocking):", asanaErr);
+    }
 
     const action = await storage.createTaskAction({
       projectId: projectId,
@@ -354,7 +410,7 @@ uploadsRouter.post("/:id/contract-approve", async (req, res) => {
       followUpDate: null,
     });
 
-    res.json({ success: true, action, message: "Contract approved and posted to Asana" });
+    res.json({ success: true, action, message: "Contract approved" });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Contract approve error:", error);

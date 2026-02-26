@@ -175,7 +175,7 @@ export function ContractCard({
 
         {isExpanded && (
           <div className="pt-3 border-t">
-            <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Contract Creation" label="Contract Subtask" />
+            <InstallTeamSubtaskPanel projectId={p.id} subtaskName="Client Contract" label="Client Contract Subtask" />
           </div>
         )}
       </CardContent>

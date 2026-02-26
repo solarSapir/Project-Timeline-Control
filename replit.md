@@ -37,12 +37,21 @@ Solar PM is a project management application designed for solar installation com
 ### Database Tables
 - `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`.
 
+## Asana Independence Strategy
+**Long-term goal: fully disconnect from Asana without data loss.**
+- All new features must store data locally first (database + filesystem). Asana sync is secondary and non-blocking — if Asana calls fail, the app must still work.
+- Every feature that currently reads from Asana should have a local fallback or local data copy.
+- Document uploads, task actions, comments, and status changes are all stored in our database. Asana gets a copy for backwards compatibility.
+- Subtask hierarchy (Parent → Install Team → Client Contract, etc.) is managed in Asana but will eventually be replaced with local task/subtask tracking.
+- When reviewing or building features, wrap all Asana API calls in try/catch with non-blocking error handling. The app must function if Asana is unreachable.
+- File attachments are always stored locally in `data/uploads/` AND uploaded to Asana subtasks. The local copy is the source of truth.
+
 ## External Dependencies
-- **Asana API**: For project synchronization, task management, custom field data, and project stories.
+- **Asana API**: For project synchronization, task management, custom field data, and project stories. (Planned for eventual removal — see Asana Independence Strategy above.)
 - **Replit Connector**: Secure authentication and connection to Asana.
 - **OpenAI Vision (gpt-4o)**: AI-powered data extraction from hydro bill images.
 - **PostgreSQL**: Relational database.
-- **Local Filesystem**: For storing uploaded project files.
+- **Local Filesystem**: For storing uploaded project files (source of truth for all documents).
 
 ## App Logic Documentation (Maintenance Convention)
 - **Location**: `/app-logic` route with sub-routes for schema, API map, and 10 tab-specific flow diagrams
