@@ -20,7 +20,7 @@ import { hrspInvoiceRouter } from "./routes/hrsp-invoice";
 import { filesRouter } from "./routes/files";
 import { escalationRouter } from "./routes/escalation";
 import { ucWorkflowRouter } from "./routes/uc-workflow";
-import { rebateWorkflowRouter, runRebateBackfillIfNeeded } from "./routes/rebate-workflow";
+import { rebateWorkflowRouter, runRebateBackfillIfNeeded, backfillCompletionsFromTaskActions } from "./routes/rebate-workflow";
 import { webhookRouter } from "./routes/webhook";
 import { staffRouter } from "./routes/staff";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
@@ -245,6 +245,10 @@ export async function registerRoutes(
 
   runRebateBackfillIfNeeded().catch(err => {
     console.error("[Startup] Rebate backfill failed:", err);
+  });
+
+  backfillCompletionsFromTaskActions().catch(err => {
+    console.error("[Startup] Completions backfill from task_actions failed:", err);
   });
 
   return httpServer;

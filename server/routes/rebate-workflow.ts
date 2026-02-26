@@ -96,6 +96,96 @@ export async function runRebateBackfillIfNeeded(): Promise<void> {
   }
 }
 
+export async function backfillCompletionsFromTaskActions(): Promise<void> {
+  try {
+    const ucViewTypes = ["uc"];
+    const rebateViewTypes = ["payments"];
+
+    const existingUc = await storage.getUcCompletions({});
+    const existingRebate = await storage.getRebateCompletions({});
+
+    const ucStatusSet = new Set(
+      existingUc
+        .filter(c => c.actionType === "status_change")
+        .map(c => `${c.projectId}|${c.toStatus || ''}|${c.completedAt ? new Date(c.completedAt).toISOString().slice(0, 16) : ''}`)
+    );
+    const rebateStatusSet = new Set(
+      existingRebate
+        .filter(c => c.actionType === "status_change")
+        .map(c => `${c.projectId}|${c.toStatus || ''}|${c.completedAt ? new Date(c.completedAt).toISOString().slice(0, 16) : ''}`)
+    );
+
+    const ucActions = await storage.getTaskActionsByView("uc");
+    const rebateActions = await storage.getTaskActionsByView("payments");
+
+    let ucCreated = 0;
+    let rebateCreated = 0;
+
+    for (const action of ucActions) {
+      if (action.actionType !== "status_change") continue;
+      const notes = action.notes || '';
+      const arrowMatch = notes.match(/^(.*?)→\s*(.*?)(?:\n|$)/);
+      const fromStatus = arrowMatch ? arrowMatch[1].trim() || null : null;
+      const toStatus = arrowMatch ? arrowMatch[2].trim() || null : null;
+      const key = `${action.projectId}|${toStatus || ''}|${action.completedAt ? new Date(action.completedAt).toISOString().slice(0, 16) : ''}`;
+      if (ucStatusSet.has(key)) continue;
+      ucStatusSet.add(key);
+
+      try {
+        await storage.createUcCompletion({
+          projectId: action.projectId,
+          staffName: action.completedBy || "Unknown",
+          actionType: "status_change",
+          fromStatus,
+          toStatus,
+          notes: notes.split('\n').slice(1).join('\n').trim() || null,
+          hideDays: null,
+          completedAt: action.completedAt ? new Date(action.completedAt) : undefined,
+        });
+        ucCreated++;
+      } catch (err) {
+        console.error(`[Completions Backfill] UC error for ${action.projectId}:`, err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    for (const action of rebateActions) {
+      if (action.actionType !== "status_change") continue;
+      const notes = action.notes || '';
+      const arrowMatch = notes.match(/^(.*?)→\s*(.*?)(?:\n|$)/);
+      const fromStatus = arrowMatch ? arrowMatch[1].trim() || null : null;
+      const toStatus = arrowMatch ? arrowMatch[2].trim() || null : null;
+      const key = `${action.projectId}|${toStatus || ''}|${action.completedAt ? new Date(action.completedAt).toISOString().slice(0, 16) : ''}`;
+      if (rebateStatusSet.has(key)) continue;
+      rebateStatusSet.add(key);
+
+      try {
+        await storage.createRebateCompletion({
+          projectId: action.projectId,
+          staffName: action.completedBy || "Unknown",
+          actionType: "status_change",
+          fromStatus,
+          toStatus,
+          notes: notes.split('\n').slice(1).join('\n').trim() || null,
+          hideDays: null,
+          followUpDate: null,
+          completedAt: action.completedAt ? new Date(action.completedAt) : undefined,
+        });
+        rebateCreated++;
+      } catch (err) {
+        console.error(`[Completions Backfill] Rebate error for ${action.projectId}:`, err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    if (ucCreated > 0 || rebateCreated > 0) {
+      console.log(`[Completions Backfill] Synced ${ucCreated} UC + ${rebateCreated} rebate status changes from task_actions`);
+    } else {
+      console.log(`[Completions Backfill] All task_actions status changes already synced`);
+    }
+  } catch (error: unknown) {
+    console.error("[Completions Backfill] Error:", error instanceof Error ? error.message : String(error));
+  }
+}
+
 rebateWorkflowRouter.get("/workflow-rules", async (req, res) => {
   try {
     let rules = await storage.getRebateWorkflowRules();
