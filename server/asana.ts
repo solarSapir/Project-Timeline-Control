@@ -468,9 +468,12 @@ export async function fetchSubtasksForTask(taskGid: string): Promise<any[]> {
 }
 
 export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; status: string | null; needsRebateFieldFix: boolean; createdAt: string | null } | null {
-  let hrsp = subtasks.find((st: any) =>
-    st.name?.toLowerCase().includes('home renovation savings program')
-  );
+  let hrsp = subtasks.find((st: any) => {
+    const name = st.name?.toLowerCase() || '';
+    return name.includes('home renovation savings program') ||
+           name.includes('home energy savings program') ||
+           name.includes('home energy saving program');
+  });
   if (hrsp) {
     const grantsField = hrsp.custom_fields?.find((f: any) =>
       f.name?.toLowerCase().includes('grants status')
@@ -480,8 +483,6 @@ export function findHrspSubtask(subtasks: any[]): { gid: string; name: string; s
   }
 
   hrsp = subtasks.find((st: any) => {
-    const name = st.name?.trim() || '';
-    if (!name.toLowerCase().startsWith('[no value]')) return false;
     const hasGrantsField = st.custom_fields?.some((f: any) =>
       f.name?.toLowerCase().includes('grants status')
     );
