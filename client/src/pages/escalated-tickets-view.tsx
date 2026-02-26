@@ -9,12 +9,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageLoader } from "@/components/ui/logo-spinner";
-import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2 } from "lucide-react";
-import { Link } from "wouter";
+import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2, Maximize2 } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EscalationTicket, Project } from "@shared/schema";
 import { ESCALATION_VIEW_LABELS } from "@shared/schema";
+
+const VIEW_TYPE_ROUTES: Record<string, string> = {
+  uc: "/uc",
+  contracts: "/contracts",
+  payments: "/rebates",
+  rebates: "/rebates",
+  ahj: "/ahj",
+  installs: "/installs",
+  site_visits: "/site-visits",
+  close_off: "/close-off",
+};
 
 function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: Project }) {
   const [respondOpen, setRespondOpen] = useState(false);
@@ -23,6 +34,7 @@ function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: P
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const handleRespond = async () => {
     if (!response.trim() || !respondedBy.trim()) {
@@ -129,6 +141,18 @@ function TicketCard({ ticket, project }: { ticket: EscalationTicket; project?: P
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleResolve} disabled={resolving} data-testid={`button-resolve-${ticket.id}`}>
                 {resolving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                 Resolve
+              </Button>
+            )}
+            {VIEW_TYPE_ROUTES[ticket.viewType] && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1"
+                onClick={() => navigate(`${VIEW_TYPE_ROUTES[ticket.viewType]}?focus=${ticket.projectId}&ticket=${ticket.id}`)}
+                data-testid={`button-focus-${ticket.id}`}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Focus
               </Button>
             )}
           </div>
