@@ -47,6 +47,32 @@ escalationRouter.post("/escalation-tickets", async (req, res) => {
       status: "open",
       hideUntil,
     });
+
+    const project = await storage.getProject(projectId);
+    const projectName = project?.name || 'Unknown Project';
+    const truncatedIssue = issue.length > 100 ? issue.substring(0, 100) + '...' : issue;
+
+    if (viewType === 'uc') {
+      await storage.createUcCompletion({
+        projectId,
+        staffName: createdBy,
+        actionType: 'escalation',
+        fromStatus: project?.ucStatus || null,
+        toStatus: null,
+        notes: `Escalation: ${truncatedIssue}`,
+        hideDays: null,
+      });
+    } else if (viewType === 'rebates') {
+      await storage.createRebateCompletion({
+        projectId,
+        staffName: createdBy,
+        actionType: 'escalation',
+        fromStatus: project?.hrspStatus || null,
+        toStatus: null,
+        notes: `Escalation: ${truncatedIssue}`,
+      });
+    }
+
     res.json(ticket);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

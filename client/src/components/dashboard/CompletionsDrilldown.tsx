@@ -29,6 +29,7 @@ const ACTION_LABELS: Record<string, string> = {
   follow_up: "Follow-Up",
   follow_up_push: "Follow-Up Push",
   document_upload: "Document Upload",
+  escalation: "Escalation",
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -36,6 +37,7 @@ const ACTION_COLORS: Record<string, string> = {
   follow_up: "hsl(210, 80%, 55%)",
   follow_up_push: "hsl(150, 60%, 50%)",
   document_upload: "hsl(270, 60%, 55%)",
+  escalation: "hsl(0, 72%, 51%)",
 };
 
 function formatDate(dateStr: string): string {
@@ -205,7 +207,7 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
                           </span>
                         )}
                         <Badge
-                          variant={c.actionType === "status_change" ? "default" : "outline"}
+                          variant={c.actionType === "status_change" ? "default" : c.actionType === "escalation" ? "destructive" : "outline"}
                           className="text-[9px] px-1.5 py-0 cursor-pointer"
                         >
                           {ACTION_LABELS[c.actionType] || c.actionType}
