@@ -323,6 +323,10 @@ export default function EscalatedTicketsView() {
       }
     }
     return true;
+  }).sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateA - dateB;
   });
 
   const handleFocus = (ticket: EscalationTicket, project: Project) => {
