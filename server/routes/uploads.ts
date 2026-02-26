@@ -315,21 +315,22 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     const results: { type: string; fileName: string }[] = [];
 
-    if (files?.contract?.[0]) {
-      const file = files.contract[0];
-      await saveFileLocally(projectId, 'contract', file.buffer, `CONTRACT - ${file.originalname}`, file.mimetype, uploadedBy, notes);
-      results.push({ type: 'Contract', fileName: file.originalname });
-    }
-    if (files?.proposal?.[0]) {
-      const file = files.proposal[0];
-      await saveFileLocally(projectId, 'contract', file.buffer, `PROPOSAL - ${file.originalname}`, file.mimetype, uploadedBy, notes);
-      results.push({ type: 'Proposal', fileName: file.originalname });
-    }
-    if (files?.sitePlan?.[0]) {
-      const file = files.sitePlan[0];
-      await saveFileLocally(projectId, 'contract', file.buffer, `SITE PLAN - ${file.originalname}`, file.mimetype, uploadedBy, notes);
-      results.push({ type: 'Site Plan', fileName: file.originalname });
-    }
+    const existingFiles = await storage.getProjectFiles(projectId, 'contract');
+    const existingNames = new Set(existingFiles.map(f => f.fileName.toLowerCase()));
+
+    const saveIfNew = async (file: Express.Multer.File, prefix: string, type: string) => {
+      const fileName = `${prefix} - ${file.originalname}`;
+      if (existingNames.has(fileName.toLowerCase())) {
+        const old = existingFiles.find(f => f.fileName.toLowerCase() === fileName.toLowerCase());
+        if (old) await storage.deleteProjectFile(old.id);
+      }
+      await saveFileLocally(projectId, 'contract', file.buffer, fileName, file.mimetype, uploadedBy, notes);
+      results.push({ type, fileName: file.originalname });
+    };
+
+    if (files?.contract?.[0]) await saveIfNew(files.contract[0], 'CONTRACT', 'Contract');
+    if (files?.proposal?.[0]) await saveIfNew(files.proposal[0], 'PROPOSAL', 'Proposal');
+    if (files?.sitePlan?.[0]) await saveIfNew(files.sitePlan[0], 'SITE PLAN', 'Site Plan');
 
     if (project.asanaGid) try {
       const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
