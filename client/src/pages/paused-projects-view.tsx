@@ -7,29 +7,56 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
-import { Search, PauseCircle, ChevronDown, ChevronUp, Check, Plus, X } from "lucide-react";
+import { Search, PauseCircle, ChevronDown, ChevronUp, Plus, X, Check, History } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Project, PauseReason } from "@shared/schema";
+import type { Project, PauseReason, PauseLog } from "@shared/schema";
 
-function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseReasonOptions: PauseReason[] }) {
+function PausedCard({ project, pauseReasonOptions, staffMembers }: { project: Project; pauseReasonOptions: PauseReason[]; staffMembers: { id: string; name: string }[] }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
-  const [selectedReason, setSelectedReason] = useState(project.pauseReason || "");
-  const [note, setNote] = useState(project.pauseNote || "");
+  const [selectedReason, setSelectedReason] = useState("");
+  const [note, setNote] = useState("");
+  const [staffName, setStaffName] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [showCustom, setShowCustom] = useState(false);
 
-  const saveMutation = useMutation({
-    mutationFn: async (data: { pauseReason?: string; pauseNote?: string }) => {
-      await apiRequest("PATCH", `/api/projects/${project.id}`, data);
+  const { data: pauseHistory } = useQuery<PauseLog[]>({
+    queryKey: ['/api/pause-reasons/logs', project.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/pause-reasons/logs?projectId=${project.id}`);
+      return res.json();
+    },
+    enabled: expanded,
+  });
+
+  const logPauseMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedReason && !note) return;
+      await apiRequest("POST", "/api/pause-reasons/logs", {
+        projectId: project.id,
+        reason: selectedReason || null,
+        note: note || null,
+        staffName: staffName || null,
+      });
+      if (selectedReason) {
+        await apiRequest("PATCH", `/api/projects/${project.id}`, {
+          pauseReason: selectedReason,
+          pauseNote: note || null,
+        });
+      }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons/logs', project.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      toast({ title: "Pause reason saved" });
+      queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons'] });
+      toast({ title: "Pause reason logged" });
+      setSelectedReason("");
+      setNote("");
+      setStaffName("");
     },
   });
 
@@ -48,7 +75,6 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
       return;
     }
     setSelectedReason(value);
-    saveMutation.mutate({ pauseReason: value });
   };
 
   const handleSaveCustom = () => {
@@ -58,11 +84,11 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
     setSelectedReason(reason);
     setShowCustom(false);
     setCustomReason("");
-    saveMutation.mutate({ pauseReason: reason });
   };
 
-  const handleSaveNote = () => {
-    saveMutation.mutate({ pauseNote: note });
+  const formatLogDate = (d: string | Date | null) => {
+    if (!d) return "";
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
   return (
@@ -110,6 +136,9 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
             <div className="flex items-center gap-1.5 text-[11px]">
               <span className="text-muted-foreground">Reason:</span>
               <span className="font-medium text-amber-700 dark:text-amber-400">{project.pauseReason}</span>
+              {pauseHistory && pauseHistory.length > 0 && (
+                <span className="text-muted-foreground">({pauseHistory.length} logged)</span>
+              )}
             </div>
           )}
 
@@ -123,9 +152,9 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
           </button>
 
           {expanded && (
-            <div className="space-y-2 pt-1 border-t">
+            <div className="space-y-3 pt-1 border-t">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Reason</label>
+                <label className="text-xs font-medium text-muted-foreground">Log New Pause Reason</label>
                 {showCustom ? (
                   <div className="flex items-center gap-2">
                     <Input
@@ -139,30 +168,31 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
                     <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleSaveCustom} data-testid={`button-save-custom-${project.id}`}>
                       <Check className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowCustom(false); setCustomReason(""); }} data-testid={`button-cancel-custom-${project.id}`}>
+                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowCustom(false); setCustomReason(""); }}>
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ) : (
-                  <Select value={selectedReason} onValueChange={handleReasonChange} data-testid={`select-pause-reason-${project.id}`}>
+                  <Select value={selectedReason} onValueChange={handleReasonChange}>
                     <SelectTrigger className="h-8 text-sm" data-testid={`trigger-pause-reason-${project.id}`}>
                       <SelectValue placeholder="Select a reason..." />
                     </SelectTrigger>
                     <SelectContent>
                       {pauseReasonOptions.map(r => (
-                        <SelectItem key={r.id} value={r.reason} data-testid={`option-reason-${r.id}`}>
+                        <SelectItem key={r.id} value={r.reason}>
                           {r.reason}
                         </SelectItem>
                       ))}
-                      <SelectItem value="__custom__" data-testid={`option-reason-custom-${project.id}`}>
+                      <SelectItem value="__custom__">
                         <span className="flex items-center gap-1"><Plus className="h-3 w-3" /> Add custom reason</span>
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Quick Note</label>
+                <label className="text-xs font-medium text-muted-foreground">Note</label>
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
@@ -171,19 +201,56 @@ function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseRe
                   className="text-sm resize-none"
                   data-testid={`textarea-pause-note-${project.id}`}
                 />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={handleSaveNote}
-                    disabled={saveMutation.isPending || note === (project.pauseNote || "")}
-                    data-testid={`button-save-note-${project.id}`}
-                  >
-                    {saveMutation.isPending ? "Saving..." : "Save Note"}
-                  </Button>
-                </div>
               </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Staff</label>
+                <Select value={staffName} onValueChange={setStaffName}>
+                  <SelectTrigger className="h-8 text-sm" data-testid={`trigger-staff-${project.id}`}>
+                    <SelectValue placeholder="Select staff..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffMembers.map(s => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => logPauseMutation.mutate()}
+                  disabled={logPauseMutation.isPending || (!selectedReason && !note)}
+                  data-testid={`button-log-pause-${project.id}`}
+                >
+                  {logPauseMutation.isPending ? "Logging..." : "Log Pause Reason"}
+                </Button>
+              </div>
+
+              {pauseHistory && pauseHistory.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <History className="h-3.5 w-3.5" />
+                    Pause History ({pauseHistory.length})
+                  </div>
+                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    {pauseHistory.map(log => (
+                      <div key={log.id} className="text-xs p-2 rounded bg-muted/50 space-y-0.5" data-testid={`pause-log-${log.id}`}>
+                        <div className="flex items-center justify-between">
+                          {log.reason && (
+                            <span className="font-medium text-amber-700 dark:text-amber-400">{log.reason}</span>
+                          )}
+                          <span className="text-muted-foreground">{formatLogDate(log.pausedAt)}</span>
+                        </div>
+                        {log.note && <p className="text-muted-foreground whitespace-pre-wrap">{log.note}</p>}
+                        {log.staffName && <p className="text-muted-foreground italic">-- {log.staffName}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -196,6 +263,7 @@ export default function PausedProjectsView() {
   const [search, setSearch] = useState("");
   const { data: projects, isLoading } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
   const { data: pauseReasonOptions } = useQuery<PauseReason[]>({ queryKey: ['/api/pause-reasons'] });
+  const { data: staffData } = useQuery<{ id: string; name: string }[]>({ queryKey: ['/api/staff'] });
 
   if (isLoading) {
     return <PageLoader title="Loading paused projects..." />;
@@ -232,7 +300,7 @@ export default function PausedProjectsView() {
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <PauseCircle className="h-3.5 w-3.5 text-amber-500" /> Paused ({sorted.length})
           </p>
-          {sorted.map(p => <PausedCard key={p.id} project={p} pauseReasonOptions={pauseReasonOptions || []} />)}
+          {sorted.map(p => <PausedCard key={p.id} project={p} pauseReasonOptions={pauseReasonOptions || []} staffMembers={staffData || []} />)}
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground">

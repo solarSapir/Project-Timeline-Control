@@ -631,6 +631,23 @@ export const insertPauseReasonSchema = createInsertSchema(pauseReasons).omit({
 export type PauseReason = typeof pauseReasons.$inferSelect;
 export type InsertPauseReason = z.infer<typeof insertPauseReasonSchema>;
 
+export const pauseLogs = pgTable("pause_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  reason: text("reason"),
+  note: text("note"),
+  staffName: text("staff_name"),
+  pausedAt: timestamp("paused_at").defaultNow(),
+});
+
+export const insertPauseLogSchema = createInsertSchema(pauseLogs).omit({
+  id: true,
+  pausedAt: true,
+});
+
+export type PauseLog = typeof pauseLogs.$inferSelect;
+export type InsertPauseLog = z.infer<typeof insertPauseLogSchema>;
+
 export const DEFAULT_PAUSE_REASONS = [
   "Waiting for GHL loan approval",
   "Customer unresponsive",

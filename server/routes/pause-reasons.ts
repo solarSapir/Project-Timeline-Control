@@ -53,40 +53,76 @@ pauseReasonsRouter.delete("/:id", async (req, res) => {
   }
 });
 
+pauseReasonsRouter.get("/logs", async (req, res) => {
+  try {
+    const projectId = req.query.projectId as string | undefined;
+    const logs = await storage.getPauseLogs(projectId);
+    res.json(logs);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+pauseReasonsRouter.post("/logs", async (req, res) => {
+  try {
+    const { projectId, reason, note, staffName } = req.body;
+    if (!projectId) {
+      return res.status(400).json({ message: "projectId is required" });
+    }
+    const log = await storage.createPauseLog({ projectId, reason, note, staffName });
+
+    if (reason) {
+      try {
+        await storage.incrementPauseReasonUsage(reason);
+      } catch (err) {
+        console.error("Failed to increment pause reason usage:", err);
+      }
+    }
+
+    res.json(log);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 pauseReasonsRouter.post("/insights", async (_req, res) => {
   try {
     const allProjects = await storage.getProjects();
     const pausedProjects = allProjects.filter(p => p.pmStatus?.toLowerCase() === "project paused");
+    const allLogs = await storage.getPauseLogs();
 
     const reasonCounts: Record<string, number> = {};
     const notes: string[] = [];
-    let withReason = 0;
-    let withNote = 0;
+    const projectPauseCounts: Record<string, number> = {};
 
-    for (const p of pausedProjects) {
-      if (p.pauseReason) {
-        reasonCounts[p.pauseReason] = (reasonCounts[p.pauseReason] || 0) + 1;
-        withReason++;
+    for (const log of allLogs) {
+      if (log.reason) {
+        reasonCounts[log.reason] = (reasonCounts[log.reason] || 0) + 1;
       }
-      if (p.pauseNote) {
-        notes.push(p.pauseNote);
-        withNote++;
+      if (log.note) {
+        notes.push(log.note);
       }
+      projectPauseCounts[log.projectId] = (projectPauseCounts[log.projectId] || 0) + 1;
     }
+
+    const repeatPausers = Object.values(projectPauseCounts).filter(c => c > 1).length;
 
     const summary = {
       totalPaused: pausedProjects.length,
-      withReason,
-      withNote,
+      totalLogs: allLogs.length,
+      uniqueProjectsPaused: Object.keys(projectPauseCounts).length,
+      repeatPausers,
       reasonBreakdown: Object.entries(reasonCounts)
         .sort(([, a], [, b]) => b - a)
-        .map(([reason, count]) => ({ reason, count, pct: pausedProjects.length > 0 ? Math.round((count / pausedProjects.length) * 100) : 0 })),
+        .map(([reason, count]) => ({ reason, count, pct: allLogs.length > 0 ? Math.round((count / allLogs.length) * 100) : 0 })),
     };
 
-    if (pausedProjects.length === 0 || withReason === 0) {
+    if (allLogs.length === 0) {
       return res.json({
         ...summary,
-        aiInsight: "No pause reason data available yet. Start tagging paused projects with reasons to generate insights.",
+        aiInsight: "No pause log data available yet. Start logging pause reasons on paused projects to generate insights.",
       });
     }
 
@@ -96,11 +132,11 @@ pauseReasonsRouter.post("/insights", async (_req, res) => {
     });
 
     const reasonText = summary.reasonBreakdown
-      .map(r => `- "${r.reason}": ${r.count} projects (${r.pct}%)`)
+      .map(r => `- "${r.reason}": ${r.count} pause events (${r.pct}%)`)
       .join("\n");
 
     const notesText = notes.length > 0
-      ? `\n\nFree-text notes from paused projects:\n${notes.slice(0, 30).map(n => `- "${n}"`).join("\n")}`
+      ? `\n\nFree-text notes from pause events:\n${notes.slice(0, 30).map(n => `- "${n}"`).join("\n")}`
       : "";
 
     const response = await openai.chat.completions.create({
@@ -108,11 +144,11 @@ pauseReasonsRouter.post("/insights", async (_req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are an operations analyst for a solar installation company in Canada. Analyze pause reason data and provide actionable insights. Be concise and specific. Focus on patterns, trends, and recommendations to reduce project pauses. 3-5 bullet points max.",
+          content: "You are an operations analyst for a solar installation company in Canada. Analyze project pause data and provide actionable insights. Be concise and specific. Focus on patterns, trends, and recommendations to reduce project pauses. 3-5 bullet points max.",
         },
         {
           role: "user",
-          content: `We have ${pausedProjects.length} paused solar projects. Here's the breakdown of why projects are paused:\n\n${reasonText}${notesText}\n\nProvide insights on the most common reasons projects are pausing and what we can do to reduce pauses.`,
+          content: `We have ${pausedProjects.length} currently paused solar projects, with ${allLogs.length} total pause events logged across ${summary.uniqueProjectsPaused} unique projects. ${repeatPausers} projects have been paused more than once.\n\nReason breakdown:\n${reasonText}${notesText}\n\nProvide insights on pause patterns and recommendations to reduce project pauses.`,
         },
       ],
       max_tokens: 500,

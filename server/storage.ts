@@ -19,6 +19,8 @@ import {
   type RebateWorkflowRule, type InsertRebateWorkflowRule,
   type StaffMember, type InsertStaffMember,
   type PauseReason, type InsertPauseReason,
+  type PauseLog, type InsertPauseLog,
+  pauseLogs,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -90,6 +92,9 @@ export interface IStorage {
   getPauseReasons(): Promise<PauseReason[]>;
   createPauseReason(data: InsertPauseReason): Promise<PauseReason>;
   incrementPauseReasonUsage(reason: string): Promise<void>;
+
+  getPauseLogs(projectId?: string): Promise<PauseLog[]>;
+  createPauseLog(data: InsertPauseLog): Promise<PauseLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -524,6 +529,18 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(pauseReasons).values({ reason, usageCount: 1 }).onConflictDoNothing();
     }
+  }
+
+  async getPauseLogs(projectId?: string): Promise<PauseLog[]> {
+    if (projectId) {
+      return db.select().from(pauseLogs).where(eq(pauseLogs.projectId, projectId)).orderBy(desc(pauseLogs.pausedAt));
+    }
+    return db.select().from(pauseLogs).orderBy(desc(pauseLogs.pausedAt));
+  }
+
+  async createPauseLog(data: InsertPauseLog): Promise<PauseLog> {
+    const [log] = await db.insert(pauseLogs).values(data).returning();
+    return log;
   }
 }
 

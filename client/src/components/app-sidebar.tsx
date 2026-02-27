@@ -22,6 +22,7 @@ import {
   GitBranch,
   HardHat,
   PauseCircle,
+  TrendingUp,
 } from "lucide-react";
 import {
   Sidebar,
@@ -66,6 +67,7 @@ const viewNav = [
 
 const settingsNav = [
   { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Insights", url: "/insights", icon: TrendingUp },
 ];
 
 const itNav = [

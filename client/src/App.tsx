@@ -25,6 +25,7 @@ import ErrorLogView from "@/pages/error-log-view";
 import EscalatedTicketsView from "@/pages/escalated-tickets-view";
 import PlannerView from "@/pages/planner-view";
 import PausedProjectsView from "@/pages/paused-projects-view";
+import InsightsView from "@/pages/insights-view";
 import AppLogicIndex from "@/pages/app-logic/AppLogicIndex";
 import SchemaView from "@/pages/app-logic/SchemaView";
 import ApiMapView from "@/pages/app-logic/ApiMapView";
@@ -68,6 +69,7 @@ function Router() {
         <Route path="/install-calendar" component={InstallCalendar} />
         <Route path="/project/:id" component={ProjectProfile} />
         <Route path="/settings" component={SettingsView} />
+        <Route path="/insights" component={InsightsView} />
         <Route path="/error-log" component={ErrorLogView} />
         <Route path="/app-logic" component={AppLogicIndex} />
         <Route path="/app-logic/schema" component={SchemaView} />
