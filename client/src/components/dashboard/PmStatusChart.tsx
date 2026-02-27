@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 import { Link } from "wouter";
 import { Eye, EyeOff } from "lucide-react";
 import type { Project } from "@shared/schema";
@@ -39,8 +39,8 @@ function renderActiveShape(props: Record<string, unknown>) {
     <g>
       <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={(outerRadius as number) + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} />
       <Sector cx={cx} cy={cy} innerRadius={(innerRadius as number) - 4} outerRadius={innerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.4} />
-      <text x={cx} y={cy - 8} textAnchor="middle" fill="currentColor" className="text-sm font-medium">{payload.name}</text>
-      <text x={cx} y={cy + 12} textAnchor="middle" fill="currentColor" className="text-xs">{value} ({Math.round(percent * 100)}%)</text>
+      <text x={cx} y={cy - 10} textAnchor="middle" fill="currentColor" fontSize={13} fontWeight={500}>{payload.name}</text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="currentColor" fontSize={12}>{value} ({Math.round(percent * 100)}%)</text>
     </g>
   );
 }
@@ -103,7 +103,7 @@ export function PmStatusChart() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row items-center gap-4">
-            <div className="w-full lg:w-1/2 h-[250px]">
+            <div className="w-full lg:w-1/2 h-[280px]">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -111,8 +111,8 @@ export function PmStatusChart() {
                       data={chartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
+                      innerRadius={65}
+                      outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
                       activeIndex={activeIndex}
@@ -126,9 +126,6 @@ export function PmStatusChart() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value: number, name: string) => [`${value} projects (${visibleTotal > 0 ? Math.round((value / visibleTotal) * 100) : 0}%)`, name]}
-                    />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
