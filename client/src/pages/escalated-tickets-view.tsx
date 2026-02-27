@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageLoader } from "@/components/ui/logo-spinner";
-import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2, Maximize2 } from "lucide-react";
+import { AlertTriangle, Search, MessageSquare, CheckCircle2, Clock, Loader2, Maximize2, CalendarClock } from "lucide-react";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,13 +24,35 @@ import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDispl
 function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
   const [respondOpen, setRespondOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [response, setResponse] = useState("");
   const [respondedBy, setRespondedBy] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolvedBy, setResolvedBy] = useState("");
+  const [snoozeDate, setSnoozeDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [snoozing, setSnoozing] = useState(false);
   const { toast } = useToast();
+
+  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const maxSnoozeStr = (() => { const d = new Date(); d.setDate(d.getDate()+14); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+
+  const handleSnooze = async () => {
+    if (!snoozeDate) { toast({ title: "Please select a date", variant: "destructive" }); return; }
+    setSnoozing(true);
+    try {
+      const hideUntil = new Date(snoozeDate + "T23:59:59");
+      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/snooze`, { hideUntil: hideUntil.toISOString() });
+      queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
+      toast({ title: `Hidden until ${new Date(snoozeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` });
+      setSnoozeOpen(false);
+      setSnoozeDate("");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to snooze";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally { setSnoozing(false); }
+  };
 
   const handleRespond = async () => {
     if (!response.trim() || !respondedBy.trim()) {
@@ -148,8 +170,14 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
                 <p className="text-sm text-blue-800 dark:text-blue-200">{ticket.resolutionNote}</p>
               </div>
             )}
+            {(ticket.status === "open" || ticket.status === "responded") && ticket.hideUntil && new Date(ticket.hideUntil) > new Date() && (
+              <p className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1">
+                <CalendarClock className="h-3 w-3" />
+                Hidden until {new Date(ticket.hideUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             {ticket.status === "open" && (
               <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => setRespondOpen(true)} data-testid={`button-respond-${ticket.id}`}>
                 <MessageSquare className="h-3 w-3" />
@@ -160,6 +188,12 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
               <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setResolveOpen(true)} data-testid={`button-resolve-${ticket.id}`}>
                 <CheckCircle2 className="h-3 w-3" />
                 Resolve
+              </Button>
+            )}
+            {(ticket.status === "open" || ticket.status === "responded") && (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setSnoozeOpen(true)} data-testid={`button-snooze-${ticket.id}`}>
+                <CalendarClock className="h-3 w-3" />
+                Extend Hide
               </Button>
             )}
             {project && (
@@ -227,6 +261,31 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
             <Button className="w-full" onClick={handleResolve} disabled={resolving || !resolutionNote.trim() || !resolvedBy.trim()} data-testid="button-submit-resolve">
               {resolving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               {resolving ? "Resolving..." : "Mark as Resolved"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={snoozeOpen} onOpenChange={setSnoozeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Extend Hide Duration</DialogTitle>
+            <DialogDescription>Choose when this project should reappear in the team view. Maximum 14 days from today.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {ticket.hideUntil && new Date(ticket.hideUntil) > new Date() && (
+              <p className="text-xs text-muted-foreground">
+                Currently hidden until {new Date(ticket.hideUntil).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            )}
+            <div>
+              <Label htmlFor={`snooze-${ticket.id}`}>Return Date</Label>
+              <Input id={`snooze-${ticket.id}`} type="date" min={todayStr} max={maxSnoozeStr} value={snoozeDate} onChange={(e) => setSnoozeDate(e.target.value)} className="mt-1" data-testid="input-snooze-date" />
+              <p className="text-[10px] text-muted-foreground mt-1">The project will stay hidden from the team view until end of this day.</p>
+            </div>
+            <Button className="w-full" onClick={handleSnooze} disabled={snoozing || !snoozeDate} data-testid="button-submit-snooze">
+              {snoozing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-2" />}
+              {snoozing ? "Setting..." : "Set Return Date"}
             </Button>
           </div>
         </DialogContent>

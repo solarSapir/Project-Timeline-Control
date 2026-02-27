@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, Loader2, CalendarClock } from "lucide-react";
 import { ESCALATION_VIEW_LABELS } from "@shared/schema";
 import type { EscalationTicket } from "@shared/schema";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
@@ -105,16 +105,31 @@ export function EscalationTicketsInline({ projectId }: { projectId: string }) {
   );
 }
 
+function toLocalDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; showActions?: boolean }) {
   const [respondOpen, setRespondOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [response, setResponse] = useState("");
   const [respondedBy, setRespondedBy] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolvedBy, setResolvedBy] = useState("");
+  const [snoozeDate, setSnoozeDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [snoozing, setSnoozing] = useState(false);
   const { toast } = useToast();
+
+  const today = toLocalDateString(new Date());
+  const maxSnooze = new Date();
+  maxSnooze.setDate(maxSnooze.getDate() + 14);
+  const maxSnoozeStr = toLocalDateString(maxSnooze);
 
   const handleRespond = async () => {
     if (!response.trim() || !respondedBy.trim()) {
@@ -164,6 +179,29 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
     }
   };
 
+  const handleSnooze = async () => {
+    if (!snoozeDate) {
+      toast({ title: "Please select a date", variant: "destructive" });
+      return;
+    }
+    setSnoozing(true);
+    try {
+      const hideUntil = new Date(snoozeDate + "T23:59:59");
+      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/snooze`, {
+        hideUntil: hideUntil.toISOString(),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
+      toast({ title: `Hidden until ${new Date(snoozeDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` });
+      setSnoozeOpen(false);
+      setSnoozeDate("");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to snooze";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSnoozing(false);
+    }
+  };
+
   const statusColors = {
     open: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
     responded: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
@@ -177,6 +215,9 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
       : "border-l-4 border-l-green-400";
 
   const isActionable = ticket.status === "open" || ticket.status === "responded";
+
+  const hideUntilDate = ticket.hideUntil ? new Date(ticket.hideUntil) : null;
+  const isCurrentlyHidden = hideUntilDate && hideUntilDate > new Date();
 
   return (
     <>
@@ -229,15 +270,26 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
         )}
 
         {showActions && isActionable && (
-          <div className="mt-2 flex gap-2">
-            {ticket.status === "open" && (
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setRespondOpen(true)} data-testid={`button-respond-ticket-${ticket.id}`}>
-                <MessageSquare className="h-3 w-3" /> Respond
-              </Button>
+          <div className="mt-2 space-y-2">
+            {isCurrentlyHidden && hideUntilDate && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <CalendarClock className="h-3 w-3" />
+                Hidden until {hideUntilDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
             )}
-            <Button size="sm" variant="outline" className="gap-1" onClick={() => setResolveOpen(true)} data-testid={`button-resolve-ticket-${ticket.id}`}>
-              <CheckCircle2 className="h-3 w-3" /> Resolve
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              {ticket.status === "open" && (
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => setRespondOpen(true)} data-testid={`button-respond-ticket-${ticket.id}`}>
+                  <MessageSquare className="h-3 w-3" /> Respond
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => setResolveOpen(true)} data-testid={`button-resolve-ticket-${ticket.id}`}>
+                <CheckCircle2 className="h-3 w-3" /> Resolve
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => setSnoozeOpen(true)} data-testid={`button-snooze-ticket-${ticket.id}`}>
+                <CalendarClock className="h-3 w-3" /> Extend Hide
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -250,12 +302,12 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Your Name</Label>
-              <Input value={respondedBy} onChange={(e) => setRespondedBy(e.target.value)} placeholder="Manager name" className="mt-1" data-testid="input-respond-name" />
+              <Label htmlFor={`respond-name-${ticket.id}`} className="text-xs">Your Name</Label>
+              <Input id={`respond-name-${ticket.id}`} value={respondedBy} onChange={(e) => setRespondedBy(e.target.value)} placeholder="Manager name" className="mt-1" data-testid="input-respond-name" />
             </div>
             <div>
-              <Label className="text-xs">Your Response</Label>
-              <Textarea value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Provide guidance..." rows={4} className="mt-1" data-testid="input-respond-message" />
+              <Label htmlFor={`respond-msg-${ticket.id}`} className="text-xs">Your Response</Label>
+              <Textarea id={`respond-msg-${ticket.id}`} value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Provide guidance..." rows={4} className="mt-1" data-testid="input-respond-message" />
             </div>
             <Button onClick={handleRespond} disabled={submitting} className="w-full" data-testid="button-submit-respond">
               {submitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
@@ -273,16 +325,52 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Your Name</Label>
-              <Input value={resolvedBy} onChange={(e) => setResolvedBy(e.target.value)} placeholder="Your name" className="mt-1" data-testid="input-resolve-name" />
+              <Label htmlFor={`resolve-name-${ticket.id}`} className="text-xs">Your Name</Label>
+              <Input id={`resolve-name-${ticket.id}`} value={resolvedBy} onChange={(e) => setResolvedBy(e.target.value)} placeholder="Your name" className="mt-1" data-testid="input-resolve-name" />
             </div>
             <div>
-              <Label className="text-xs">Resolution Description</Label>
-              <Textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="What was done to resolve this..." rows={4} className="mt-1" data-testid="input-resolve-note" />
+              <Label htmlFor={`resolve-note-${ticket.id}`} className="text-xs">Resolution Description</Label>
+              <Textarea id={`resolve-note-${ticket.id}`} value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="What was done to resolve this..." rows={4} className="mt-1" data-testid="input-resolve-note" />
             </div>
             <Button onClick={handleResolve} disabled={resolving} className="w-full" data-testid="button-submit-resolve">
               {resolving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               Mark as Resolved
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={snoozeOpen} onOpenChange={setSnoozeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Extend Hide Duration</DialogTitle>
+            <DialogDescription>Choose when this project should reappear in the team view. Maximum 14 days from today.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {isCurrentlyHidden && hideUntilDate && (
+              <p className="text-xs text-muted-foreground">
+                Currently hidden until {hideUntilDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            )}
+            <div>
+              <Label htmlFor={`snooze-date-${ticket.id}`} className="text-xs">Return Date</Label>
+              <Input
+                id={`snooze-date-${ticket.id}`}
+                type="date"
+                min={today}
+                max={maxSnoozeStr}
+                value={snoozeDate}
+                onChange={(e) => setSnoozeDate(e.target.value)}
+                className="mt-1"
+                data-testid="input-snooze-date"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                The project will stay hidden from the team view until end of this day.
+              </p>
+            </div>
+            <Button onClick={handleSnooze} disabled={snoozing || !snoozeDate} className="w-full" data-testid="button-submit-snooze">
+              {snoozing && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Set Return Date
             </Button>
           </div>
         </DialogContent>

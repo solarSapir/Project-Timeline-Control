@@ -154,6 +154,32 @@ escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (r
   }
 });
 
+escalationRouter.patch("/escalation-tickets/:id/snooze", async (req, res) => {
+  try {
+    const { hideUntil } = req.body;
+    if (!hideUntil) {
+      return res.status(400).json({ message: "hideUntil date is required" });
+    }
+    const newDate = new Date(hideUntil);
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 14);
+    if (newDate > maxDate) {
+      return res.status(400).json({ message: "Cannot snooze more than 14 days from now" });
+    }
+    if (newDate < new Date()) {
+      return res.status(400).json({ message: "Date must be in the future" });
+    }
+    const ticket = await storage.updateEscalationTicket(req.params.id, {
+      hideUntil: newDate,
+    });
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+    res.json(ticket);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 escalationRouter.patch("/escalation-tickets/:id/respond", async (req, res) => {
   try {
     const { managerResponse, respondedBy } = req.body;

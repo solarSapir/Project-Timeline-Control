@@ -65,7 +65,7 @@ export interface IStorage {
   getEscalationTickets(filters?: { status?: string; viewType?: string; projectId?: string }): Promise<EscalationTicket[]>;
   getEscalationTicket(id: string): Promise<EscalationTicket | undefined>;
   createEscalationTicket(data: InsertEscalationTicket): Promise<EscalationTicket>;
-  updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date; resolutionNote: string; resolvedBy: string }>): Promise<EscalationTicket | undefined>;
+  updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date; resolutionNote: string; resolvedBy: string; hideUntil: Date }>): Promise<EscalationTicket | undefined>;
 
   createUcCompletion(data: InsertUcCompletion & { completedAt?: Date }): Promise<UcCompletion>;
   getUcCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<UcCompletion[]>;
@@ -379,7 +379,7 @@ export class DatabaseStorage implements IStorage {
     return ticket;
   }
 
-  async updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date }>): Promise<EscalationTicket | undefined> {
+  async updateEscalationTicket(id: string, data: Partial<{ status: string; managerResponse: string; respondedBy: string; respondedAt: Date; resolvedAt: Date; resolutionNote: string; resolvedBy: string; hideUntil: Date }>): Promise<EscalationTicket | undefined> {
     const [ticket] = await db.update(escalationTickets)
       .set(data)
       .where(eq(escalationTickets.id, id))
