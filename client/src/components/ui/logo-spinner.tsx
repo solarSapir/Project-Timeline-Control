@@ -6,9 +6,9 @@ interface LogoSpinnerProps {
 }
 
 const sizeMap = {
-  sm: "w-16 h-16",
-  md: "w-24 h-24",
-  lg: "w-32 h-32",
+  sm: "w-20 h-20",
+  md: "w-32 h-32",
+  lg: "w-48 h-48",
 };
 
 export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
@@ -19,7 +19,8 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
         loop
         muted
         playsInline
-        className={`${sizeMap[size]} object-contain`}
+        className={`${sizeMap[size]} object-contain mix-blend-multiply`}
+        style={{ background: "transparent" }}
       >
         <source src={spinnerVideo} type="video/mp4" />
       </video>
@@ -29,9 +30,14 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
 
 export function PageLoader({ title }: { title?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 bg-background">
       <LogoSpinner size="lg" />
-      {title && <p className="text-sm text-muted-foreground animate-pulse">{title}</p>}
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+        <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+        <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+      </div>
+      {title && <p className="text-sm text-muted-foreground">{title}</p>}
     </div>
   );
 }
