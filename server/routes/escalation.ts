@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { addHours } from "date-fns";
 import { upload } from "../middleware/upload";
 import { saveFileLocally } from "../utils/file-storage";
+import { fetchSubtasksForTask, postCommentToTask } from "../asana";
 
 export const escalationRouter = Router();
 
@@ -129,6 +130,17 @@ escalationRouter.patch("/escalation-tickets/:id/respond", async (req, res) => {
   }
 });
 
+const VIEW_TYPE_SUBTASK_KEYWORDS: Record<string, string[]> = {
+  uc: ['uc', 'tasks for uc'],
+  contracts: ['client contract', 'contract'],
+  site_visits: ['site visit'],
+  ahj: ['ahj', 'permitting'],
+  installs: ['install'],
+  rebates: ['rebate', 'hrsp', 'home renovation savings', 'home energy sav', 'greener homes', 'grant'],
+  payments: ['payment'],
+  close_off: ['close-off', 'close off', 'closeoff'],
+};
+
 escalationRouter.patch("/escalation-tickets/:id/resolve", async (req, res) => {
   try {
     const { resolutionNote, resolvedBy } = req.body || {};
@@ -145,6 +157,69 @@ escalationRouter.patch("/escalation-tickets/:id/resolve", async (req, res) => {
       resolvedBy: resolvedBy.trim(),
     });
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const project = await storage.getProject(ticket.projectId);
+    const truncatedNote = resolutionNote.length > 100 ? resolutionNote.substring(0, 100) + '...' : resolutionNote;
+
+    if (project) {
+      if (ticket.viewType === 'rebates' || ticket.viewType === 'payments') {
+        await storage.createRebateCompletion({
+          projectId: ticket.projectId,
+          staffName: resolvedBy.trim(),
+          actionType: 'escalation_resolved',
+          fromStatus: null,
+          toStatus: null,
+          notes: `Ticket Resolution: ${truncatedNote}`,
+        });
+      } else {
+        await storage.createUcCompletion({
+          projectId: ticket.projectId,
+          staffName: resolvedBy.trim(),
+          actionType: 'escalation_resolved',
+          fromStatus: null,
+          toStatus: null,
+          notes: `Ticket Resolution (${ticket.viewType}): ${truncatedNote}`,
+          hideDays: null,
+        });
+      }
+
+      await storage.createTaskAction({
+        projectId: ticket.projectId,
+        viewType: ticket.viewType,
+        actionType: 'escalation_resolved',
+        completedBy: resolvedBy.trim(),
+        notes: `Ticket Resolution: ${resolutionNote.trim()}`,
+      });
+
+      if (project.asanaGid) {
+        try {
+          const subtasks = await fetchSubtasksForTask(project.asanaGid);
+          const keywords = VIEW_TYPE_SUBTASK_KEYWORDS[ticket.viewType] || [];
+          const matchingSubtasks = subtasks.filter((st: any) => {
+            const name = ((st.name as string) || '').toLowerCase();
+            return keywords.some(kw => name.includes(kw));
+          });
+          matchingSubtasks.sort((a: any, b: any) => {
+            const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return bCreated - aCreated;
+          });
+          const targetSubtask = matchingSubtasks[0];
+          if (targetSubtask) {
+            const commentText = `[Escalation Ticket Resolution]\n\nResolved by: ${resolvedBy.trim()}\n\nResolution:\n${resolutionNote.trim()}`;
+            await postCommentToTask(targetSubtask.gid as string, commentText);
+            console.log(`[Escalation] Posted resolution to subtask "${targetSubtask.name}" (${targetSubtask.gid}) for ${project.name}`);
+          } else {
+            const commentText = `[Escalation Ticket Resolution - ${ticket.viewType}]\n\nResolved by: ${resolvedBy.trim()}\n\nResolution:\n${resolutionNote.trim()}`;
+            await postCommentToTask(project.asanaGid, commentText);
+            console.log(`[Escalation] No matching subtask for viewType "${ticket.viewType}", posted to main task for ${project.name}`);
+          }
+        } catch (asanaErr) {
+          console.error(`[Escalation] Failed to post resolution to Asana:`, asanaErr instanceof Error ? asanaErr.message : String(asanaErr));
+        }
+      }
+    }
+
     res.json(ticket);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

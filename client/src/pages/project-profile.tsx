@@ -24,6 +24,7 @@ import { useContractActions } from "@/hooks/use-contract-actions";
 import { useTaskActions } from "@/hooks/use-task-actions";
 import { hasAction, findAction, getLastFollowUp } from "@/hooks/use-contract-filters";
 import { SubtaskPanel } from "@/components/uc/SubtaskPanel";
+import { EscalationTicketsSection } from "@/components/project-profile/EscalationTicketsSection";
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
 import type { ContractFileCounts } from "@/pages/contracts-view";
 import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, CreditCard, Camera } from "lucide-react";
@@ -163,6 +164,7 @@ export default function ProjectProfile() {
           <InfoRow label="Final Payment" value={project.finalPaymentCollected ? "Collected" : "Pending"} testId="text-final-payment" />
         </StageSection>
       </div>
+      <EscalationTicketsSection projectId={projectId!} />
       <DocumentsSection project={project} projectId={projectId!} />
       <CustomerTimeline projectId={projectId!} taskActions={taskActions} />
       <MainTimeline projectId={projectId!} asanaGid={project.asanaGid} />

@@ -26,15 +26,20 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
 
   const tickets = ticketsProp || allTickets;
 
-  const activeTicket = tickets?.find(t =>
-    (t.projectId === projectId) && (t.status === "open" || t.status === "responded")
-  );
-  if (!activeTicket) return null;
+  const projectTickets = tickets?.filter(t => t.projectId === projectId) || [];
+  const activeTicket = projectTickets.find(t => t.status === "open" || t.status === "responded");
+  const openCount = projectTickets.filter(t => t.status === "open" || t.status === "responded").length;
+  const resolvedCount = projectTickets.filter(t => t.status === "resolved").length;
+
+  if (!activeTicket && resolvedCount === 0) return null;
 
   const handleResolve = async () => {
     setResolving(true);
     try {
-      await apiRequest("PATCH", `/api/escalation-tickets/${activeTicket.id}/resolve`, {});
+      await apiRequest("PATCH", `/api/escalation-tickets/${activeTicket!.id}/resolve`, {
+        resolutionNote: `Resolved after reviewing manager response: "${activeTicket!.managerResponse || 'N/A'}"`,
+        resolvedBy: activeTicket!.respondedBy || "Staff",
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
       toast({ title: "Ticket resolved" });
       setViewOpen(false);
@@ -46,17 +51,37 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
     }
   };
 
-  if (activeTicket.status === "responded") {
+  if (!activeTicket && resolvedCount > 0) {
     return (
-      <>
+      <Badge
+        className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
+        data-testid={`badge-tickets-resolved-${projectId}`}
+      >
+        <CheckCircle2 className="h-3 w-3 mr-0.5" />
+        {resolvedCount} resolved
+      </Badge>
+    );
+  }
+
+  if (activeTicket!.status === "responded") {
+    return (
+      <div className="flex items-center gap-1">
         <Badge
-          className="text-[10px] px-1.5 py-0.5 cursor-pointer bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800 border-0"
+          className="text-[10px] px-1.5 py-0.5 cursor-pointer bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
           onClick={() => setViewOpen(true)}
           data-testid={`badge-response-available-${projectId}`}
         >
           <Eye className="h-3 w-3 mr-1" />
           Response Available
         </Badge>
+        {resolvedCount > 0 && (
+          <Badge
+            className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
+            data-testid={`badge-tickets-resolved-${projectId}`}
+          >
+            {resolvedCount} resolved
+          </Badge>
+        )}
         <Dialog open={viewOpen} onOpenChange={setViewOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -69,18 +94,18 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
             <div className="space-y-4">
               <div className="p-3 rounded-md bg-muted">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Your issue:</p>
-                <p className="text-sm">{activeTicket.issue}</p>
+                <p className="text-sm">{activeTicket!.issue}</p>
               </div>
               <div className="p-3 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
                 <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
-                  Response from {activeTicket.respondedBy}
-                  {activeTicket.respondedAt && (
+                  Response from {activeTicket!.respondedBy}
+                  {activeTicket!.respondedAt && (
                     <span className="font-normal ml-1">
-                      ({new Date(activeTicket.respondedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })})
+                      ({new Date(activeTicket!.respondedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })})
                     </span>
                   )}
                 </p>
-                <p className="text-sm text-green-800 dark:text-green-200">{activeTicket.managerResponse}</p>
+                <p className="text-sm text-green-800 dark:text-green-200">{activeTicket!.managerResponse}</p>
               </div>
               <Button className="w-full" onClick={handleResolve} disabled={resolving} data-testid="button-resolve-ticket">
                 {resolving ? "Resolving..." : "Mark as Resolved & Continue"}
@@ -88,17 +113,27 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
             </div>
           </DialogContent>
         </Dialog>
-      </>
+      </div>
     );
   }
 
   return (
-    <Badge
-      className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 border-0"
-      data-testid={`badge-escalated-${projectId}`}
-    >
-      <AlertTriangle className="h-3 w-3 mr-1" />
-      Escalated
-    </Badge>
+    <div className="flex items-center gap-1">
+      <Badge
+        className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 border-0"
+        data-testid={`badge-escalated-${projectId}`}
+      >
+        <AlertTriangle className="h-3 w-3 mr-1" />
+        {openCount > 1 ? `${openCount} open` : "Escalated"}
+      </Badge>
+      {resolvedCount > 0 && (
+        <Badge
+          className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
+          data-testid={`badge-tickets-resolved-${projectId}`}
+        >
+          {resolvedCount} resolved
+        </Badge>
+      )}
+    </div>
   );
 }
