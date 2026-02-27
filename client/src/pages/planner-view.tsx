@@ -37,11 +37,12 @@ function isPlannerComplete(p: Project) {
   const hasPermit = !!p.electricalPermitUrl;
   const scopeOk = !!p.plannerScopeConfirmed;
   const proposalOk = !!p.plannerProposalUrl;
+  const sitePlanOk = !!p.plannerSitePlanUrl;
   const costOk = !!p.plannerTotalCost;
   const payoutOk = !!p.plannerContractorPayout;
   const contractSent = !!p.plannerContractSent;
   const contractSigned = !!p.plannerContractSigned;
-  return hasContractor && scopeOk && proposalOk && costOk && payoutOk && contractSent && contractSigned && (!isNS || hasPermit);
+  return hasContractor && scopeOk && proposalOk && sitePlanOk && costOk && payoutOk && contractSent && contractSigned && (!isNS || hasPermit);
 }
 
 function needsPlanning(p: Project) {
@@ -78,6 +79,7 @@ function PlannerCard({ project }: { project: Project }) {
   const { toast } = useToast();
   const permitRef = useRef<HTMLInputElement>(null);
   const proposalRef = useRef<HTMLInputElement>(null);
+  const sitePlanRef = useRef<HTMLInputElement>(null);
   const [editCost, setEditCost] = useState(false);
   const [editPayout, setEditPayout] = useState(false);
   const [costValue, setCostValue] = useState(project.plannerTotalCost || "");
@@ -87,6 +89,7 @@ function PlannerCard({ project }: { project: Project }) {
   const hasContractor = !!project.contractStatus && project.contractStatus !== 'A. Not Assign';
   const hasPermit = !!project.electricalPermitUrl;
   const hasProposal = !!project.plannerProposalUrl;
+  const hasSitePlan = !!project.plannerSitePlanUrl;
   const scopeConfirmed = !!project.plannerScopeConfirmed;
   const hasCost = !!project.plannerTotalCost;
   const hasPayout = !!project.plannerContractorPayout;
@@ -94,8 +97,8 @@ function PlannerCard({ project }: { project: Project }) {
   const contractSigned = !!project.plannerContractSigned;
   const isReady = isPlannerComplete(project);
 
-  const completedCount = [hasContractor, scopeConfirmed, hasProposal, hasCost, hasPayout, contractSent, contractSigned, ...(isNS ? [hasPermit] : [])].filter(Boolean).length;
-  const totalCount = 7 + (isNS ? 1 : 0);
+  const completedCount = [hasContractor, scopeConfirmed, hasProposal, hasSitePlan, hasCost, hasPayout, contractSent, contractSigned, ...(isNS ? [hasPermit] : [])].filter(Boolean).length;
+  const totalCount = 8 + (isNS ? 1 : 0);
 
   const updateField = useMutation({
     mutationFn: async (fields: Record<string, unknown>) => {
@@ -122,6 +125,24 @@ function PlannerCard({ project }: { project: Project }) {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files"] });
       toast({ title: "Uploaded", description: "Proposal saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const sitePlanMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("sitePlan", file);
+      const res = await fetch(`/api/projects/${project.id}/planner-site-plan`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files"] });
+      toast({ title: "Uploaded", description: "Site plan saved" });
     },
     onError: (err: Error) => {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
@@ -211,7 +232,7 @@ function PlannerCard({ project }: { project: Project }) {
               </div>
 
               <div>
-                <CheckItem done={hasProposal} label="Upload Original Proposal" required>
+                <CheckItem done={hasProposal} label="Upload Final Proposal" required>
                   <input
                     ref={proposalRef}
                     type="file"
@@ -235,6 +256,39 @@ function PlannerCard({ project }: { project: Project }) {
                     {proposalMutation.isPending ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : hasProposal ? (
+                      <><RefreshCw className="h-3 w-3 mr-0.5" /> Replace</>
+                    ) : (
+                      <><Upload className="h-3 w-3 mr-0.5" /> Upload</>
+                    )}
+                  </Button>
+                </CheckItem>
+              </div>
+
+              <div>
+                <CheckItem done={hasSitePlan} label="Upload Site Plan" required>
+                  <input
+                    ref={sitePlanRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) sitePlanMutation.mutate(f);
+                      e.target.value = "";
+                    }}
+                    data-testid={`input-planner-siteplan-${project.id}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 text-[10px] px-1.5 ml-1"
+                    onClick={() => sitePlanRef.current?.click()}
+                    disabled={sitePlanMutation.isPending}
+                    data-testid={`button-upload-siteplan-${project.id}`}
+                  >
+                    {sitePlanMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : hasSitePlan ? (
                       <><RefreshCw className="h-3 w-3 mr-0.5" /> Replace</>
                     ) : (
                       <><Upload className="h-3 w-3 mr-0.5" /> Upload</>

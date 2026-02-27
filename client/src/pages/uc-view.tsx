@@ -62,12 +62,13 @@ export default function UCView() {
     const hasContractor = !!p.contractStatus && p.contractStatus !== 'A. Not Assign';
     const scopeOk = !!p.plannerScopeConfirmed;
     const proposalOk = !!p.plannerProposalUrl;
+    const sitePlanOk = !!p.plannerSitePlanUrl;
     const costOk = !!p.plannerTotalCost;
     const payoutOk = !!p.plannerContractorPayout;
     const contractSent = !!p.plannerContractSent;
     const contractSigned = !!p.plannerContractSigned;
     const permitOk = !isNS || !!p.electricalPermitUrl;
-    return !(hasContractor && scopeOk && proposalOk && costOk && payoutOk && contractSent && contractSigned && permitOk);
+    return !(hasContractor && scopeOk && proposalOk && sitePlanOk && costOk && payoutOk && contractSent && contractSigned && permitOk);
   };
 
   const installProjects = (projects || []).filter((p) =>

@@ -419,14 +419,45 @@ uploadsRouter.post("/:id/planner-proposal", upload.single('proposal'), async (re
     if (!project) return res.status(404).json({ message: "Project not found" });
     if (!req.file) return res.status(400).json({ message: "File is required" });
 
-    const savedFile = await saveFileLocally(projectId, 'planner', req.file.buffer, `PROPOSAL - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Original proposal upload');
+    const savedFile = await saveFileLocally(projectId, 'planner', req.file.buffer, `PROPOSAL - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Final proposal upload');
     const localUrl = getDownloadUrl(projectId, savedFile.id);
+
+    const existingContractFiles = await storage.getProjectFiles(projectId, 'contract');
+    const oldProposal = existingContractFiles.find(f => f.fileName.toLowerCase().startsWith('proposal'));
+    if (oldProposal) await storage.deleteProjectFile(oldProposal.id);
+    await saveFileLocally(projectId, 'contract', req.file.buffer, `PROPOSAL - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Synced from planner');
+
     const updated = await storage.updateProject(projectId, { plannerProposalUrl: localUrl, plannerProposalUploadedAt: new Date() });
 
     res.json({ project: updated, fileId: savedFile.id, message: "Proposal uploaded" });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[Planner Proposal] Upload error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
+uploadsRouter.post("/:id/planner-site-plan", upload.single('sitePlan'), async (req, res) => {
+  try {
+    const projectId = req.params.id as string;
+    const project = await storage.getProject(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!req.file) return res.status(400).json({ message: "File is required" });
+
+    const savedFile = await saveFileLocally(projectId, 'planner', req.file.buffer, `SITE PLAN - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Site plan upload');
+    const localUrl = getDownloadUrl(projectId, savedFile.id);
+
+    const existingContractFiles = await storage.getProjectFiles(projectId, 'contract');
+    const oldSitePlan = existingContractFiles.find(f => f.fileName.toLowerCase().startsWith('site plan'));
+    if (oldSitePlan) await storage.deleteProjectFile(oldSitePlan.id);
+    await saveFileLocally(projectId, 'contract', req.file.buffer, `SITE PLAN - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Synced from planner');
+
+    const updated = await storage.updateProject(projectId, { plannerSitePlanUrl: localUrl, plannerSitePlanUploadedAt: new Date() });
+
+    res.json({ project: updated, fileId: savedFile.id, message: "Site plan uploaded" });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Planner Site Plan] Upload error:", msg);
     res.status(500).json({ message: msg });
   }
 });
@@ -478,8 +509,29 @@ uploadsRouter.post("/:id/contract-documents", upload.fields([
     };
 
     if (files?.contract?.[0]) await saveIfNew(files.contract[0], 'CONTRACT', 'Contract');
-    if (files?.proposal?.[0]) await saveIfNew(files.proposal[0], 'PROPOSAL', 'Proposal');
-    if (files?.sitePlan?.[0]) await saveIfNew(files.sitePlan[0], 'SITE PLAN', 'Site Plan');
+
+    const plannerSync: Record<string, unknown> = {};
+    if (files?.proposal?.[0]) {
+      await saveIfNew(files.proposal[0], 'PROPOSAL', 'Proposal');
+      const existingPlannerFiles = await storage.getProjectFiles(projectId, 'planner');
+      const oldPlannerProposal = existingPlannerFiles.find(f => f.fileName.toLowerCase().startsWith('proposal'));
+      if (oldPlannerProposal) await storage.deleteProjectFile(oldPlannerProposal.id);
+      const plannerSaved = await saveFileLocally(projectId, 'planner', files.proposal[0].buffer, `PROPOSAL - ${files.proposal[0].originalname}`, files.proposal[0].mimetype, uploadedBy, 'Synced from contract');
+      plannerSync.plannerProposalUrl = getDownloadUrl(projectId, plannerSaved.id);
+      plannerSync.plannerProposalUploadedAt = new Date();
+    }
+    if (files?.sitePlan?.[0]) {
+      await saveIfNew(files.sitePlan[0], 'SITE PLAN', 'Site Plan');
+      const existingPlannerFiles2 = await storage.getProjectFiles(projectId, 'planner');
+      const oldPlannerSitePlan = existingPlannerFiles2.find(f => f.fileName.toLowerCase().startsWith('site plan'));
+      if (oldPlannerSitePlan) await storage.deleteProjectFile(oldPlannerSitePlan.id);
+      const plannerSaved = await saveFileLocally(projectId, 'planner', files.sitePlan[0].buffer, `SITE PLAN - ${files.sitePlan[0].originalname}`, files.sitePlan[0].mimetype, uploadedBy, 'Synced from contract');
+      plannerSync.plannerSitePlanUrl = getDownloadUrl(projectId, plannerSaved.id);
+      plannerSync.plannerSitePlanUploadedAt = new Date();
+    }
+    if (Object.keys(plannerSync).length > 0) {
+      await storage.updateProject(projectId, plannerSync);
+    }
 
     if (project.asanaGid) try {
       const topSubtasks = await fetchSubtasksForTask(project.asanaGid);

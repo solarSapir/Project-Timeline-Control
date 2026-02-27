@@ -112,6 +112,11 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
                 <FileCheck className="h-4 w-4" />
                 Proposal Used
               </Label>
+              {project.plannerProposalUrl && !proposalFile && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Already uploaded from planner (upload to replace)
+                </p>
+              )}
               <Input id="proposalFile" type="file" accept=".doc,.docx,.pdf,.xls,.xlsx,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" onChange={(e) => setProposalFile(e.target.files?.[0] || null)} className="mt-1" data-testid="input-proposal-file" />
               {proposalFile && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -124,6 +129,11 @@ export function ContractDocumentsDialog({ project, hasDocUpload }: ContractDocum
                 <Map className="h-4 w-4" />
                 Latest Site Plan
               </Label>
+              {project.plannerSitePlanUrl && !sitePlanFile && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Already uploaded from planner (upload to replace)
+                </p>
+              )}
               <Input id="sitePlanFile" type="file" accept=".pdf,.dwg,.dxf,image/*,application/pdf" onChange={(e) => setSitePlanFile(e.target.files?.[0] || null)} className="mt-1" data-testid="input-site-plan-file" />
               {sitePlanFile && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">

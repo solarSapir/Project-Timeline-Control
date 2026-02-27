@@ -87,6 +87,8 @@ export const projects = pgTable("projects", {
   plannerProposalUploadedAt: timestamp("planner_proposal_uploaded_at"),
   plannerTotalCost: text("planner_total_cost"),
   plannerContractorPayout: text("planner_contractor_payout"),
+  plannerSitePlanUrl: text("planner_site_plan_url"),
+  plannerSitePlanUploadedAt: timestamp("planner_site_plan_uploaded_at"),
   plannerContractSent: boolean("planner_contract_sent").default(false),
   plannerContractSigned: boolean("planner_contract_signed").default(false),
   rebateCloseOffDate: text("rebate_close_off_date"),
