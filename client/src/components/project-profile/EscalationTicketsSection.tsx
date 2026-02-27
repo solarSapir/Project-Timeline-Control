@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, Loader2, CalendarClock, Upload, Paperclip, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, Loader2, CalendarClock, Upload, Paperclip, X, Minimize2, Maximize2 } from "lucide-react";
 import { ESCALATION_VIEW_LABELS } from "@shared/schema";
 import type { EscalationTicket } from "@shared/schema";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
@@ -77,32 +77,85 @@ export function EscalationTicketsSection({ projectId }: { projectId: string }) {
 
 export function EscalationTicketsInline({ projectId }: { projectId: string }) {
   const { tickets, open, resolved, sorted } = useProjectTickets(projectId);
+  const [minimized, setMinimized] = useState(false);
+  const [focusOpen, setFocusOpen] = useState(false);
   if (tickets.length === 0) return null;
 
   return (
-    <div className="bg-muted/30 rounded-lg p-4 border space-y-2" data-testid="inline-escalation-tickets">
-      <div className="flex items-center gap-2 flex-wrap">
-        <h4 className="text-xs font-semibold flex items-center gap-1.5">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-          Escalation Tickets
-        </h4>
-        {open.length > 0 && (
-          <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
-            {open.length} open
-          </Badge>
-        )}
-        {resolved.length > 0 && (
-          <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
-            {resolved.length} resolved
-          </Badge>
+    <>
+      <div className="bg-muted/30 rounded-lg p-4 border space-y-2" data-testid="inline-escalation-tickets">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h4 className="text-xs font-semibold flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            Escalation Tickets
+          </h4>
+          {open.length > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+              {open.length} open
+            </Badge>
+          )}
+          {resolved.length > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
+              {resolved.length} resolved
+            </Badge>
+          )}
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              type="button"
+              onClick={() => setFocusOpen(true)}
+              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title="Open in focus mode"
+              data-testid="button-escalation-focus"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setMinimized(!minimized)}
+              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title={minimized ? "Expand tickets" : "Minimize tickets"}
+              data-testid="button-escalation-minimize"
+            >
+              {minimized ? <ChevronDown className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+        {!minimized && (
+          <div className="space-y-2">
+            {sorted.map(ticket => (
+              <TicketSummary key={ticket.id} ticket={ticket} showActions />
+            ))}
+          </div>
         )}
       </div>
-      <div className="space-y-2">
-        {sorted.map(ticket => (
-          <TicketSummary key={ticket.id} ticket={ticket} showActions />
-        ))}
-      </div>
-    </div>
+
+      <Dialog open={focusOpen} onOpenChange={setFocusOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Escalation Tickets
+              {open.length > 0 && (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                  {open.length} open
+                </Badge>
+              )}
+              {resolved.length > 0 && (
+                <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
+                  {resolved.length} resolved
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>View and manage all escalation tickets for this project.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {sorted.map(ticket => (
+              <TicketSummary key={ticket.id} ticket={ticket} showActions />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
