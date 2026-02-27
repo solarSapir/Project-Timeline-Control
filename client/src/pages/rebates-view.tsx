@@ -19,7 +19,7 @@ import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { RebateFollowUpDialog } from "@/components/hrsp/RebateFollowUpDialog";
 import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
-import { ClaimButton } from "@/components/shared/ClaimButton";
+import { ClaimButton, useActiveClaims, isProjectClaimed } from "@/components/shared/ClaimButton";
 
 function HrspInfo({ project }: { project: Project }) {
   const [actionLoading, setActionLoading] = useState<"resync" | "create" | null>(null);
@@ -172,6 +172,7 @@ export default function PaymentsView() {
   const { data: rebateOptions } = useQuery<{ gid: string; name: string }[]>({
     queryKey: ['/api/asana/field-options/rebateStatus'],
   });
+  const activeClaims = useActiveClaims();
 
   const { data: workflowRules } = useQuery<RebateWorkflowRule[]>({
     queryKey: ['/api/rebate/workflow-rules'],
@@ -411,7 +412,10 @@ export default function PaymentsView() {
             return (
               <Card
                 key={p.id}
-                className={`transition-colors ${hidden ? "border-l-4 border-l-blue-400 opacity-75" : followUp ? "border-l-4 border-l-amber-400" : hrspIssue ? "border-l-4 border-l-red-400" : ""}`}
+                className={`transition-colors ${
+                  isProjectClaimed(activeClaims, p.id, 'rebates') ? "ring-2 ring-green-400 dark:ring-green-600 bg-green-50/30 dark:bg-green-950/20" :
+                  hidden ? "border-l-4 border-l-blue-400 opacity-75" : followUp ? "border-l-4 border-l-amber-400" : hrspIssue ? "border-l-4 border-l-red-400" : ""
+                }`}
                 data-testid={`card-project-${p.id}`}
               >
                 <CardContent className="py-3 px-4">

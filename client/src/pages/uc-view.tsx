@@ -14,6 +14,7 @@ import { UCProjectCard } from "@/components/uc/UCProjectCard";
 import { UcApprovalDialog } from "@/components/uc/UcApprovalDialog";
 import { UcRejectionDialog } from "@/components/uc/UcRejectionDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { useActiveClaims, isProjectClaimed } from "@/components/shared/ClaimButton";
 import type { Project, EscalationTicket, UcCompletion } from "@shared/schema";
 
 export default function UCView() {
@@ -31,6 +32,7 @@ export default function UCView() {
   const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({ queryKey: ['/api/asana/field-options/ucStatus'] });
   const { data: escalationTickets } = useQuery<EscalationTicket[]>({ queryKey: ['/api/escalation-tickets'] });
   const { data: ucCompletions } = useQuery<UcCompletion[]>({ queryKey: ['/api/uc/completions'] });
+  const activeClaims = useActiveClaims();
 
   const statusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
 
@@ -345,6 +347,7 @@ export default function UCView() {
               onToggleExpand={() => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
               onExpand={() => setFocusProject(p)}
               onStatusChange={handleStatusChange}
+              isClaimed={!!isProjectClaimed(activeClaims, p.id, 'uc')}
             />
           ))}
         </div>

@@ -15,13 +15,14 @@ import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { ClaimButton } from "@/components/shared/ClaimButton";
 import type { Project } from "@shared/schema";
 
-export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpand, onExpand, onStatusChange }: {
+export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpand, onExpand, onStatusChange, isClaimed }: {
   project: Project;
   statusOptions: string[];
   isExpanded: boolean;
   onToggleExpand: () => void;
   onExpand: () => void;
   onStatusChange: (id: string, status: string) => void;
+  isClaimed?: boolean;
 }) {
   const completed = isUcComplete(project.ucStatus);
   const isOverdue = !completed && (getDaysUntilDue(project.ucDueDate) ?? 1) < 0;
@@ -35,6 +36,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
   return (
     <Card
       className={`transition-colors ${completed ? "opacity-50" : ""} ${
+        isClaimed ? "ring-2 ring-green-400 dark:ring-green-600 bg-green-50/30 dark:bg-green-950/20" :
         needsFollowUp ? "border-l-4 border-l-amber-400" :
         isOverdue ? "border-l-4 border-l-red-400" : ""
       }`}

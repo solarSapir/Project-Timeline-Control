@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserCheck, Hand, Loader2, X, Clock } from "lucide-react";
+import { UserCheck, Hand, Loader2, X } from "lucide-react";
 import { StaffSelect } from "@/components/shared/StaffSelect";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,16 +15,24 @@ interface ClaimButtonProps {
   viewType: string;
 }
 
+export function useActiveClaims() {
+  const { data: activeClaims = [] } = useQuery<TaskClaim[]>({
+    queryKey: ['/api/claims'],
+  });
+  return activeClaims;
+}
+
+export function isProjectClaimed(claims: TaskClaim[], projectId: string, viewType: string): TaskClaim | undefined {
+  return claims.find(c => c.projectId === projectId && c.viewType === viewType);
+}
+
 export function ClaimButton({ projectId, projectName, viewType }: ClaimButtonProps) {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState("");
 
-  const { data: activeClaims = [] } = useQuery<TaskClaim[]>({
-    queryKey: ['/api/claims'],
-  });
-
-  const existingClaim = activeClaims.find(c => c.projectId === projectId && c.viewType === viewType);
+  const activeClaims = useActiveClaims();
+  const existingClaim = isProjectClaimed(activeClaims, projectId, viewType);
 
   const claimMutation = useMutation({
     mutationFn: async (staffName: string) => {
@@ -55,43 +62,27 @@ export function ClaimButton({ projectId, projectName, viewType }: ClaimButtonPro
   });
 
   if (existingClaim) {
-    const claimedAt = existingClaim.claimedAt ? new Date(existingClaim.claimedAt) : null;
-    const elapsed = claimedAt ? Math.round((Date.now() - claimedAt.getTime()) / 60000) : 0;
-    const elapsedStr = elapsed < 60 ? `${elapsed}m` : `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`;
-
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1">
-            <Badge
-              variant="secondary"
-              className="h-6 text-[10px] px-2 gap-1 bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300 cursor-default"
-              data-testid={`badge-claimed-${projectId}`}
-            >
-              <UserCheck className="h-3 w-3" />
-              {existingClaim.staffName.split(' ')[0]}
-              <span className="text-green-600 dark:text-green-400 flex items-center gap-0.5">
-                <Clock className="h-2.5 w-2.5" />
-                {elapsedStr}
-              </span>
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
-              onClick={() => releaseMutation.mutate(existingClaim.id)}
-              disabled={releaseMutation.isPending}
-              data-testid={`button-release-${projectId}`}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="text-xs">{existingClaim.staffName} is working on this</p>
-          {claimedAt && <p className="text-xs text-muted-foreground">Started {claimedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>}
-        </TooltipContent>
-      </Tooltip>
+      <div className="flex items-center gap-1">
+        <Badge
+          variant="secondary"
+          className="h-6 text-[10px] px-2 gap-1 bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300 cursor-default"
+          data-testid={`badge-claimed-${projectId}`}
+        >
+          <UserCheck className="h-3 w-3" />
+          {existingClaim.staffName}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+          onClick={() => releaseMutation.mutate(existingClaim.id)}
+          disabled={releaseMutation.isPending}
+          data-testid={`button-release-${projectId}`}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
     );
   }
 
@@ -112,6 +103,7 @@ export function ClaimButton({ projectId, projectName, viewType }: ClaimButtonPro
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base">Claim Task</DialogTitle>
+            <DialogDescription className="sr-only">Select your name to claim this task</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
