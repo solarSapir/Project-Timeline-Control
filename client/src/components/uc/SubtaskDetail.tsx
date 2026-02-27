@@ -224,10 +224,12 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
 
   const { data: stories = [], isLoading: storiesLoading, refetch: refetchStories } = useQuery<AsanaStory[]>({
     queryKey: ['/api/subtasks', subtaskGid, 'stories'],
+    refetchInterval: 60000,
   });
 
   const { data: attachments = [], isLoading: attachmentsLoading, refetch: refetchAttachments } = useQuery<AsanaAttachment[]>({
     queryKey: ['/api/subtasks', subtaskGid, 'attachments'],
+    refetchInterval: 60000,
   });
 
   const commentMutation = useMutation({

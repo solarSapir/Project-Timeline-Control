@@ -18,6 +18,8 @@ export function useAsanaFieldOptions(fieldName: string) {
       return res.json();
     },
     enabled: !!fieldName,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
@@ -34,5 +36,7 @@ export function useHrspFieldOptions(subtaskGid: string | null) {
       return res.json();
     },
     enabled: !!subtaskGid,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

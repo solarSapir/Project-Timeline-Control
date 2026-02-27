@@ -8,5 +8,7 @@ import type { WorkflowConfig } from "@shared/schema";
 export function useWorkflowConfig() {
   return useQuery<WorkflowConfig[]>({
     queryKey: ['/api/workflow-config'],
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

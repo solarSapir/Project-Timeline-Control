@@ -200,11 +200,13 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
   const { data: stories = [], isLoading: storiesLoading, refetch: refetchStories } = useQuery<AsanaStory[]>({
     queryKey: ['/api/projects', projectId, 'stories'],
     enabled: !!asanaGid,
+    refetchInterval: 60000,
   });
 
   const { data: attachments = [], isLoading: attachmentsLoading, refetch: refetchAttachments } = useQuery<AsanaAttachment[]>({
     queryKey: ['/api/subtasks', asanaGid, 'attachments'],
     enabled: !!asanaGid,
+    refetchInterval: 60000,
   });
 
   const commentMutation = useMutation({
