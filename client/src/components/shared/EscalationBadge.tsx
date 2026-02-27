@@ -94,7 +94,7 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
             <div className="space-y-4">
               <div className="p-3 rounded-md bg-muted">
                 <p className="text-xs font-medium text-muted-foreground mb-1">Your issue:</p>
-                <p className="text-sm">{activeTicket!.issue}</p>
+                <p className="text-sm whitespace-pre-wrap">{activeTicket!.issue}</p>
               </div>
               <div className="p-3 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
                 <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
@@ -105,7 +105,7 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
                     </span>
                   )}
                 </p>
-                <p className="text-sm text-green-800 dark:text-green-200">{activeTicket!.managerResponse}</p>
+                <p className="text-sm text-green-800 dark:text-green-200 whitespace-pre-wrap">{activeTicket!.managerResponse}</p>
               </div>
               <Button className="w-full" onClick={handleResolve} disabled={resolving} data-testid="button-resolve-ticket">
                 {resolving ? "Resolving..." : "Mark as Resolved & Continue"}
