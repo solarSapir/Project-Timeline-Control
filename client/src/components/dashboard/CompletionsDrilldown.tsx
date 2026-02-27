@@ -233,10 +233,19 @@ function SessionGroupRow({ group, groupKey }: { group: SessionGroup; groupKey: s
   );
 }
 
+function countUniqueProjects(entries: CompletionEntry[]): number {
+  return new Set(entries.map(e => e.projectName)).size;
+}
+
 export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCounts }: Props) {
   const [staffFilter, setStaffFilter] = useState("all");
 
   const staffNames = [...new Set(completions.map(c => c.staffName))].sort();
+
+  const staffTaskCounts: Record<string, number> = {};
+  for (const name of staffNames) {
+    staffTaskCounts[name] = countUniqueProjects(completions.filter(c => c.staffName === name));
+  }
 
   const filtered = staffFilter === "all"
     ? completions
@@ -263,12 +272,12 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
     return acc;
   }, {});
 
-  let totalSessions = 0;
+  let totalTasks = 0;
   const sessionsByDate: Record<string, SessionGroup[]> = {};
   for (const date of last30) {
     const sessions = groupIntoSessions(groupedByDate[date]);
     sessionsByDate[date] = sessions;
-    totalSessions += sessions.length;
+    totalTasks += countUniqueProjects(groupedByDate[date]);
   }
 
   return (
@@ -282,18 +291,18 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
         <div className="flex items-center gap-3 mb-4">
           <span className="text-sm text-muted-foreground">Filter by staff:</span>
           <Select value={staffFilter} onValueChange={setStaffFilter}>
-            <SelectTrigger className="w-48 h-8 text-sm" data-testid="select-staff-filter">
+            <SelectTrigger className="w-56 h-8 text-sm" data-testid="select-staff-filter">
               <SelectValue placeholder="All Staff" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Staff</SelectItem>
+              <SelectItem value="all">All Staff ({staffNames.length})</SelectItem>
               {staffNames.map(name => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
+                <SelectItem key={name} value={name}>{name} ({staffTaskCounts[name]} tasks)</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <span className="text-sm text-muted-foreground ml-auto">
-            {filtered.length} actions in {totalSessions} tasks
+            {filtered.length} actions across {totalTasks} tasks
           </span>
         </div>
 
@@ -335,14 +344,21 @@ export function CompletionsDrilldown({ open, onOpenChange, completions, dailyCou
           {[...last30].reverse().map(date => {
             const sessions = sessionsByDate[date];
             const dayActions = groupedByDate[date].length;
+            const dayTasks = countUniqueProjects(groupedByDate[date]);
+            const dayStaff = [...new Set(groupedByDate[date].map(e => e.staffName))];
 
             return (
               <div key={date} data-testid={`drilldown-day-${date}`}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-sm font-medium">{formatDate(date)}</span>
                   <Badge variant="secondary" className="text-[10px]">
-                    {dayActions} action{dayActions !== 1 ? "s" : ""} · {sessions.length} task{sessions.length !== 1 ? "s" : ""}
+                    {dayActions} action{dayActions !== 1 ? "s" : ""} · {dayTasks} task{dayTasks !== 1 ? "s" : ""}
                   </Badge>
+                  {staffFilter === "all" && dayStaff.length > 1 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {dayStaff.map(s => `${s} (${countUniqueProjects(groupedByDate[date].filter(e => e.staffName === s))})`).join(", ")}
+                    </span>
+                  )}
                 </div>
                 <div className="space-y-0.5 ml-2 border-l-2 border-muted pl-3">
                   {sessions.map((session, si) => {
