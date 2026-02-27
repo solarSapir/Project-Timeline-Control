@@ -419,6 +419,7 @@ export default function PaymentsView() {
                       {p.name}
                     </Link>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <ClaimButton projectId={p.id} projectName={p.name} viewType="rebates" />
                       <RebateFollowUpDialog project={p} />
                       <EscalationDialog projectId={p.id} projectName={p.name} viewType="payments" />
                       <Select value={p.rebateStatus || ''} onValueChange={(v) => handleRebateStatus(p.id, v)}>

@@ -24,6 +24,7 @@ import { rebateWorkflowRouter, runRebateBackfillIfNeeded, backfillCompletionsFro
 import { webhookRouter } from "./routes/webhook";
 import { staffRouter } from "./routes/staff";
 import { pauseReasonsRouter } from "./routes/pause-reasons";
+import { claimsRouter } from "./routes/claims";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
@@ -45,6 +46,7 @@ export async function registerRoutes(
   app.use("/api/webhooks", webhookRouter);
   app.use("/api", staffRouter);
   app.use("/api/pause-reasons", pauseReasonsRouter);
+  app.use("/api/claims", claimsRouter);
 
   app.get("/api/hrsp-config", async (_req, res) => {
     try {

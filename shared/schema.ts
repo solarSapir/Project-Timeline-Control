@@ -650,6 +650,28 @@ export const insertPauseLogSchema = createInsertSchema(pauseLogs).omit({
 export type PauseLog = typeof pauseLogs.$inferSelect;
 export type InsertPauseLog = z.infer<typeof insertPauseLogSchema>;
 
+export const taskClaims = pgTable("task_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  viewType: text("view_type").notNull(),
+  staffName: text("staff_name").notNull(),
+  claimedAt: timestamp("claimed_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  completionAction: text("completion_action"),
+  active: boolean("active").default(true),
+});
+
+export const insertTaskClaimSchema = createInsertSchema(taskClaims).omit({
+  id: true,
+  claimedAt: true,
+  completedAt: true,
+  completionAction: true,
+  active: true,
+});
+
+export type TaskClaim = typeof taskClaims.$inferSelect;
+export type InsertTaskClaim = z.infer<typeof insertTaskClaimSchema>;
+
 export const DEFAULT_PAUSE_REASONS = [
   "Waiting for GHL loan approval",
   "Customer unresponsive",

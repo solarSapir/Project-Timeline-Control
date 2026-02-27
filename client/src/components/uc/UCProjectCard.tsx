@@ -12,6 +12,7 @@ import { FollowUpDialog } from "./FollowUpDialog";
 import { SubtaskPanel } from "./SubtaskPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { ClaimButton } from "@/components/shared/ClaimButton";
 import type { Project } from "@shared/schema";
 
 export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpand, onExpand, onStatusChange }: {
@@ -102,6 +103,7 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
               </SelectContent>
             </Select>
             {(isSubmitted || project.ucStatus?.toLowerCase() === 'revision required') && <FollowUpDialog project={project} />}
+            <ClaimButton projectId={project.id} projectName={project.name} viewType="uc" />
             <EscalationDialog projectId={project.id} projectName={project.name} viewType="uc" />
             <Button
               size="sm"

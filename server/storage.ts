@@ -3,6 +3,7 @@ import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
   ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers, pauseReasons,
+  taskClaims,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -20,6 +21,7 @@ import {
   type StaffMember, type InsertStaffMember,
   type PauseReason, type InsertPauseReason,
   type PauseLog, type InsertPauseLog,
+  type TaskClaim, type InsertTaskClaim,
   pauseLogs,
 } from "@shared/schema";
 
@@ -95,6 +97,14 @@ export interface IStorage {
 
   getPauseLogs(projectId?: string): Promise<PauseLog[]>;
   createPauseLog(data: InsertPauseLog): Promise<PauseLog>;
+
+  getActiveClaims(): Promise<TaskClaim[]>;
+  getActiveClaimByStaff(staffName: string): Promise<TaskClaim | undefined>;
+  getActiveClaimForProject(projectId: string, viewType: string): Promise<TaskClaim | undefined>;
+  createClaim(data: InsertTaskClaim): Promise<TaskClaim>;
+  completeClaim(id: string, completionAction: string): Promise<TaskClaim | undefined>;
+  releaseClaim(id: string): Promise<boolean>;
+  getClaimHistory(filters?: { staffName?: string; projectId?: string; limit?: number }): Promise<TaskClaim[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -541,6 +551,44 @@ export class DatabaseStorage implements IStorage {
   async createPauseLog(data: InsertPauseLog): Promise<PauseLog> {
     const [log] = await db.insert(pauseLogs).values(data).returning();
     return log;
+  }
+
+  async getActiveClaims(): Promise<TaskClaim[]> {
+    return db.select().from(taskClaims).where(eq(taskClaims.active, true)).orderBy(desc(taskClaims.claimedAt));
+  }
+
+  async getActiveClaimByStaff(staffName: string): Promise<TaskClaim | undefined> {
+    const [claim] = await db.select().from(taskClaims).where(and(eq(taskClaims.staffName, staffName), eq(taskClaims.active, true)));
+    return claim;
+  }
+
+  async getActiveClaimForProject(projectId: string, viewType: string): Promise<TaskClaim | undefined> {
+    const [claim] = await db.select().from(taskClaims).where(and(eq(taskClaims.projectId, projectId), eq(taskClaims.viewType, viewType), eq(taskClaims.active, true)));
+    return claim;
+  }
+
+  async createClaim(data: InsertTaskClaim): Promise<TaskClaim> {
+    const [claim] = await db.insert(taskClaims).values(data).returning();
+    return claim;
+  }
+
+  async completeClaim(id: string, completionAction: string): Promise<TaskClaim | undefined> {
+    const [claim] = await db.update(taskClaims).set({ active: false, completedAt: new Date(), completionAction }).where(eq(taskClaims.id, id)).returning();
+    return claim;
+  }
+
+  async releaseClaim(id: string): Promise<boolean> {
+    const [claim] = await db.update(taskClaims).set({ active: false, completedAt: new Date(), completionAction: 'released' }).where(eq(taskClaims.id, id)).returning();
+    return !!claim;
+  }
+
+  async getClaimHistory(filters?: { staffName?: string; projectId?: string; limit?: number }): Promise<TaskClaim[]> {
+    const conditions = [eq(taskClaims.active, false)];
+    if (filters?.staffName) conditions.push(eq(taskClaims.staffName, filters.staffName));
+    if (filters?.projectId) conditions.push(eq(taskClaims.projectId, filters.projectId));
+    const query = db.select().from(taskClaims).where(and(...conditions)).orderBy(desc(taskClaims.completedAt));
+    if (filters?.limit) return query.limit(filters.limit);
+    return query;
   }
 }
 
