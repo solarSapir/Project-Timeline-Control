@@ -19,6 +19,7 @@ import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { RebateFollowUpDialog } from "@/components/hrsp/RebateFollowUpDialog";
 import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { ClaimButton } from "@/components/shared/ClaimButton";
 
 function HrspInfo({ project }: { project: Project }) {
   const [actionLoading, setActionLoading] = useState<"resync" | "create" | null>(null);
