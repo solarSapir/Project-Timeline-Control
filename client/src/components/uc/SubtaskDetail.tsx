@@ -5,9 +5,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { X, Upload, Loader2, FileText, Paperclip, Send, ExternalLink, MessageSquare, ImageIcon } from "lucide-react";
+import { X, Upload, Loader2, FileText, Paperclip, Send, ExternalLink, MessageSquare, ImageIcon, Download } from "lucide-react";
 
 const ASANA_ASSET_REGEX = /https:\/\/app\.asana\.com\/app\/asana\/-\/get_asset\?asset_id=(\d+)/g;
+
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+
+function isImageFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
 
 function StoryText({ text }: { text: string }) {
   const parts: Array<{ type: 'text' | 'image'; content: string; assetId?: string }> = [];
@@ -63,6 +70,128 @@ function AsanaImagePreview({ assetId }: { assetId: string }) {
       <img src={src} alt="Asana attachment" onError={() => setFailed(true)} onClick={() => setExpanded(!expanded)}
         className={`rounded border cursor-pointer hover:opacity-90 transition-all ${expanded ? 'max-w-full' : 'max-w-[280px] max-h-[180px]'} object-contain`}
         data-testid={`img-asset-${assetId}`} loading="lazy" />
+    </div>
+  );
+}
+
+function AttachmentPreview({ attachment }: { attachment: AsanaAttachment }) {
+  const [expanded, setExpanded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+  const isImage = isImageFile(attachment.name);
+  const previewUrl = `/api/asana/asset/${attachment.gid}`;
+
+  if (isImage && !imgFailed) {
+    return (
+      <div className="rounded-lg border bg-background overflow-hidden" data-testid={`attachment-${attachment.gid}`}>
+        <div
+          className="cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <img
+            src={previewUrl}
+            alt={attachment.name}
+            onError={() => setImgFailed(true)}
+            className={`w-full object-contain bg-muted/30 ${expanded ? 'max-h-[500px]' : 'max-h-[160px]'} transition-all`}
+            loading="lazy"
+            data-testid={`img-preview-${attachment.gid}`}
+          />
+        </div>
+        <div className="px-3 py-2 flex items-center gap-2 border-t">
+          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs font-medium truncate flex-1">{attachment.name}</span>
+          <a
+            href={attachment.download_url || attachment.view_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline flex items-center gap-1 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+            data-testid={`link-download-${attachment.gid}`}
+          >
+            <Download className="h-3 w-3" />
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.view_url || attachment.download_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors group"
+      data-testid={`attachment-${attachment.gid}`}
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950 flex items-center justify-center">
+        <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-primary group-hover:underline truncate">{attachment.name}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'File'} · Download
+        </p>
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+    </a>
+  );
+}
+
+function InlineAttachmentPreview({ attachment, authorName, date }: { attachment: NonNullable<AsanaStory['attachment']>; authorName: string; date: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const isImage = isImageFile(attachment.name);
+  const previewUrl = `/api/asana/asset/${attachment.gid}`;
+
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground mb-1.5">
+        {authorName} attached {attachment.name}
+      </p>
+      {isImage && !imgFailed ? (
+        <div className="rounded-lg border overflow-hidden bg-background">
+          <div className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
+            <img
+              src={previewUrl}
+              alt={attachment.name}
+              onError={() => setImgFailed(true)}
+              className={`w-full object-contain bg-muted/20 ${expanded ? 'max-h-[500px]' : 'max-h-[200px]'} transition-all`}
+              loading="lazy"
+              data-testid={`img-inline-${attachment.gid}`}
+            />
+          </div>
+          <div className="px-3 py-1.5 border-t flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground truncate flex-1">{attachment.name}</span>
+            <a
+              href={attachment.download_url || attachment.view_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Download
+            </a>
+          </div>
+        </div>
+      ) : (
+        <a
+          href={attachment.view_url || attachment.download_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 p-2.5 rounded-lg border bg-background hover:bg-muted/50 transition-colors group"
+          data-testid={`inline-attachment-${attachment.gid}`}
+        >
+          <div className="flex-shrink-0 w-8 h-8 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+            <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-primary group-hover:underline truncate">{attachment.name}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'File'} · Click to view
+            </p>
+          </div>
+          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+        </a>
+      )}
     </div>
   );
 }
@@ -126,6 +255,7 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
     },
     onSuccess: () => {
       refetchAttachments();
+      refetchStories();
       toast({ title: "File uploaded to Asana" });
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
@@ -151,14 +281,9 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
           {attachmentsLoading ? (
             <Skeleton className="h-8" />
           ) : attachments.length > 0 ? (
-            <div className="space-y-1">
+            <div className="grid gap-2">
               {attachments.map((att) => (
-                <a key={att.gid} href={att.view_url || att.download_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs p-2 rounded hover:bg-muted transition-colors group" data-testid={`attachment-${att.gid}`}>
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="flex-1 truncate text-primary group-hover:underline">{att.name}</span>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                </a>
+                <AttachmentPreview key={att.gid} attachment={att} />
               ))}
             </div>
           ) : (
@@ -189,34 +314,19 @@ export function SubtaskDetail({ subtaskGid, subtaskName, onClose }: { subtaskGid
           ) : stories.length > 0 ? (
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {stories.filter(s => s.text?.trim() || s.attachment).map((story) => (
-                <div key={story.gid} className="p-2 rounded bg-muted/30 border text-xs" data-testid={`comment-${story.gid}`}>
-                  <div className="flex items-center justify-between mb-1">
+                <div key={story.gid} className="p-2.5 rounded-lg bg-muted/30 border text-xs" data-testid={`comment-${story.gid}`}>
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="font-medium">{story.created_by?.name || 'Unknown'}</span>
                     <span className="text-muted-foreground">
                       {story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
                     </span>
                   </div>
                   {story.attachment ? (
-                    <a
-                      href={story.attachment.view_url || story.attachment.download_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-2 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
-                      data-testid={`inline-attachment-${story.attachment.gid}`}
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
-                        <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
-                           story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
-                          {' · Click to view'}
-                        </p>
-                      </div>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
-                    </a>
+                    <InlineAttachmentPreview
+                      attachment={story.attachment}
+                      authorName={story.created_by?.name || 'Unknown'}
+                      date={story.created_at ? new Date(story.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+                    />
                   ) : (
                     <StoryText text={story.text} />
                   )}

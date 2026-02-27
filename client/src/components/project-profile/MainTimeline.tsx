@@ -8,6 +8,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare, Send, Loader2, Paperclip, FileText, ExternalLink, Upload, ImageIcon, Activity, Zap } from "lucide-react";
 
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+
+function isImageFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
 const ASANA_ASSET_REGEX = /https:\/\/app\.asana\.com\/app\/asana\/-\/get_asset\?asset_id=(\d+)/g;
 
 function StoryText({ text }: { text: string }) {
@@ -98,6 +105,64 @@ function isSystemEvent(s: AsanaStory): boolean {
   return !isComment(s);
 }
 
+function InlineAttachmentCard({ attachment }: { attachment: NonNullable<AsanaStory['attachment']> }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const isImage = isImageFile(attachment.name);
+  const previewUrl = `/api/asana/asset/${attachment.gid}`;
+
+  if (isImage && !imgFailed) {
+    return (
+      <div className="rounded-lg border overflow-hidden bg-background" data-testid={`main-inline-attachment-${attachment.gid}`}>
+        <div className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <img
+            src={previewUrl}
+            alt={attachment.name}
+            onError={() => setImgFailed(true)}
+            className={`w-full object-contain bg-muted/20 ${expanded ? 'max-h-[500px]' : 'max-h-[220px]'} transition-all`}
+            loading="lazy"
+            data-testid={`img-main-inline-${attachment.gid}`}
+          />
+        </div>
+        <div className="px-3 py-1.5 border-t flex items-center gap-2">
+          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground truncate flex-1">{attachment.name}</span>
+          <a
+            href={attachment.download_url || attachment.view_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Download
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.view_url || attachment.download_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2.5 p-2.5 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
+      data-testid={`main-inline-attachment-${attachment.gid}`}
+    >
+      <div className="flex-shrink-0 w-9 h-9 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+        <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-primary group-hover:underline truncate">{attachment.name}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'File'} · Click to view
+        </p>
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
+    </a>
+  );
+}
+
 function StoryCard({ story }: { story: AsanaStory }) {
   const isSystem = isSystemEvent(story);
 
@@ -118,26 +183,7 @@ function StoryCard({ story }: { story: AsanaStory }) {
         </span>
       </div>
       {story.attachment ? (
-        <a
-          href={story.attachment.view_url || story.attachment.download_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2.5 p-2.5 rounded-md bg-background border hover:bg-muted/50 transition-colors group"
-          data-testid={`main-inline-attachment-${story.attachment.gid}`}
-        >
-          <div className="flex-shrink-0 w-9 h-9 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
-            <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-primary group-hover:underline truncate">{story.attachment.name}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {story.attachment.name.toLowerCase().endsWith('.pdf') ? 'PDF' :
-               story.attachment.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/) ? 'Image' : 'File'}
-              {' · Click to view'}
-            </p>
-          </div>
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 flex-shrink-0" />
-        </a>
+        <InlineAttachmentCard attachment={story.attachment} />
       ) : (
         <StoryText text={story.text} />
       )}
@@ -260,15 +306,48 @@ export function MainTimeline({ projectId, asanaGid }: { projectId: string; asana
             <h5 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
               <Paperclip className="h-3 w-3" /> Attachments ({attachments.length})
             </h5>
-            <div className="space-y-1">
-              {attachments.map((att) => (
-                <a key={att.gid} href={att.view_url || att.download_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs p-2 rounded hover:bg-muted transition-colors group" data-testid={`main-attachment-${att.gid}`}>
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="flex-1 truncate text-primary group-hover:underline">{att.name}</span>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                </a>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {attachments.map((att) => {
+                const isImage = isImageFile(att.name);
+                if (isImage) {
+                  return (
+                    <a
+                      key={att.gid}
+                      href={att.download_url || att.view_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg border overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all group"
+                      data-testid={`main-attachment-${att.gid}`}
+                    >
+                      <img
+                        src={`/api/asana/asset/${att.gid}`}
+                        alt={att.name}
+                        className="w-full h-[80px] object-cover bg-muted/30"
+                        loading="lazy"
+                      />
+                      <div className="px-2 py-1.5 text-[10px] text-muted-foreground truncate">{att.name}</div>
+                    </a>
+                  );
+                }
+                return (
+                  <a
+                    key={att.gid}
+                    href={att.view_url || att.download_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2.5 rounded-lg border hover:bg-muted/50 transition-colors group"
+                    data-testid={`main-attachment-${att.gid}`}
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 rounded bg-red-100 dark:bg-red-950 flex items-center justify-center">
+                      <FileText className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-primary group-hover:underline truncate">{att.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{att.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'File'}</p>
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           </div>
         )}
