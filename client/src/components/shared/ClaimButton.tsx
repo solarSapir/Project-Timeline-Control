@@ -122,7 +122,7 @@ export function ClaimButton({ projectId, projectName, viewType }: ClaimButtonPro
             </p>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Who are you?</label>
-              <StaffSelect value={selectedStaff} onChange={setSelectedStaff} />
+              <StaffSelect value={selectedStaff} onValueChange={setSelectedStaff} />
             </div>
           </div>
           <DialogFooter>
