@@ -73,8 +73,9 @@ export default function UCView() {
     return !(hasContractor && scopeOk && proposalOk && sitePlanOk && costOk && payoutOk && contractSent && contractSigned && permitOk);
   };
 
+  const ucEligibleTypes = ['install', 'diy'];
   const installProjects = (projects || []).filter((p) =>
-    p.installType?.toLowerCase() === 'install' &&
+    ucEligibleTypes.includes(p.installType?.toLowerCase() || '') &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
