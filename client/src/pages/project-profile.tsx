@@ -39,16 +39,18 @@ function computeTabVisibility(p: Project) {
   const sectorExcluded = p.propertySector ? excludedSectors.some(s => p.propertySector!.toLowerCase().includes(s)) : false;
 
   const isEligible = isUcEligible && !sectorExcluded && !excluded;
+  const isDiy = installType === 'diy';
+  const isInstallEligible = isEligible && !isDiy;
 
   return {
     uc: isEligible && !isUcComplete(p.ucStatus),
-    rebates: isEligible,
-    payment: isEligible && !p.paymentMethod,
-    contracts: isEligible && !isContractSent(p.installTeamStage),
-    siteVisit: isEligible,
-    ahj: isEligible && !isAhjComplete(p.ahjStatus),
-    installation: isEligible && isPermitIssued(p.ahjStatus),
-    closeOff: !excluded && pm.includes('close'),
+    rebates: isInstallEligible,
+    payment: isInstallEligible && !p.paymentMethod,
+    contracts: isInstallEligible && !isContractSent(p.installTeamStage),
+    siteVisit: isInstallEligible,
+    ahj: isInstallEligible && !isAhjComplete(p.ahjStatus),
+    installation: isInstallEligible && isPermitIssued(p.ahjStatus),
+    closeOff: !excluded && !isDiy && pm.includes('close'),
   };
 }
 
