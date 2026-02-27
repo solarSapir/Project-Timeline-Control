@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, MessageSquare, CheckCircle2, Loader2, Upload, Paperclip, X } from "lucide-react";
 import { EscalationSlaTimer } from "./EscalationSlaTimer";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,10 @@ export function EscalationInlineCard({ ticketId }: Props) {
   const [respondedBy, setRespondedBy] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
   const [resolvedBy, setResolvedBy] = useState("");
+  const [respondFiles, setRespondFiles] = useState<File[]>([]);
+  const [resolveFiles, setResolveFiles] = useState<File[]>([]);
+  const respondFileRef = useRef<HTMLInputElement>(null);
+  const resolveFileRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   const { toast } = useToast();
@@ -42,15 +46,26 @@ export function EscalationInlineCard({ ticketId }: Props) {
     }
     setSubmitting(true);
     try {
-      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/respond`, {
-        managerResponse: response.trim(),
-        respondedBy: respondedBy.trim(),
+      const formData = new FormData();
+      formData.append("managerResponse", response.trim());
+      formData.append("respondedBy", respondedBy.trim());
+      for (const file of respondFiles) {
+        formData.append("files", file);
+      }
+      const res = await fetch(`/api/escalation-tickets/${ticket.id}/respond`, {
+        method: "PATCH",
+        body: formData,
       });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to respond");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
       toast({ title: "Response sent" });
       setRespondOpen(false);
       setResponse("");
       setRespondedBy("");
+      setRespondFiles([]);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to respond";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -66,15 +81,26 @@ export function EscalationInlineCard({ ticketId }: Props) {
     }
     setResolving(true);
     try {
-      await apiRequest("PATCH", `/api/escalation-tickets/${ticket.id}/resolve`, {
-        resolutionNote: resolutionNote.trim(),
-        resolvedBy: resolvedBy.trim(),
+      const formData = new FormData();
+      formData.append("resolutionNote", resolutionNote.trim());
+      formData.append("resolvedBy", resolvedBy.trim());
+      for (const file of resolveFiles) {
+        formData.append("files", file);
+      }
+      const res = await fetch(`/api/escalation-tickets/${ticket.id}/resolve`, {
+        method: "PATCH",
+        body: formData,
       });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to resolve");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/escalation-tickets"] });
       toast({ title: "Ticket resolved" });
       setResolveOpen(false);
       setResolutionNote("");
       setResolvedBy("");
+      setResolveFiles([]);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to resolve";
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -157,6 +183,25 @@ export function EscalationInlineCard({ ticketId }: Props) {
               <Label htmlFor="inlineManagerResponse">Your Response</Label>
               <Textarea id="inlineManagerResponse" value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Provide guidance..." rows={4} data-testid="input-inline-respond-message" />
             </div>
+            <div>
+              <Label>Attachments</Label>
+              <input type="file" ref={respondFileRef} className="hidden" multiple onChange={(e) => { if (e.target.files) setRespondFiles(prev => [...prev, ...Array.from(e.target.files!)]); if (respondFileRef.current) respondFileRef.current.value = ""; }} data-testid="input-inline-respond-files" />
+              <Button type="button" variant="outline" size="sm" className="w-full h-8 text-xs gap-1 mt-1" onClick={() => respondFileRef.current?.click()} data-testid="button-inline-respond-attach">
+                <Upload className="h-3 w-3" /> Attach Files
+              </Button>
+              {respondFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {respondFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-muted rounded px-2 py-1">
+                      <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate flex-1">{f.name}</span>
+                      <span className="text-muted-foreground flex-shrink-0">{(f.size / 1024).toFixed(0)}KB</span>
+                      <button type="button" onClick={() => setRespondFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <Button className="w-full" onClick={handleRespond} disabled={submitting} data-testid="button-inline-submit-response">
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
               {submitting ? "Sending..." : "Send Response"}
@@ -183,6 +228,25 @@ export function EscalationInlineCard({ ticketId }: Props) {
             <div>
               <Label htmlFor="inlineResolutionNote">Resolution Description</Label>
               <Textarea id="inlineResolutionNote" value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Describe what was done to resolve this issue..." rows={4} data-testid="input-inline-resolution-note" />
+            </div>
+            <div>
+              <Label>Attachments</Label>
+              <input type="file" ref={resolveFileRef} className="hidden" multiple onChange={(e) => { if (e.target.files) setResolveFiles(prev => [...prev, ...Array.from(e.target.files!)]); if (resolveFileRef.current) resolveFileRef.current.value = ""; }} data-testid="input-inline-resolve-files" />
+              <Button type="button" variant="outline" size="sm" className="w-full h-8 text-xs gap-1 mt-1" onClick={() => resolveFileRef.current?.click()} data-testid="button-inline-resolve-attach">
+                <Upload className="h-3 w-3" /> Attach Files
+              </Button>
+              {resolveFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {resolveFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-muted rounded px-2 py-1">
+                      <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate flex-1">{f.name}</span>
+                      <span className="text-muted-foreground flex-shrink-0">{(f.size / 1024).toFixed(0)}KB</span>
+                      <button type="button" onClick={() => setResolveFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <Button className="w-full" onClick={handleResolve} disabled={resolving || !resolutionNote.trim() || !resolvedBy.trim()} data-testid="button-inline-submit-resolve">
               {resolving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}

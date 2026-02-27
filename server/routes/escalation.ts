@@ -248,7 +248,7 @@ escalationRouter.patch("/escalation-tickets/:id/snooze", async (req, res) => {
   }
 });
 
-escalationRouter.patch("/escalation-tickets/:id/respond", async (req, res) => {
+escalationRouter.patch("/escalation-tickets/:id/respond", upload.array('files', 10), async (req, res) => {
   try {
     const { managerResponse, respondedBy } = req.body;
     if (!managerResponse || !respondedBy) {
@@ -261,6 +261,27 @@ escalationRouter.patch("/escalation-tickets/:id/respond", async (req, res) => {
       status: "responded",
     });
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const uploadedFiles = (req as any).files as Express.Multer.File[] | undefined;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        try {
+          await saveFileLocally(
+            ticket.projectId,
+            'escalation',
+            file.buffer,
+            `ESCALATION-RESPONSE-${ticket.id} - ${file.originalname}`,
+            file.mimetype,
+            respondedBy,
+            `Escalation response attachment (${ticket.id})`
+          );
+        } catch (err) {
+          console.error(`[Escalation] Failed to save response file ${file.originalname}:`, err instanceof Error ? err.message : String(err));
+        }
+      }
+      console.log(`[Escalation] Saved ${uploadedFiles.length} response attachment(s) for ticket ${ticket.id}`);
+    }
+
     res.json(ticket);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -279,7 +300,7 @@ const VIEW_TYPE_SUBTASK_KEYWORDS: Record<string, string[]> = {
   close_off: ['close-off', 'close off', 'closeoff'],
 };
 
-escalationRouter.patch("/escalation-tickets/:id/resolve", async (req, res) => {
+escalationRouter.patch("/escalation-tickets/:id/resolve", upload.array('files', 10), async (req, res) => {
   try {
     const { resolutionNote, resolvedBy } = req.body || {};
     if (!resolutionNote || !resolutionNote.trim()) {
@@ -295,6 +316,26 @@ escalationRouter.patch("/escalation-tickets/:id/resolve", async (req, res) => {
       resolvedBy: resolvedBy.trim(),
     });
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const uploadedFiles = (req as any).files as Express.Multer.File[] | undefined;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        try {
+          await saveFileLocally(
+            ticket.projectId,
+            'escalation',
+            file.buffer,
+            `ESCALATION-RESOLUTION-${ticket.id} - ${file.originalname}`,
+            file.mimetype,
+            resolvedBy.trim(),
+            `Escalation resolution attachment (${ticket.id})`
+          );
+        } catch (err) {
+          console.error(`[Escalation] Failed to save resolution file ${file.originalname}:`, err instanceof Error ? err.message : String(err));
+        }
+      }
+      console.log(`[Escalation] Saved ${uploadedFiles.length} resolution attachment(s) for ticket ${ticket.id}`);
+    }
 
     const project = await storage.getProject(ticket.projectId);
     const truncatedNote = resolutionNote.length > 100 ? resolutionNote.substring(0, 100) + '...' : resolutionNote;
