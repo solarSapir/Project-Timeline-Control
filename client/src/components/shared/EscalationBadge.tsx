@@ -159,14 +159,57 @@ export function EscalationBadge({ projectId, tickets: ticketsProp }: EscalationB
   };
 
   if (!activeTicket && resolvedCount > 0) {
+    const resolvedTickets = projectTickets.filter(t => t.status === "resolved");
     return (
-      <Badge
-        className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
-        data-testid={`badge-tickets-resolved-${projectId}`}
-      >
-        <CheckCircle2 className="h-3 w-3 mr-0.5" />
-        {resolvedCount} resolved
-      </Badge>
+      <>
+        <Badge
+          className="text-[10px] px-1.5 py-0.5 cursor-pointer bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0"
+          onClick={() => setViewOpen(true)}
+          data-testid={`badge-tickets-resolved-${projectId}`}
+        >
+          <CheckCircle2 className="h-3 w-3 mr-0.5" />
+          {resolvedCount} resolved
+        </Badge>
+        <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                Resolved Tickets
+              </DialogTitle>
+              <DialogDescription>{resolvedCount} resolved escalation ticket{resolvedCount > 1 ? 's' : ''} for this project.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {resolvedTickets.map(t => (
+                <div key={t.id} className="p-3 rounded-md border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30">
+                  {t.summary && <p className="text-xs font-medium mb-1">{t.summary}</p>}
+                  <p className="text-sm whitespace-pre-wrap text-muted-foreground">{t.issue}</p>
+                  {t.managerResponse && (
+                    <div className="mt-2 p-2 rounded bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                      <p className="text-[10px] font-medium text-green-700 dark:text-green-300 mb-0.5">Response from {t.respondedBy}</p>
+                      <p className="text-xs text-green-800 dark:text-green-200 whitespace-pre-wrap">{t.managerResponse}</p>
+                    </div>
+                  )}
+                  {t.resolutionNote && (
+                    <div className="mt-2 p-2 rounded bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                      <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 mb-0.5">
+                        Resolution by {t.resolvedBy}
+                        {t.resolvedAt && (
+                          <span className="font-normal ml-1">({new Date(t.resolvedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap">{t.resolutionNote}</p>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Opened by {t.createdBy} {t.createdAt ? `on ${new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
