@@ -25,6 +25,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const DEFAULT_HIDDEN = new Set(["Complete", "Project lost"]);
 
+type InstallFilter = "all" | "install" | "diy";
+
 function getColor(name: string): string {
   return STATUS_COLORS[name] || STATUS_COLORS[Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === name.toLowerCase()) || ""] || "#64748b";
 }
@@ -45,16 +47,28 @@ function renderActiveShape(props: Record<string, unknown>) {
   );
 }
 
+function filterByInstallType(projects: Project[], filter: InstallFilter): Project[] {
+  if (filter === "all") return projects;
+  if (filter === "install") return projects.filter(p => p.installType === "Install");
+  return projects.filter(p => p.installType === "DIY");
+}
+
 export function PmStatusChart() {
   const { data: projects } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
   const [hiddenStatuses, setHiddenStatuses] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [drillStatus, setDrillStatus] = useState<string | null>(null);
+  const [installFilter, setInstallFilter] = useState<InstallFilter>("all");
+
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
+    return filterByInstallType(projects, installFilter);
+  }, [projects, installFilter]);
 
   const allData = useMemo(() => {
-    if (!projects) return [];
+    if (filteredProjects.length === 0) return [];
     const counts: Record<string, number> = {};
-    projects.forEach(p => {
+    filteredProjects.forEach(p => {
       const status = p.pmStatus || "No Status";
       counts[status] = (counts[status] || 0) + 1;
     });
@@ -65,17 +79,17 @@ export function PmStatusChart() {
         color: getColor(name),
       }))
       .sort((a, b) => b.value - a.value);
-  }, [projects]);
+  }, [filteredProjects]);
 
   const chartData = allData.filter(d => !hiddenStatuses.has(d.name));
   const visibleTotal = chartData.reduce((sum, d) => sum + d.value, 0);
 
   const drillProjects = useMemo(() => {
     if (!drillStatus || !projects) return [];
-    return projects
+    return filterByInstallType(projects, installFilter)
       .filter(p => (p.pmStatus || "No Status") === drillStatus)
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [drillStatus, projects]);
+  }, [drillStatus, projects, installFilter]);
 
   const toggleHidden = (name: string) => {
     setHiddenStatuses(prev => {
@@ -93,13 +107,35 @@ export function PmStatusChart() {
     }
   };
 
-  if (allData.length === 0) return null;
+  const filterTabs: { key: InstallFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "install", label: "Install" },
+    { key: "diy", label: "DIY" },
+  ];
+
+  if (!projects || projects.length === 0) return null;
 
   return (
     <>
       <Card data-testid="card-pm-status-chart">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-base">PM Status Breakdown</CardTitle>
+          <div className="flex items-center gap-0.5 rounded-lg border bg-muted p-0.5" data-testid="install-type-tabs">
+            {filterTabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setInstallFilter(tab.key); setActiveIndex(undefined); }}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  installFilter === tab.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`tab-install-${tab.key}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row items-center gap-4">
@@ -130,7 +166,7 @@ export function PmStatusChart() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  All statuses hidden
+                  {allData.length === 0 ? "No projects for this filter" : "All statuses hidden"}
                 </div>
               )}
             </div>
@@ -191,6 +227,7 @@ export function PmStatusChart() {
             </DialogTitle>
             <DialogDescription>
               All projects with PM Status set to "{drillStatus}"
+              {installFilter !== "all" && ` (${installFilter === "install" ? "Install" : "DIY"} only)`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
