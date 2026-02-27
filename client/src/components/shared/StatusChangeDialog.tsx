@@ -19,12 +19,14 @@ interface StatusChangeDialogProps {
   oldStatus: string;
   extraPatchFields?: Record<string, string>;
   onSuccess?: () => void;
+  requireFile?: boolean;
+  requireFileLabel?: string;
 }
 
 export function StatusChangeDialog({
   open, onOpenChange, projectId, projectName,
   viewType, fieldName, newStatus, oldStatus,
-  extraPatchFields, onSuccess,
+  extraPatchFields, onSuccess, requireFile, requireFileLabel,
 }: StatusChangeDialogProps) {
   const [name, setName] = useState("");
   const [actionDone, setActionDone] = useState("");
@@ -34,7 +36,8 @@ export function StatusChangeDialog({
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const isValid = name.trim() && actionDone.trim() && nextSteps.trim();
+  const hasRequiredFile = !requireFile || files.length > 0;
+  const isValid = name.trim() && actionDone.trim() && nextSteps.trim() && hasRequiredFile;
 
   const resetForm = () => {
     setName("");
@@ -143,9 +146,18 @@ export function StatusChangeDialog({
           </div>
           <div>
             <Label className="mb-1.5 block">
-              Supporting Documents
-              <span className="text-muted-foreground font-normal text-xs ml-1">(optional)</span>
+              {requireFile ? (requireFileLabel || "Screenshot Proof") : "Supporting Documents"}
+              {requireFile ? (
+                <span className="text-destructive ml-1">*</span>
+              ) : (
+                <span className="text-muted-foreground font-normal text-xs ml-1">(optional)</span>
+              )}
             </Label>
+            {requireFile && files.length === 0 && (
+              <p className="text-xs text-destructive mb-1.5">
+                A screenshot is required to confirm this submission.
+              </p>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -159,12 +171,12 @@ export function StatusChangeDialog({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs gap-1.5 w-full border-dashed"
+              className={`h-8 text-xs gap-1.5 w-full border-dashed ${requireFile && files.length === 0 ? "border-destructive text-destructive" : ""}`}
               onClick={() => fileRef.current?.click()}
               data-testid="button-status-change-add-files"
             >
               <Upload className="h-3.5 w-3.5" />
-              Add Screenshots & Documents
+              {requireFile ? "Upload Submission Screenshot" : "Add Screenshots & Documents"}
             </Button>
             {files.length > 0 && (
               <div className="mt-2 space-y-1">

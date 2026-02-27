@@ -304,6 +304,8 @@ export default function UCView() {
               ? { ucSubmittedDate: new Date().toISOString().split('T')[0] }
               : undefined
           }
+          requireFile={statusChangeInfo.newStatus.toLowerCase().includes('submitted')}
+          requireFileLabel="Submission Screenshot Proof"
         />
       )}
 
