@@ -5,7 +5,50 @@ import { upload } from "../middleware/upload";
 import { saveFileLocally } from "../utils/file-storage";
 import { fetchSubtasksForTask, postCommentToTask } from "../asana";
 
+const ESCALATION_CONFIG_STAGE = "escalation_settings";
+const DEFAULT_HIDE_HOURS = 48;
+
+async function getEscalationHideHours(): Promise<number> {
+  try {
+    const configs = await storage.getWorkflowConfigs();
+    const escalationConfig = configs.find(c => c.stage === ESCALATION_CONFIG_STAGE);
+    return escalationConfig?.targetDays ?? DEFAULT_HIDE_HOURS;
+  } catch {
+    return DEFAULT_HIDE_HOURS;
+  }
+}
+
 export const escalationRouter = Router();
+
+escalationRouter.get("/escalation-settings", async (_req, res) => {
+  try {
+    const hideHours = await getEscalationHideHours();
+    res.json({ hideHours });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+escalationRouter.put("/escalation-settings", async (req, res) => {
+  try {
+    const { hideHours } = req.body;
+    if (typeof hideHours !== "number" || hideHours < 1) {
+      return res.status(400).json({ message: "hideHours must be a positive number" });
+    }
+    await storage.upsertWorkflowConfig({
+      stage: ESCALATION_CONFIG_STAGE,
+      targetDays: hideHours,
+      dependsOn: [],
+      gapRelativeTo: null,
+      completionCriteria: null,
+    });
+    res.json({ hideHours });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
 
 escalationRouter.get("/escalation-tickets", async (req, res) => {
   try {
@@ -41,7 +84,8 @@ escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (r
     if (!projectId || !viewType || !createdBy || !issue) {
       return res.status(400).json({ message: "projectId, viewType, createdBy, and issue are required" });
     }
-    const hideUntil = addHours(new Date(), 48);
+    const hideHours = await getEscalationHideHours();
+    const hideUntil = addHours(new Date(), hideHours);
     const ticket = await storage.createEscalationTicket({
       projectId,
       viewType,

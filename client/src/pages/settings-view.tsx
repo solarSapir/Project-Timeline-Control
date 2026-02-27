@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi, Database } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi, Database, AlertTriangle } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
 import RebateWorkflowLogicEditor from "@/components/settings/RebateWorkflowLogicEditor";
+import EscalationSettingsEditor from "@/components/settings/EscalationSettingsEditor";
 import { StaffManager } from "@/components/settings/StaffManager";
 import { WebhookManager } from "@/components/settings/WebhookManager";
 import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
@@ -191,6 +192,10 @@ export default function SyncView() {
 
       <CollapsibleSection title="Rebate Workflow Logic" icon={<Receipt className="h-4 w-4" />} defaultOpen={false} testId="section-rebate-workflow">
         <RebateWorkflowLogicEditor />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Escalation Settings" icon={<AlertTriangle className="h-4 w-4" />} defaultOpen={false} testId="section-escalation-settings">
+        <EscalationSettingsEditor />
       </CollapsibleSection>
     </div>
   );
