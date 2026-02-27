@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { computeExpectedDates } from "@/hooks/use-expected-dates";
 import { GanttChart } from "@/components/project-profile/GanttChart";
@@ -17,7 +18,14 @@ import { ActivitySection } from "@/components/project-profile/ActivitySection";
 import { CustomerTimeline } from "@/components/project-profile/CustomerTimeline";
 import { DocumentsSection } from "@/components/project-profile/DocumentsSection";
 import { MainTimeline } from "@/components/project-profile/MainTimeline";
+import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
+import { ContractExpandedView } from "@/components/contracts/ContractExpandedView";
+import { useContractActions } from "@/hooks/use-contract-actions";
+import { useTaskActions } from "@/hooks/use-task-actions";
+import { hasAction, findAction, getLastFollowUp } from "@/hooks/use-contract-filters";
+import { SubtaskPanel } from "@/components/uc/SubtaskPanel";
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
+import type { ContractFileCounts } from "@/pages/contracts-view";
 import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, Camera } from "lucide-react";
 
 export default function ProjectProfile() {
@@ -39,6 +47,14 @@ export default function ProjectProfile() {
   });
 
   const [pmPending, setPmPending] = useState(false);
+  const [focusStage, setFocusStage] = useState<string | null>(null);
+
+  const { data: ucOptions } = useQuery<{ gid: string; name: string }[]>({ queryKey: ['/api/asana/field-options/ucStatus'] });
+  const { data: contractTaskActions } = useTaskActions('contracts');
+  const { data: contractFileCounts } = useQuery<ContractFileCounts>({ queryKey: ['/api/projects/contract-file-counts'] });
+  const { updating, handleContractSent, handleContractSigned, handleDepositCollected } = useContractActions();
+  const ucStatusOptions = Array.isArray(ucOptions) ? ucOptions.map(o => o.name) : [];
+  const fileCounts = contractFileCounts || {};
 
   const handlePmStatusChange = async (newStatus: string, note: string, staffName: string, files: File[]) => {
     setPmPending(true);
@@ -105,7 +121,7 @@ export default function ProjectProfile() {
         <CardContent className="py-2 px-4"><GanttChart stages={stages} /></CardContent>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StageSection title="UC Application" icon={FileText} status={stages.uc_application.status}>
+        <StageSection title="UC Application" icon={FileText} status={stages.uc_application.status} onFocus={() => setFocusStage('uc')}>
           <InfoRow label="Status" value={<StatusBadge status={project.ucStatus} />} testId="text-uc-status" />
           <InfoRow label="UC Team" value={project.ucTeam} testId="text-uc-team" />
           <InfoRow label="Target Due" value={formatProfileDate(project.ucDueDate)} testId="text-uc-target" />
@@ -114,31 +130,31 @@ export default function ProjectProfile() {
             <InfoRow label="Submitted" value={`${formatProfileDate(project.ucSubmittedDate)}${project.ucSubmittedBy ? ` by ${project.ucSubmittedBy}` : ""}`} />
           )}
         </StageSection>
-        <StageSection title="Rebates & Payment" icon={DollarSign} status={stages.rebates_payment.status}>
+        <StageSection title="Rebates & Payment" icon={DollarSign} status={stages.rebates_payment.status} onFocus={() => setFocusStage('rebates')}>
           <InfoRow label="Rebate Status" value={<StatusBadge status={project.rebateStatus} />} testId="text-rebate-status" />
           <InfoRow label="Payment Method" value={project.paymentMethod} testId="text-payment-method" />
           {project.hrspStatus && <InfoRow label="HRSP Status" value={project.hrspStatus} testId="text-hrsp-status" />}
         </StageSection>
-        <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status}>
+        <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status} onFocus={() => setFocusStage('contract')}>
           <InfoRow label="Contract Status" value={<StatusBadge status={project.installTeamStage} />} testId="text-contract-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.contractDueDate)} testId="text-contract-target" />
           <ExpectedDueRow target={project.contractDueDate} expected={stages.contract_signing.expected} testId="text-contract-expected" />
           <InfoRow label="Permit Payment" value={project.permitPaymentCollected ? "Collected" : "Pending"} testId="text-permit-payment" />
           <InfoRow label="Engineering Fee" value={project.engineeringFeeCollected ? "Collected" : "Pending"} testId="text-engineering-fee" />
         </StageSection>
-        <StageSection title="Site Visit" icon={Camera} status={stages.site_visit.status}>
+        <StageSection title="Site Visit" icon={Camera} status={stages.site_visit.status} onFocus={() => setFocusStage('site_visit')}>
           <InfoRow label="Status" value={<StatusBadge status={project.siteVisitStatus} />} testId="text-sv-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.siteVisitDueDate)} testId="text-sv-target" />
           <ExpectedDueRow target={project.siteVisitDueDate} expected={stages.site_visit.expected} testId="text-sv-expected" />
           {project.siteVisitDate && <InfoRow label="Visit Date" value={formatProfileDate(project.siteVisitDate)} testId="text-sv-date" />}
         </StageSection>
-        <StageSection title="AHJ / Permitting" icon={Shield} status={stages.ahj_permitting.status}>
+        <StageSection title="AHJ / Permitting" icon={Shield} status={stages.ahj_permitting.status} onFocus={() => setFocusStage('ahj')}>
           <InfoRow label="Status" value={<StatusBadge status={project.ahjStatus} />} testId="text-ahj-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.ahjDueDate)} testId="text-ahj-target" />
           <ExpectedDueRow target={project.ahjDueDate} expected={stages.ahj_permitting.expected} testId="text-ahj-expected" />
         </StageSection>
-        <InstallationSection project={project} stages={stages} schedules={schedules} />
-        <StageSection title="Close-off" icon={CheckCircle2} status={stages.close_off.status}>
+        <InstallationSection project={project} stages={stages} schedules={schedules} onFocus={() => setFocusStage('installation')} />
+        <StageSection title="Close-off" icon={CheckCircle2} status={stages.close_off.status} onFocus={() => setFocusStage('close_off')}>
           <InfoRow label="Target Due" value={formatProfileDate(project.closeOffDueDate)} testId="text-closeoff-target" />
           <ExpectedDueRow target={project.closeOffDueDate} expected={stages.close_off.expected} testId="text-closeoff-expected" />
           <InfoRow label="Milestone Payment" value={project.milestonePaymentCollected ? "Collected" : "Pending"} testId="text-milestone-payment" />
@@ -155,6 +171,61 @@ export default function ProjectProfile() {
             <p className="text-sm whitespace-pre-wrap" data-testid="text-customer-notes">{project.customerNotes}</p>
           </CardContent>
         </Card>
+      )}
+
+      <Dialog open={focusStage === 'uc'} onOpenChange={(open) => !open && setFocusStage(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>UC Application — {project.name}</DialogTitle>
+            <DialogDescription>Full UC application details, subtasks, and actions.</DialogDescription>
+          </DialogHeader>
+          <ExpandedProjectView
+            project={project}
+            statusOptions={ucStatusOptions}
+            onStatusChange={async (id, status) => {
+              await apiRequest('PATCH', `/api/projects/${id}`, { ucStatus: status });
+              queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
+              queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+              toast({ title: "UC status updated" });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={focusStage === 'contract'} onOpenChange={(open) => !open && setFocusStage(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Contract & Permit Payment — {project.name}</DialogTitle>
+            <DialogDescription>Contract details, document upload, approval, and subtasks.</DialogDescription>
+          </DialogHeader>
+          <ContractExpandedView
+            project={project}
+            docUploaded={fileCounts[project.id] ? fileCounts[project.id].total > 0 : false}
+            uploadedCount={fileCounts[project.id] ? (fileCounts[project.id].contract ? 1 : 0) + (fileCounts[project.id].proposal ? 1 : 0) + (fileCounts[project.id].sitePlan ? 1 : 0) : 0}
+            docUploadAction={findAction(contractTaskActions, project.id, 'document_upload')}
+            approved={hasAction(contractTaskActions, project.id, 'contract_approved')}
+            approvalAction={findAction(contractTaskActions, project.id, 'contract_approved')}
+            lastFollowUp={getLastFollowUp(contractTaskActions, project.id)}
+            updating={updating}
+            onContractSent={handleContractSent}
+            onContractSigned={handleContractSigned}
+            onDepositCollected={handleDepositCollected}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {['rebates', 'site_visit', 'ahj', 'installation', 'close_off'].includes(focusStage || '') && (
+        <Dialog open={true} onOpenChange={(open) => !open && setFocusStage(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {focusStage === 'rebates' ? 'Rebates & Payment' : focusStage === 'site_visit' ? 'Site Visit' : focusStage === 'ahj' ? 'AHJ / Permitting' : focusStage === 'installation' ? 'Installation' : 'Close-off'} — {project.name}
+              </DialogTitle>
+              <DialogDescription>Subtasks and detailed information for this stage.</DialogDescription>
+            </DialogHeader>
+            <SubtaskPanel projectId={project.id} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
