@@ -66,6 +66,11 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
                 {project.province}
               </span>
             )}
+            {project.propertySector && project.propertySector.toLowerCase() !== 'residential' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800" data-testid={`badge-sector-${project.id}`}>
+                {project.propertySector}
+              </span>
+            )}
             {project.contractStatus && project.contractStatus !== 'A. Not Assign' && (
               <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" data-testid={`badge-contractor-${project.id}`}>
                 {project.contractStatus}

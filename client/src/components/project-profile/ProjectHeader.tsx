@@ -85,6 +85,11 @@ export function ProjectHeader({ project, pmOptions, onPmStatusChange, isPending 
               {project.province}
             </Badge>
           )}
+          {project.propertySector && (
+            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800" data-testid="badge-property-sector">
+              {project.propertySector}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
           {project.projectCreatedDate && (
