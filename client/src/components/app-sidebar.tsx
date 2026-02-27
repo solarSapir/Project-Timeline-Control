@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   GitBranch,
   HardHat,
+  PauseCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,6 +50,7 @@ const mainNav = [
 ];
 
 const viewNav = [
+  { title: "Paused Projects", url: "/paused", icon: PauseCircle },
   { title: "Escalated Tickets", url: "/escalated", icon: AlertTriangle },
   { title: "UC Applications", url: "/uc", icon: Zap },
   { title: "Rebates", url: "/rebates", icon: Gift },

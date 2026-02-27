@@ -24,6 +24,7 @@ import AllProjectsView from "@/pages/all-projects-view";
 import ErrorLogView from "@/pages/error-log-view";
 import EscalatedTicketsView from "@/pages/escalated-tickets-view";
 import PlannerView from "@/pages/planner-view";
+import PausedProjectsView from "@/pages/paused-projects-view";
 import AppLogicIndex from "@/pages/app-logic/AppLogicIndex";
 import SchemaView from "@/pages/app-logic/SchemaView";
 import ApiMapView from "@/pages/app-logic/ApiMapView";
@@ -52,6 +53,7 @@ function Router() {
       <NavigationTracker />
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/paused" component={PausedProjectsView} />
         <Route path="/escalated" component={EscalatedTicketsView} />
         <Route path="/uc" component={UCView} />
         <Route path="/rebates" component={RebatesView} />
