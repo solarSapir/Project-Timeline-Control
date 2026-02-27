@@ -1,21 +1,13 @@
 import { motion } from "framer-motion";
+import mapleLeafLogo from "@assets/maple_leaf_logo_1772224477112.png";
 
 const RAY_COUNT = 12;
 
 const sizeConfig = {
-  sm: { container: "w-24 h-24", logo: "w-12 h-12", leaf: 28, rayW: "w-1", rayH: "h-4" },
-  md: { container: "w-40 h-40", logo: "w-20 h-20", leaf: 44, rayW: "w-1.5", rayH: "h-6" },
-  lg: { container: "w-64 h-64", logo: "w-32 h-32", leaf: 72, rayW: "w-2", rayH: "h-8" },
+  sm: { container: "w-24 h-24", logo: "w-12 h-12", rayW: "w-1", rayH: "h-4" },
+  md: { container: "w-40 h-40", logo: "w-20 h-20", rayW: "w-1.5", rayH: "h-6" },
+  lg: { container: "w-64 h-64", logo: "w-32 h-32", rayW: "w-2", rayH: "h-8" },
 };
-
-function MapleLeaf({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="white" xmlns="http://www.w3.org/2000/svg">
-      <path d="M32 4 L34 16 L42 10 L38 20 L50 18 L40 26 L52 30 L40 32 L46 42 L36 36 L36 52 L32 44 L28 52 L28 36 L18 42 L24 32 L12 30 L24 26 L14 18 L26 20 L22 10 L30 16 Z" />
-      <rect x="30" y="48" width="4" height="12" rx="1" />
-    </svg>
-  );
-}
 
 interface LogoSpinnerProps {
   size?: "sm" | "md" | "lg";
@@ -59,11 +51,15 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
       })}
 
       <motion.div
-        className={`relative z-10 ${cfg.logo} flex items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
+        className={`relative z-10 ${cfg.logo} flex items-center justify-center rounded-full overflow-hidden bg-transparent shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       >
-        <MapleLeaf size={cfg.leaf} />
+        <img
+          src={mapleLeafLogo}
+          alt="Logo"
+          className="absolute max-w-none w-[260%] h-[260%] object-cover"
+        />
       </motion.div>
     </motion.div>
   );
