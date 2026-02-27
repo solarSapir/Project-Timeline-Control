@@ -222,6 +222,49 @@ escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (r
   }
 });
 
+escalationRouter.patch("/escalation-tickets/:id/staff-reply", upload.array('files', 10), async (req, res) => {
+  try {
+    const { replyText, replyBy } = req.body;
+    if (!replyText || !replyBy) {
+      return res.status(400).json({ message: "replyText and replyBy are required" });
+    }
+    const existing = await storage.getEscalationTicket(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Ticket not found" });
+
+    const timestamp = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const updatedIssue = `${existing.issue}\n\n--- Reply from ${replyBy} (${timestamp}) ---\n${replyText}`;
+
+    const ticket = await storage.updateEscalationTicket(req.params.id, {
+      issue: updatedIssue,
+    });
+
+    const uploadedFiles = (req as any).files as Express.Multer.File[] | undefined;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      for (const file of uploadedFiles) {
+        try {
+          await saveFileLocally(
+            existing.projectId,
+            'escalation',
+            file.buffer,
+            `ESCALATION-REPLY-${existing.id} - ${file.originalname}`,
+            file.mimetype,
+            replyBy,
+            `Staff reply attachment (${existing.id})`
+          );
+        } catch (err) {
+          console.error(`[Escalation] Failed to save reply file ${file.originalname}:`, err instanceof Error ? err.message : String(err));
+        }
+      }
+      console.log(`[Escalation] Saved ${uploadedFiles.length} reply attachment(s) for ticket ${existing.id}`);
+    }
+
+    res.json(ticket);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 escalationRouter.patch("/escalation-tickets/:id/snooze", async (req, res) => {
   try {
     const { hideUntil } = req.body;
