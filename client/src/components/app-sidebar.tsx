@@ -20,6 +20,7 @@ import {
   Bug,
   AlertTriangle,
   GitBranch,
+  HardHat,
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,6 +56,7 @@ const viewNav = [
   { title: "Contracts", url: "/contracts", icon: FileText },
   { title: "Site Visits", url: "/site-visits", icon: MapPin },
   { title: "AHJ / Permitting", url: "/ahj", icon: Building2 },
+  { title: "Project Planner", url: "/planner", icon: HardHat },
   { title: "Install Coordination", url: "/installs", icon: Wrench },
   { title: "Install Calendar", url: "/install-calendar", icon: CalendarDays },
   { title: "Close-off", url: "/close-off", icon: CheckCircle2 },

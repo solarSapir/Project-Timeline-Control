@@ -80,6 +80,8 @@ export const projects = pgTable("projects", {
   lastUnpausedDate: text("last_unpaused_date"),
   ucConnectionFee: text("uc_connection_fee"),
   ucMeterbaseUrl: text("uc_meterbase_url"),
+  electricalPermitUrl: text("electrical_permit_url"),
+  electricalPermitUploadedAt: timestamp("electrical_permit_uploaded_at"),
   rebateCloseOffDate: text("rebate_close_off_date"),
 });
 

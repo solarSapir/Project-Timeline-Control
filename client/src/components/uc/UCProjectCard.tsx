@@ -58,14 +58,22 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
                 {project.installType}
               </span>
             )}
+            {project.province && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700" data-testid={`badge-province-${project.id}`}>
+                {project.province}
+              </span>
+            )}
+            {project.contractStatus && project.contractStatus !== 'A. Not Assign' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" data-testid={`badge-contractor-${project.id}`}>
+                {project.contractStatus}
+              </span>
+            )}
             <EscalationBadge projectId={project.id} />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-            {project.province && <span>{project.province}</span>}
-            {project.province && project.projectCreatedDate && <span>·</span>}
             {project.projectCreatedDate && <span>Created {formatShortDate(project.projectCreatedDate)}</span>}
-            {(project.province || project.projectCreatedDate) && project.ucDueDate && !completed && <span>·</span>}
+            {project.projectCreatedDate && project.ucDueDate && !completed && <span>·</span>}
             <DueIndicator dueDate={project.ucDueDate} completed={completed} />
           </div>
 

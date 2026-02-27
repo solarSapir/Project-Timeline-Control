@@ -36,6 +36,7 @@ Solar PM is a project management application designed for solar installation com
 - **PM Status Change Dialog**: Changing PM Status on the project profile page triggers a required-note popup (with optional file upload) that posts the note and attachments to the Asana main task timeline. Staff name selection required.
 - **Main Timeline View**: Project profile page includes a scrollable "Project Main Timeline" section at the bottom, showing all comments and attachments from the Asana parent task — similar to how subtask comments are displayed in individual tabs. Users can also post new comments and upload files directly from this view.
 - **Internal App Logic Documentation**: Visual documentation at `/app-logic` with interactive React Flow diagrams for database schema, API map, and workflow logic flows.
+- **Project Planner View**: New `/planner` page between AHJ and Install Coordination in sidebar. Shows Install projects that need contractor assignment and/or electrical permit upload (NS-specific). Contractor dropdown syncs back to Asana. NS Install projects are hidden from UC "Needs Action" until contractor is assigned AND electrical permit is uploaded; they appear under "Awaiting Planner" filter in UC view.
 
 ### Database Tables
 - `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`.

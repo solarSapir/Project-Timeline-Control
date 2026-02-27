@@ -23,6 +23,7 @@ import InstallCalendar from "@/pages/install-calendar";
 import AllProjectsView from "@/pages/all-projects-view";
 import ErrorLogView from "@/pages/error-log-view";
 import EscalatedTicketsView from "@/pages/escalated-tickets-view";
+import PlannerView from "@/pages/planner-view";
 import AppLogicIndex from "@/pages/app-logic/AppLogicIndex";
 import SchemaView from "@/pages/app-logic/SchemaView";
 import ApiMapView from "@/pages/app-logic/ApiMapView";
@@ -58,6 +59,7 @@ function Router() {
         <Route path="/contracts" component={ContractsView} />
         <Route path="/site-visits" component={SiteVisitsView} />
         <Route path="/ahj" component={AHJView} />
+        <Route path="/planner" component={PlannerView} />
         <Route path="/installs" component={InstallsView} />
         <Route path="/close-off" component={CloseOffView} />
         <Route path="/all" component={AllProjectsView} />

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, CheckCircle2, Clock, Search, Maximize2, EyeOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Search, Maximize2, EyeOff, HardHat } from "lucide-react";
 import { getDaysUntilDue, daysSince } from "@/utils/dates";
 import { isUcComplete } from "@/utils/stages";
 import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
@@ -56,19 +56,31 @@ export default function UCView() {
     return hideUntil > Date.now();
   };
 
+  const isNsNotReady = (p: Project) => {
+    const isNS = p.province?.toLowerCase().includes('nova scotia') || p.province?.toLowerCase() === 'ns';
+    if (!isNS || p.installType?.toLowerCase() !== 'install') return false;
+    const noContractor = !p.contractStatus || p.contractStatus === 'A. Not Assign';
+    const noPermit = !p.electricalPermitUrl;
+    return noContractor || noPermit;
+  };
+
   const installProjects = (projects || []).filter((p) =>
     p.installType?.toLowerCase() === 'install' &&
     (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
+  const waitingForPlannerCount = installProjects.filter(p => isNsNotReady(p)).length;
   const escalatedCount = installProjects.filter(p => openEscalations.has(p.id)).length;
   const hiddenCount = installProjects.filter(p => isHiddenByWorkflow(p.id)).length;
 
   const filtered = installProjects.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "escalated") return openEscalations.has(p.id);
+    if (filter === "waiting_for_planner") return isNsNotReady(p);
+    if (filter === "all") return true;
+    if (filter === "escalated") return openEscalations.has(p.id) && !isNsNotReady(p);
     if (filter === "hidden") return isHiddenByWorkflow(p.id);
+    if (isNsNotReady(p)) return false;
     if (filter === "overdue") {
       if (isUcComplete(p.ucStatus)) return false;
       return (getDaysUntilDue(p.ucDueDate) ?? 1) < 0;
@@ -78,13 +90,11 @@ export default function UCView() {
       const days = daysSince(p.ucSubmittedDate);
       return days !== null && days >= 7;
     }
-    if (filter !== "all" && filter !== "escalated" && filter !== "hidden") {
-      if (isHiddenByEscalation(p.id) || isHiddenByWorkflow(p.id)) return false;
-    }
+    if (isHiddenByEscalation(p.id) || isHiddenByWorkflow(p.id)) return false;
     if (filter === "needs_action") return !isUcComplete(p.ucStatus);
     if (filter === "completed") return isUcComplete(p.ucStatus);
     if (filter === "submitted") return p.ucStatus?.toLowerCase() === 'submitted';
-    if (filter !== "all" && p.ucStatus !== filter) return false;
+    if (p.ucStatus !== filter) return false;
     return true;
   });
 
@@ -110,7 +120,7 @@ export default function UCView() {
     return <PageLoader title="Loading UC applications..." />;
   }
 
-  const totalNeedAction = installProjects.filter(p => !isUcComplete(p.ucStatus) && !isHiddenByWorkflow(p.id)).length;
+  const totalNeedAction = installProjects.filter(p => !isUcComplete(p.ucStatus) && !isHiddenByWorkflow(p.id) && !isNsNotReady(p)).length;
   const totalCompleted = installProjects.filter(p => isUcComplete(p.ucStatus)).length;
   const totalSubmitted = installProjects.filter(p => p.ucStatus?.toLowerCase() === 'submitted').length;
   const needsFollowUpCount = installProjects.filter(p => {
@@ -165,6 +175,15 @@ export default function UCView() {
               data-testid="filter-tab-needs-followup"
             >
               {needsFollowUpCount} need follow-up
+            </button>
+          )}
+          {waitingForPlannerCount > 0 && (
+            <button
+              onClick={() => setFilter("waiting_for_planner")}
+              className={`px-2 py-1 rounded-md transition-colors font-medium ${filter === "waiting_for_planner" ? "bg-orange-600 text-white" : "text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950"}`}
+              data-testid="filter-tab-waiting-planner"
+            >
+              {waitingForPlannerCount} awaiting planner
             </button>
           )}
           {hiddenCount > 0 && (
@@ -225,6 +244,7 @@ export default function UCView() {
             {needsFollowUpCount > 0 && <SelectItem value="needs_followup">Need Follow-up ({needsFollowUpCount})</SelectItem>}
             <SelectItem value="submitted">Submitted ({totalSubmitted})</SelectItem>
             {escalatedCount > 0 && <SelectItem value="escalated">Escalated ({escalatedCount})</SelectItem>}
+            {waitingForPlannerCount > 0 && <SelectItem value="waiting_for_planner">Awaiting Planner ({waitingForPlannerCount})</SelectItem>}
             {hiddenCount > 0 && <SelectItem value="hidden">Hidden ({hiddenCount})</SelectItem>}
             <SelectItem value="completed">Completed ({totalCompleted})</SelectItem>
             <SelectItem value="all">All ({installProjects.length})</SelectItem>
@@ -301,6 +321,7 @@ export default function UCView() {
             {filter === "completed" ? <><CheckCircle2 className="h-3.5 w-3.5" /> Completed ({sortedFiltered.length})</>
             : filter === "submitted" ? <><Clock className="h-3.5 w-3.5" /> Submitted ({sortedFiltered.length})</>
             : filter === "escalated" ? <><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Escalated ({sortedFiltered.length})</>
+            : filter === "waiting_for_planner" ? <><HardHat className="h-3.5 w-3.5 text-orange-500" /> Awaiting Planner ({sortedFiltered.length})</>
             : filter === "hidden" ? <><EyeOff className="h-3.5 w-3.5 text-purple-500" /> Hidden ({sortedFiltered.length})</>
             : filter === "overdue" ? <><AlertTriangle className="h-3.5 w-3.5 text-red-500" /> Overdue ({sortedFiltered.length})</>
             : filter === "needs_followup" ? <><Clock className="h-3.5 w-3.5 text-amber-500" /> Need Follow-up ({sortedFiltered.length})</>

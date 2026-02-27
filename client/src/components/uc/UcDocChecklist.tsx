@@ -62,8 +62,15 @@ export function UcDocChecklist({ project }: { project: Project }) {
   const grayed = isLegacyStatus(project.ucStatus);
   const alectra = isAlectra(project);
 
+  const isNS = project.province?.toLowerCase().includes('nova scotia') || project.province?.toLowerCase() === 'ns';
+  const isInstall = project.installType?.toLowerCase() === 'install';
+  const nsInstall = isNS && isInstall;
+
   const hasHydroBill = !!(project.hydroBillUrl || project.hydroAccountNumber);
   const hasMeterbase = !!project.ucMeterbaseUrl;
+  const hasElectricalPermit = !!project.electricalPermitUrl;
+
+  const electricalPermitRef = useRef<HTMLInputElement>(null);
 
   const meterbaseMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -83,8 +90,26 @@ export function UcDocChecklist({ project }: { project: Project }) {
     },
   });
 
-  const allDone = hasHydroBill && (hasMeterbase || !alectra);
-  const missingRequired = !grayed && (!hasHydroBill || (alectra && !hasMeterbase));
+  const electricalPermitMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("electricalPermit", file);
+      const res = await fetch(`/api/projects/${project.id}/electrical-permit`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files"] });
+      toast({ title: "Uploaded", description: "Electrical permit saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const allDone = hasHydroBill && (hasMeterbase || !alectra) && (hasElectricalPermit || !nsInstall);
+  const missingRequired = !grayed && (!hasHydroBill || (alectra && !hasMeterbase) || (nsInstall && !hasElectricalPermit));
 
   return (
     <div className="mt-2 pt-2 border-t" data-testid={`uc-doc-checklist-${project.id}`}>
@@ -143,6 +168,43 @@ export function UcDocChecklist({ project }: { project: Project }) {
             </>
           )}
         </CheckItem>
+
+        {nsInstall && (
+          <CheckItem done={hasElectricalPermit} label="Electrical Permit (NS)" grayed={grayed} required>
+            {!grayed && (
+              <>
+                <input
+                  ref={electricalPermitRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) electricalPermitMutation.mutate(f);
+                    e.target.value = "";
+                  }}
+                  data-testid={`input-electrical-permit-${project.id}`}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-5 text-[10px] px-1.5 ml-1"
+                  onClick={() => electricalPermitRef.current?.click()}
+                  disabled={electricalPermitMutation.isPending}
+                  data-testid={`button-upload-electrical-permit-${project.id}`}
+                >
+                  {electricalPermitMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : hasElectricalPermit ? (
+                    <><RefreshCw className="h-3 w-3 mr-0.5" /> Replace</>
+                  ) : (
+                    <><Upload className="h-3 w-3 mr-0.5" /> Upload</>
+                  )}
+                </Button>
+              </>
+            )}
+          </CheckItem>
+        )}
       </div>
     </div>
   );
