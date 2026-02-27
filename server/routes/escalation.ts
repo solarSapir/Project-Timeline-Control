@@ -4,6 +4,7 @@ import { addHours } from "date-fns";
 import { upload } from "../middleware/upload";
 import { saveFileLocally } from "../utils/file-storage";
 import { fetchSubtasksForTask, postCommentToTask } from "../asana";
+import OpenAI from "openai";
 
 const ESCALATION_CONFIG_STAGE = "escalation_settings";
 const DEFAULT_HIDE_HOURS = 48;
@@ -182,6 +183,13 @@ escalationRouter.post("/escalation-tickets", upload.array('files', 10), async (r
       }
       console.log(`[Escalation] Saved ${uploadedFiles.length} attachment(s) for ticket ${ticket.id}`);
     }
+
+    generateTicketSummary(issue).then(summary => {
+      if (summary) {
+        storage.updateEscalationTicket(ticket.id, { summary }).catch(() => {});
+        console.log(`[Escalation AI] Generated summary for ticket ${ticket.id}: "${summary}"`);
+      }
+    }).catch(() => {});
 
     const project = await storage.getProject(projectId);
     const truncatedIssue = issue.length > 100 ? issue.substring(0, 100) + '...' : issue;
@@ -443,6 +451,66 @@ escalationRouter.patch("/escalation-tickets/:id/resolve", upload.array('files', 
     }
 
     res.json(ticket);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+async function generateTicketSummary(issue: string): Promise<string | null> {
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a concise summarizer. Given an escalation ticket issue description, produce a very short summary title (max 8 words). No quotes, no punctuation at the end. Just the core issue in plain language.",
+        },
+        { role: "user", content: issue },
+      ],
+      max_tokens: 30,
+      temperature: 0.3,
+    });
+    return response.choices[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    console.error("[Escalation AI] Failed to generate summary:", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+escalationRouter.post("/escalation-tickets/:id/generate-summary", async (req, res) => {
+  try {
+    const ticket = await storage.getEscalationTicket(req.params.id);
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const summary = await generateTicketSummary(ticket.issue);
+    if (!summary) return res.status(500).json({ message: "Failed to generate summary" });
+
+    const updated = await storage.updateEscalationTicket(req.params.id, { summary });
+    res.json(updated);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+escalationRouter.post("/escalation-tickets/generate-all-summaries", async (req, res) => {
+  try {
+    const tickets = await storage.getEscalationTickets();
+    const needsSummary = tickets.filter(t => !t.summary);
+    let generated = 0;
+    for (const ticket of needsSummary) {
+      const summary = await generateTicketSummary(ticket.issue);
+      if (summary) {
+        await storage.updateEscalationTicket(ticket.id, { summary });
+        generated++;
+      }
+    }
+    res.json({ message: `Generated ${generated} summaries`, total: needsSummary.length, generated });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });
