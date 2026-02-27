@@ -5,9 +5,9 @@ const MAPLE_LEAF_PATH = "M383.8 351.7c2.5-2.5 105.2-92.4 105.2-92.4l-17.5-7.5c-1
 const RAY_COUNT = 12;
 
 const sizeConfig = {
-  sm: { container: 96, logo: 48, leaf: 24, rayW: "w-1", rayH: "h-4" },
-  md: { container: 160, logo: 80, leaf: 40, rayW: "w-1.5", rayH: "h-6" },
-  lg: { container: 256, logo: 128, leaf: 64, rayW: "w-2", rayH: "h-8" },
+  sm: { container: 64, logo: 32, leaf: 16, rayW: "w-1", rayH: "h-3" },
+  md: { container: 100, logo: 52, leaf: 26, rayW: "w-1", rayH: "h-5" },
+  lg: { container: 150, logo: 80, leaf: 40, rayW: "w-1.5", rayH: "h-6" },
 };
 
 interface LogoSpinnerProps {
@@ -37,7 +37,7 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
             <motion.div
               className={`${cfg.rayW} ${cfg.rayH} rounded-full bg-gradient-to-b from-yellow-400 to-orange-500 shadow-[0_0_15px_rgba(250,204,21,0.5)]`}
               animate={{
-                y: [-15, 5, -15],
+                y: [-10, 3, -10],
                 scaleY: [1, 0.7, 1],
                 opacity: [1, 0.5, 1],
               }}
