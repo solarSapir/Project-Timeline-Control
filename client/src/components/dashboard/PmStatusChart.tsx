@@ -10,10 +10,24 @@ import type { Project } from "@shared/schema";
 const STATUS_COLORS: Record<string, string> = {
   "Active": "#22c55e",
   "Project Paused": "#f59e0b",
-  "Project Lost": "#ef4444",
+  "Project lost": "#ef4444",
   "Complete": "#3b82f6",
-  "Other": "#94a3b8",
+  "Awaiting internal teams": "#8b5cf6",
+  "Install": "#06b6d4",
+  "Ready to build": "#10b981",
+  "Pending Payment": "#f97316",
+  "Close-Off": "#6366f1",
+  "Missing Information": "#ec4899",
+  "No Status": "#9ca3af",
+  "Needs manager review": "#d946ef",
+  "New Project": "#14b8a6",
 };
+
+const DEFAULT_HIDDEN = new Set(["Complete", "Project lost"]);
+
+function getColor(name: string): string {
+  return STATUS_COLORS[name] || STATUS_COLORS[Object.keys(STATUS_COLORS).find(k => k.toLowerCase() === name.toLowerCase()) || ""] || "#64748b";
+}
 
 function renderActiveShape(props: Record<string, unknown>) {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value, percent } = props as {
@@ -33,7 +47,7 @@ function renderActiveShape(props: Record<string, unknown>) {
 
 export function PmStatusChart() {
   const { data: projects } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
-  const [hiddenStatuses, setHiddenStatuses] = useState<Set<string>>(new Set());
+  const [hiddenStatuses, setHiddenStatuses] = useState<Set<string>>(new Set(DEFAULT_HIDDEN));
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [drillStatus, setDrillStatus] = useState<string | null>(null);
 
@@ -48,13 +62,13 @@ export function PmStatusChart() {
       .map(([name, value]) => ({
         name,
         value,
-        color: STATUS_COLORS[name] || STATUS_COLORS["Other"],
+        color: getColor(name),
       }))
       .sort((a, b) => b.value - a.value);
   }, [projects]);
 
   const chartData = allData.filter(d => !hiddenStatuses.has(d.name));
-  const total = chartData.reduce((sum, d) => sum + d.value, 0);
+  const visibleTotal = chartData.reduce((sum, d) => sum + d.value, 0);
 
   const drillProjects = useMemo(() => {
     if (!drillStatus || !projects) return [];
@@ -113,7 +127,7 @@ export function PmStatusChart() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number, name: string) => [`${value} projects (${Math.round((value / total) * 100)}%)`, name]}
+                      formatter={(value: number, name: string) => [`${value} projects (${visibleTotal > 0 ? Math.round((value / visibleTotal) * 100) : 0}%)`, name]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -127,6 +141,7 @@ export function PmStatusChart() {
               <div className="space-y-1.5">
                 {allData.map((d) => {
                   const hidden = hiddenStatuses.has(d.name);
+                  const pct = visibleTotal > 0 && !hidden ? Math.round((d.value / visibleTotal) * 100) : 0;
                   return (
                     <div key={d.name} className={`flex items-center justify-between text-sm ${hidden ? "opacity-40" : ""}`} data-testid={`pm-status-row-${d.name}`}>
                       <div className="flex items-center gap-2">
@@ -154,15 +169,15 @@ export function PmStatusChart() {
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{d.value}</span>
                         <span className="text-muted-foreground text-xs w-10 text-right">
-                          {Math.round((d.value / allData.reduce((s, x) => s + x.value, 0)) * 100)}%
+                          {hidden ? "--" : `${pct}%`}
                         </span>
                       </div>
                     </div>
                   );
                 })}
                 <div className="flex items-center justify-between text-sm pt-1.5 border-t mt-2">
-                  <span className="font-medium text-muted-foreground">Total</span>
-                  <span className="font-bold">{allData.reduce((s, d) => s + d.value, 0)}</span>
+                  <span className="font-medium text-muted-foreground">Visible Total</span>
+                  <span className="font-bold">{visibleTotal}</span>
                 </div>
               </div>
             </div>
@@ -174,7 +189,7 @@ export function PmStatusChart() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" data-testid="dialog-pm-drill">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STATUS_COLORS[drillStatus || ""] || STATUS_COLORS["Other"] }} />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(drillStatus || "") }} />
               {drillStatus} ({drillProjects.length})
             </DialogTitle>
             <DialogDescription>
