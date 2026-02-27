@@ -28,6 +28,29 @@ import { EscalationTicketsSection } from "@/components/project-profile/Escalatio
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
 import type { ContractFileCounts } from "@/pages/contracts-view";
 import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, CreditCard, Camera } from "lucide-react";
+import { isUcComplete, isAhjComplete, isVisitComplete, isVisitBooked, isPermitIssued, isContractSent } from "@/utils/stages";
+
+function computeTabVisibility(p: Project) {
+  const pm = p.pmStatus?.toLowerCase() ?? '';
+  const excluded = ['complete', 'project paused', 'project lost'].some(s => pm.includes(s));
+  const installType = p.installType?.toLowerCase() || '';
+  const isUcEligible = ['install', 'diy'].includes(installType);
+  const excludedSectors = ['commercial', 'industrial', 'agricultural', 'institutional'];
+  const sectorExcluded = p.propertySector ? excludedSectors.some(s => p.propertySector!.toLowerCase().includes(s)) : false;
+
+  const isEligible = isUcEligible && !sectorExcluded && !excluded;
+
+  return {
+    uc: isEligible && !isUcComplete(p.ucStatus),
+    rebates: isEligible,
+    payment: isEligible && !p.paymentMethod,
+    contracts: isEligible && !isContractSent(p.installTeamStage),
+    siteVisit: isEligible,
+    ahj: isEligible && !isAhjComplete(p.ahjStatus),
+    installation: isEligible && isPermitIssued(p.ahjStatus),
+    closeOff: !excluded && pm.includes('close'),
+  };
+}
 
 export default function ProjectProfile() {
   const params = useParams<{ id: string }>();
@@ -104,6 +127,7 @@ export default function ProjectProfile() {
   }
 
   const stages = computeExpectedDates(project, taskActions);
+  const tabVis = computeTabVisibility(project);
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -122,7 +146,7 @@ export default function ProjectProfile() {
         <CardContent className="py-2 px-4"><GanttChart stages={stages} /></CardContent>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StageSection title="UC Application" icon={FileText} status={stages.uc_application.status} onFocus={() => setFocusStage('uc')}>
+        <StageSection title="UC Application" icon={FileText} status={stages.uc_application.status} onFocus={() => setFocusStage('uc')} activeInTab={tabVis.uc}>
           <InfoRow label="Status" value={<StatusBadge status={project.ucStatus} />} testId="text-uc-status" />
           <InfoRow label="UC Team" value={project.ucTeam} testId="text-uc-team" />
           <InfoRow label="Target Due" value={formatProfileDate(project.ucDueDate)} testId="text-uc-target" />
@@ -131,33 +155,33 @@ export default function ProjectProfile() {
             <InfoRow label="Submitted" value={`${formatProfileDate(project.ucSubmittedDate)}${project.ucSubmittedBy ? ` by ${project.ucSubmittedBy}` : ""}`} />
           )}
         </StageSection>
-        <StageSection title="Rebates" icon={DollarSign} status={stages.rebates.status} onFocus={() => setFocusStage('rebates')}>
+        <StageSection title="Rebates" icon={DollarSign} status={stages.rebates.status} onFocus={() => setFocusStage('rebates')} activeInTab={tabVis.rebates}>
           <InfoRow label="Rebate Status" value={<StatusBadge status={project.rebateStatus} />} testId="text-rebate-status" />
           {project.hrspStatus && <InfoRow label="HRSP Status" value={project.hrspStatus} testId="text-hrsp-status" />}
         </StageSection>
-        <StageSection title="Payment Method" icon={CreditCard} status={stages.payment.status} onFocus={() => setFocusStage('payment')}>
+        <StageSection title="Payment Method" icon={CreditCard} status={stages.payment.status} onFocus={() => setFocusStage('payment')} activeInTab={tabVis.payment}>
           <InfoRow label="Payment Method" value={project.paymentMethod} testId="text-payment-method" />
         </StageSection>
-        <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status} onFocus={() => setFocusStage('contract')}>
+        <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status} onFocus={() => setFocusStage('contract')} activeInTab={tabVis.contracts}>
           <InfoRow label="Contract Status" value={<StatusBadge status={project.installTeamStage} />} testId="text-contract-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.contractDueDate)} testId="text-contract-target" />
           <ExpectedDueRow target={project.contractDueDate} expected={stages.contract_signing.expected} testId="text-contract-expected" />
           <InfoRow label="Permit Payment" value={project.permitPaymentCollected ? "Collected" : "Pending"} testId="text-permit-payment" />
           <InfoRow label="Engineering Fee" value={project.engineeringFeeCollected ? "Collected" : "Pending"} testId="text-engineering-fee" />
         </StageSection>
-        <StageSection title="Site Visit" icon={Camera} status={stages.site_visit.status} onFocus={() => setFocusStage('site_visit')}>
+        <StageSection title="Site Visit" icon={Camera} status={stages.site_visit.status} onFocus={() => setFocusStage('site_visit')} activeInTab={tabVis.siteVisit}>
           <InfoRow label="Status" value={<StatusBadge status={project.siteVisitStatus} />} testId="text-sv-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.siteVisitDueDate)} testId="text-sv-target" />
           <ExpectedDueRow target={project.siteVisitDueDate} expected={stages.site_visit.expected} testId="text-sv-expected" />
           {project.siteVisitDate && <InfoRow label="Visit Date" value={formatProfileDate(project.siteVisitDate)} testId="text-sv-date" />}
         </StageSection>
-        <StageSection title="AHJ / Permitting" icon={Shield} status={stages.ahj_permitting.status} onFocus={() => setFocusStage('ahj')}>
+        <StageSection title="AHJ / Permitting" icon={Shield} status={stages.ahj_permitting.status} onFocus={() => setFocusStage('ahj')} activeInTab={tabVis.ahj}>
           <InfoRow label="Status" value={<StatusBadge status={project.ahjStatus} />} testId="text-ahj-status" />
           <InfoRow label="Target Due" value={formatProfileDate(project.ahjDueDate)} testId="text-ahj-target" />
           <ExpectedDueRow target={project.ahjDueDate} expected={stages.ahj_permitting.expected} testId="text-ahj-expected" />
         </StageSection>
-        <InstallationSection project={project} stages={stages} schedules={schedules} onFocus={() => setFocusStage('installation')} />
-        <StageSection title="Close-off" icon={CheckCircle2} status={stages.close_off.status} onFocus={() => setFocusStage('close_off')}>
+        <InstallationSection project={project} stages={stages} schedules={schedules} onFocus={() => setFocusStage('installation')} activeInTab={tabVis.installation} />
+        <StageSection title="Close-off" icon={CheckCircle2} status={stages.close_off.status} onFocus={() => setFocusStage('close_off')} activeInTab={tabVis.closeOff}>
           <InfoRow label="Target Due" value={formatProfileDate(project.closeOffDueDate)} testId="text-closeoff-target" />
           <ExpectedDueRow target={project.closeOffDueDate} expected={stages.close_off.expected} testId="text-closeoff-expected" />
           <InfoRow label="Milestone Payment" value={project.milestonePaymentCollected ? "Collected" : "Pending"} testId="text-milestone-payment" />

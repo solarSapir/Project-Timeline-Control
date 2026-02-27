@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Eye } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface StageSectionProps {
@@ -10,11 +10,15 @@ interface StageSectionProps {
   status: string;
   children: React.ReactNode;
   onFocus?: () => void;
+  activeInTab?: boolean;
 }
 
-export function StageSection({ title, icon: Icon, status, children, onFocus }: StageSectionProps) {
+export function StageSection({ title, icon: Icon, status, children, onFocus, activeInTab }: StageSectionProps) {
   return (
-    <Card className="overflow-hidden" data-testid={`section-${title.toLowerCase().replace(/[\s/]+/g, "-")}`}>
+    <Card
+      className={`overflow-hidden ${activeInTab ? "ring-2 ring-blue-400 dark:ring-blue-500" : ""}`}
+      data-testid={`section-${title.toLowerCase().replace(/[\s/]+/g, "-")}`}
+    >
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -22,6 +26,12 @@ export function StageSection({ title, icon: Icon, status, children, onFocus }: S
             {title}
           </CardTitle>
           <div className="flex items-center gap-1.5">
+            {activeInTab && (
+              <Badge className="text-[9px] px-1.5 py-0 gap-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <Eye className="h-2.5 w-2.5" />
+                Visible in tab
+              </Badge>
+            )}
             <Badge
               className={
                 status === "completed"

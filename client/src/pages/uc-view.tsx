@@ -74,11 +74,16 @@ export default function UCView() {
   };
 
   const ucEligibleTypes = ['install', 'diy'];
-  const installProjects = (projects || []).filter((p) =>
-    ucEligibleTypes.includes(p.installType?.toLowerCase() || '') &&
-    (!p.propertySector || p.propertySector.toLowerCase() === 'residential') &&
-    !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
-  );
+  const excludedSectors = ['commercial', 'industrial', 'agricultural', 'institutional'];
+  const installProjects = (projects || []).filter((p) => {
+    if (!ucEligibleTypes.includes(p.installType?.toLowerCase() || '')) return false;
+    if (p.propertySector) {
+      const sector = p.propertySector.toLowerCase();
+      if (excludedSectors.some(s => sector.includes(s))) return false;
+    }
+    if (['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')) return false;
+    return true;
+  });
 
   const waitingForPlannerCount = installProjects.filter(p => isPlannerIncomplete(p)).length;
   const escalatedCount = installProjects.filter(p => openEscalations.has(p.id)).length;

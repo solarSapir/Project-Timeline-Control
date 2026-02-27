@@ -4,7 +4,7 @@ import { isUcComplete, isAhjComplete, isVisitComplete, isVisitBooked, isPermitIs
 import { areDependenciesMet, type WorkflowConfig } from "@/lib/stage-dependencies";
 
 const NON_RESIDENTIAL_SECTORS = [
-  'commercial', 'industrial', 'agricultural', 'institutional', 'multi-residential',
+  'commercial', 'industrial', 'agricultural', 'institutional',
 ];
 const EXCLUDED_PM_STATUSES = ['complete', 'project paused', 'project lost'];
 

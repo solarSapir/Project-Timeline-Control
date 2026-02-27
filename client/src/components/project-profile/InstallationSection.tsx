@@ -10,11 +10,12 @@ interface InstallationSectionProps {
   stages: StageExpectations;
   schedules: InstallSchedule[];
   onFocus?: () => void;
+  activeInTab?: boolean;
 }
 
-export function InstallationSection({ project, stages, schedules, onFocus }: InstallationSectionProps) {
+export function InstallationSection({ project, stages, schedules, onFocus, activeInTab }: InstallationSectionProps) {
   return (
-    <StageSection title="Installation" icon={Wrench} status={stages.installation.status} onFocus={onFocus}>
+    <StageSection title="Installation" icon={Wrench} status={stages.installation.status} onFocus={onFocus} activeInTab={activeInTab}>
       <InfoRow label="Install Stage" value={project.installTeamStage} testId="text-install-team-stage" />
       <InfoRow label="Target Due" value={formatProfileDate(project.installDueDate)} testId="text-install-target" />
       <ExpectedDueRow target={project.installDueDate} expected={stages.installation.expected} testId="text-install-expected" />
