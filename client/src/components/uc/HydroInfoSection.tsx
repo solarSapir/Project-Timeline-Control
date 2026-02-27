@@ -78,24 +78,22 @@ export function HydroInfoSection({ project }: { project: Project }) {
   if (!editing && !hasInfo && !hasFile) {
     return (
       <div className="mt-2 pt-2 border-t">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+        <div className="flex items-center flex-wrap gap-1">
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1 mr-auto">
             <Zap className="h-3 w-3" /> Hydro Bill Info
           </p>
-          <div className="flex items-center gap-1">
-            {fileInput}
-            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => fileInputRef.current?.click()}
-              disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
-              {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-              {uploadMutation.isPending ? 'Scanning...' : 'Upload & Scan Bill'}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => {
-              setHydroCompany(utilityFromAsana || '');
-              setEditing(true);
-            }} data-testid={`button-add-hydro-${project.id}`}>
-              <Hash className="h-3 w-3" /> Enter Manually
-            </Button>
-          </div>
+          {fileInput}
+          <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending} data-testid={`button-upload-hydro-${project.id}`}>
+            {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+            {uploadMutation.isPending ? 'Scanning...' : 'Upload & Scan Bill'}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 gap-1" onClick={() => {
+            setHydroCompany(utilityFromAsana || '');
+            setEditing(true);
+          }} data-testid={`button-add-hydro-${project.id}`}>
+            <Hash className="h-3 w-3" /> Enter Manually
+          </Button>
         </div>
       </div>
     );
