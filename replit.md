@@ -6,7 +6,7 @@ Solar PM is a project management application designed for solar installation com
 ## User Preferences
 - Solar installation company (Solar Power Store)
 - Uses Asana "Project Manage Team" project for task management
-- Two project types: Install and DIY (currently focusing on Install)
+- Two project types: Install and DIY (work views focus on Install; All Customers page shows everything)
 - Teams: UC team, AHJ/permitting team, install coordinators, payment collection
 
 ## System Architecture
