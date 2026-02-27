@@ -8,8 +8,10 @@ const NON_RESIDENTIAL_SECTORS = [
 ];
 const EXCLUDED_PM_STATUSES = ['complete', 'project paused', 'project lost'];
 
+const UC_ELIGIBLE_TYPES = ['install', 'diy'];
+
 function isResidentialInstall(p: Project): boolean {
-  if (p.installType?.toLowerCase() !== 'install') return false;
+  if (!UC_ELIGIBLE_TYPES.includes(p.installType?.toLowerCase() || '')) return false;
   if (p.propertySector && p.propertySector.toLowerCase() !== 'residential') {
     const sector = p.propertySector.toLowerCase();
     if (NON_RESIDENTIAL_SECTORS.some(s => sector.includes(s))) return false;
