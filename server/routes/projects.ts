@@ -331,6 +331,27 @@ projectsRouter.get("/:id/install-team-subtask", async (req, res) => {
   }
 });
 
+projectsRouter.get("/:id/planning-subtask", async (req, res) => {
+  try {
+    const project = await storage.getProject(req.params.id);
+    if (!project || !project.asanaGid) return res.status(404).json({ message: "Project not found or no Asana link" });
+
+    const topSubtasks = await fetchSubtasksForTask(project.asanaGid);
+    let planningTask = topSubtasks.find((st: Record<string, unknown>) =>
+      (st.name as string)?.toLowerCase().includes('plan')
+    );
+
+    if (!planningTask) {
+      planningTask = await createSubtaskForTask(project.asanaGid, "Planning");
+    }
+
+    res.json({ gid: planningTask.gid, name: planningTask.name, completed: planningTask.completed || false });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 /** Find all subtasks with "AHJ" in the name */
 projectsRouter.get("/:id/ahj-subtasks", async (req, res) => {
   try {

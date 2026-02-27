@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
   Search, Check, Circle, Upload, Loader2, RefreshCw,
   CheckCircle2, AlertTriangle, HardHat, FileText, DollarSign,
-  Send, FileSignature
+  Send, FileSignature, Maximize2, FolderOpen
 } from "lucide-react";
+import { PlanningSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import type { Project } from "@shared/schema";
 
 const CONTRACTORS = [
@@ -75,11 +77,12 @@ function CheckItem({ done, label, required, children }: {
   );
 }
 
-function PlannerCard({ project }: { project: Project }) {
+function PlannerCard({ project, onFocus }: { project: Project; onFocus: () => void }) {
   const { toast } = useToast();
   const permitRef = useRef<HTMLInputElement>(null);
   const proposalRef = useRef<HTMLInputElement>(null);
   const sitePlanRef = useRef<HTMLInputElement>(null);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const [editCost, setEditCost] = useState(false);
   const [editPayout, setEditPayout] = useState(false);
   const [costValue, setCostValue] = useState(project.plannerTotalCost || "");
@@ -442,6 +445,35 @@ function PlannerCard({ project }: { project: Project }) {
                 </div>
               )}
             </div>
+
+            <div className="flex items-center gap-2 mt-3 pt-2 border-t">
+              <Button
+                size="sm"
+                variant={showSubtasks ? "secondary" : "ghost"}
+                className="h-7 text-xs gap-1 px-2"
+                onClick={() => setShowSubtasks(!showSubtasks)}
+                data-testid={`button-subtasks-${project.id}`}
+              >
+                <FolderOpen className="h-3 w-3" />
+                Subtasks
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 px-2"
+                onClick={onFocus}
+                data-testid={`button-focus-${project.id}`}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Focus
+              </Button>
+            </div>
+
+            {showSubtasks && (
+              <div className="pt-3 border-t mt-2">
+                <PlanningSubtaskPanel projectId={project.id} />
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
@@ -452,6 +484,7 @@ function PlannerCard({ project }: { project: Project }) {
 export default function PlannerView() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("needs_planning");
+  const [focusProject, setFocusProject] = useState<Project | null>(null);
 
   const { data: projects, isLoading } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
 
@@ -524,7 +557,7 @@ export default function PlannerView() {
           </p>
 
           {sorted.map((p) => (
-            <PlannerCard key={p.id} project={p} />
+            <PlannerCard key={p.id} project={p} onFocus={() => setFocusProject(p)} />
           ))}
         </div>
       ) : (
@@ -532,6 +565,30 @@ export default function PlannerView() {
           <p>{filter === "needs_planning" ? "All projects have been planned." : "No projects match this filter."}</p>
         </div>
       )}
+
+      <Dialog open={!!focusProject} onOpenChange={(open) => { if (!open) setFocusProject(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-planner-focus">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Maximize2 className="h-5 w-5" />
+              {focusProject?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Planning focus view — checklist, notes, and Asana planning subtask.
+            </DialogDescription>
+          </DialogHeader>
+          {focusProject && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <PlannerCard project={focusProject} onFocus={() => {}} />
+              </div>
+              <div>
+                <PlanningSubtaskPanel projectId={focusProject.id} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

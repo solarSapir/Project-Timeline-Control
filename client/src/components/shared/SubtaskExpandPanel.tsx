@@ -72,6 +72,21 @@ export function SubtaskExpandPanel({ subtasks, isLoading, label, emptyMessage }:
   );
 }
 
+interface PlanningSubtaskPanelProps {
+  projectId: string;
+}
+
+export function PlanningSubtaskPanel({ projectId }: PlanningSubtaskPanelProps) {
+  const { data, isLoading } = useQuery<Subtask>({
+    queryKey: ['/api/projects', projectId, 'planning-subtask'],
+    queryFn: () => fetch(`/api/projects/${projectId}/planning-subtask`).then(r => r.json()),
+  });
+
+  const subtasks = data ? [data] : [];
+
+  return <SubtaskExpandPanel subtasks={subtasks} isLoading={isLoading} label="Planning Subtask" />;
+}
+
 interface InstallTeamSubtaskPanelProps {
   projectId: string;
   subtaskName: string;
