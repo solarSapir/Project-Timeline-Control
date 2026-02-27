@@ -90,6 +90,9 @@ export const projects = pgTable("projects", {
   plannerContractSent: boolean("planner_contract_sent").default(false),
   plannerContractSigned: boolean("planner_contract_signed").default(false),
   rebateCloseOffDate: text("rebate_close_off_date"),
+  pauseReason: text("pause_reason"),
+  pauseNote: text("pause_note"),
+  pauseReasonSetAt: timestamp("pause_reason_set_at"),
 });
 
 export const projectDeadlines = pgTable("project_deadlines", {
@@ -611,6 +614,35 @@ export const staffMembers = pgTable("staff_members", {
 export const insertStaffMemberSchema = createInsertSchema(staffMembers).omit({ id: true, createdAt: true });
 export type InsertStaffMember = z.infer<typeof insertStaffMemberSchema>;
 export type StaffMember = typeof staffMembers.$inferSelect;
+
+export const pauseReasons = pgTable("pause_reasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reason: text("reason").notNull().unique(),
+  usageCount: integer("usage_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPauseReasonSchema = createInsertSchema(pauseReasons).omit({
+  id: true,
+  usageCount: true,
+  createdAt: true,
+});
+
+export type PauseReason = typeof pauseReasons.$inferSelect;
+export type InsertPauseReason = z.infer<typeof insertPauseReasonSchema>;
+
+export const DEFAULT_PAUSE_REASONS = [
+  "Waiting for GHL loan approval",
+  "Customer unresponsive",
+  "Waiting for financing",
+  "Customer requested delay",
+  "Weather / seasonal delay",
+  "Pending permits",
+  "Equipment backorder",
+  "Site access issues",
+  "Customer reconsidering",
+  "Internal review needed",
+];
 
 export const PROJECT_STAGES = [
   "uc_application",

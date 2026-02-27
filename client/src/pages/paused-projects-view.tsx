@@ -1,16 +1,70 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageLoader } from "@/components/ui/logo-spinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
-import { Search, PauseCircle } from "lucide-react";
+import { Search, PauseCircle, ChevronDown, ChevronUp, Check, Plus, X } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
-import type { Project } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Project, PauseReason } from "@shared/schema";
 
-function PausedCard({ project }: { project: Project }) {
+function PausedCard({ project, pauseReasonOptions }: { project: Project; pauseReasonOptions: PauseReason[] }) {
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState(false);
+  const [selectedReason, setSelectedReason] = useState(project.pauseReason || "");
+  const [note, setNote] = useState(project.pauseNote || "");
+  const [customReason, setCustomReason] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: { pauseReason?: string; pauseNote?: string }) => {
+      await apiRequest("PATCH", `/api/projects/${project.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      toast({ title: "Pause reason saved" });
+    },
+  });
+
+  const addCustomMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      await apiRequest("POST", "/api/pause-reasons", { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons'] });
+    },
+  });
+
+  const handleReasonChange = (value: string) => {
+    if (value === "__custom__") {
+      setShowCustom(true);
+      return;
+    }
+    setSelectedReason(value);
+    saveMutation.mutate({ pauseReason: value });
+  };
+
+  const handleSaveCustom = () => {
+    if (!customReason.trim()) return;
+    const reason = customReason.trim();
+    addCustomMutation.mutate(reason);
+    setSelectedReason(reason);
+    setShowCustom(false);
+    setCustomReason("");
+    saveMutation.mutate({ pauseReason: reason });
+  };
+
+  const handleSaveNote = () => {
+    saveMutation.mutate({ pauseNote: note });
+  };
+
   return (
     <Card data-testid={`card-paused-${project.id}`}>
       <CardContent className="py-3 px-4">
@@ -51,6 +105,87 @@ function PausedCard({ project }: { project: Project }) {
               </>
             )}
           </div>
+
+          {project.pauseReason && !expanded && (
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <span className="text-muted-foreground">Reason:</span>
+              <span className="font-medium text-amber-700 dark:text-amber-400">{project.pauseReason}</span>
+            </div>
+          )}
+
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            data-testid={`button-expand-pause-${project.id}`}
+          >
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {expanded ? "Hide" : "Reason for Pause"}
+          </button>
+
+          {expanded && (
+            <div className="space-y-2 pt-1 border-t">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Reason</label>
+                {showCustom ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={customReason}
+                      onChange={(e) => setCustomReason(e.target.value)}
+                      placeholder="Type a new reason..."
+                      className="h-8 text-sm"
+                      data-testid={`input-custom-reason-${project.id}`}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveCustom(); }}
+                    />
+                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleSaveCustom} data-testid={`button-save-custom-${project.id}`}>
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowCustom(false); setCustomReason(""); }} data-testid={`button-cancel-custom-${project.id}`}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Select value={selectedReason} onValueChange={handleReasonChange} data-testid={`select-pause-reason-${project.id}`}>
+                    <SelectTrigger className="h-8 text-sm" data-testid={`trigger-pause-reason-${project.id}`}>
+                      <SelectValue placeholder="Select a reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pauseReasonOptions.map(r => (
+                        <SelectItem key={r.id} value={r.reason} data-testid={`option-reason-${r.id}`}>
+                          {r.reason}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__custom__" data-testid={`option-reason-custom-${project.id}`}>
+                        <span className="flex items-center gap-1"><Plus className="h-3 w-3" /> Add custom reason</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Quick Note</label>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Additional context..."
+                  rows={2}
+                  className="text-sm resize-none"
+                  data-testid={`textarea-pause-note-${project.id}`}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={handleSaveNote}
+                    disabled={saveMutation.isPending || note === (project.pauseNote || "")}
+                    data-testid={`button-save-note-${project.id}`}
+                  >
+                    {saveMutation.isPending ? "Saving..." : "Save Note"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -60,6 +195,7 @@ function PausedCard({ project }: { project: Project }) {
 export default function PausedProjectsView() {
   const [search, setSearch] = useState("");
   const { data: projects, isLoading } = useQuery<Project[]>({ queryKey: ['/api/projects'] });
+  const { data: pauseReasonOptions } = useQuery<PauseReason[]>({ queryKey: ['/api/pause-reasons'] });
 
   if (isLoading) {
     return <PageLoader title="Loading paused projects..." />;
@@ -96,7 +232,7 @@ export default function PausedProjectsView() {
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <PauseCircle className="h-3.5 w-3.5 text-amber-500" /> Paused ({sorted.length})
           </p>
-          {sorted.map(p => <PausedCard key={p.id} project={p} />)}
+          {sorted.map(p => <PausedCard key={p.id} project={p} pauseReasonOptions={pauseReasonOptions || []} />)}
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground">

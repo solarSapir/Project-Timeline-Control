@@ -91,6 +91,15 @@ projectsRouter.patch("/:id", async (req, res) => {
       }
     }
 
+    if (req.body.pauseReason && req.body.pauseReason !== project.pauseReason) {
+      req.body.pauseReasonSetAt = new Date();
+      try {
+        await storage.incrementPauseReasonUsage(req.body.pauseReason);
+      } catch (err) {
+        console.error("Failed to increment pause reason usage:", err);
+      }
+    }
+
     if (req.body.rebateStatus && req.body.rebateStatus !== project.rebateStatus) {
       const rebateLower = req.body.rebateStatus.toLowerCase();
       const rebateFollowUpStatuses = ['in-progress', 'submitted', 'close-off - submitted', 'close-off submitted'];

@@ -2,7 +2,7 @@ import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
-  ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers,
+  ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers, pauseReasons,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -18,6 +18,7 @@ import {
   type RebateCompletion, type InsertRebateCompletion,
   type RebateWorkflowRule, type InsertRebateWorkflowRule,
   type StaffMember, type InsertStaffMember,
+  type PauseReason, type InsertPauseReason,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -85,6 +86,10 @@ export interface IStorage {
   createStaffMember(data: InsertStaffMember): Promise<StaffMember>;
   updateStaffMember(id: string, data: Partial<InsertStaffMember>): Promise<StaffMember | undefined>;
   deleteStaffMember(id: string): Promise<boolean>;
+
+  getPauseReasons(): Promise<PauseReason[]>;
+  createPauseReason(data: InsertPauseReason): Promise<PauseReason>;
+  incrementPauseReasonUsage(reason: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -497,6 +502,28 @@ export class DatabaseStorage implements IStorage {
   async deleteStaffMember(id: string): Promise<boolean> {
     const result = await db.delete(staffMembers).where(eq(staffMembers.id, id));
     return (result?.rowCount ?? 0) > 0;
+  }
+
+  async getPauseReasons(): Promise<PauseReason[]> {
+    return db.select().from(pauseReasons).orderBy(desc(pauseReasons.usageCount));
+  }
+
+  async createPauseReason(data: InsertPauseReason): Promise<PauseReason> {
+    const [reason] = await db.insert(pauseReasons).values(data).onConflictDoNothing().returning();
+    if (!reason) {
+      const [existing] = await db.select().from(pauseReasons).where(eq(pauseReasons.reason, data.reason));
+      return existing;
+    }
+    return reason;
+  }
+
+  async incrementPauseReasonUsage(reason: string): Promise<void> {
+    const [existing] = await db.select().from(pauseReasons).where(eq(pauseReasons.reason, reason));
+    if (existing) {
+      await db.update(pauseReasons).set({ usageCount: (existing.usageCount || 0) + 1 }).where(eq(pauseReasons.id, existing.id));
+    } else {
+      await db.insert(pauseReasons).values({ reason, usageCount: 1 }).onConflictDoNothing();
+    }
   }
 }
 
