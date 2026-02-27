@@ -6,23 +6,26 @@ import { ESCALATION_VIEW_LABELS } from "@shared/schema";
 import type { EscalationTicket } from "@shared/schema";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
 
-export function EscalationTicketsSection({ projectId }: { projectId: string }) {
+function useProjectTickets(projectId: string) {
   const { data: allTickets } = useQuery<EscalationTicket[]>({
     queryKey: ["/api/escalation-tickets"],
     staleTime: 60000,
   });
 
   const tickets = (allTickets || []).filter(t => t.projectId === projectId);
-  if (tickets.length === 0) return null;
-
   const open = tickets.filter(t => t.status === "open" || t.status === "responded");
   const resolved = tickets.filter(t => t.status === "resolved");
-
   const sorted = [...tickets].sort((a, b) => {
     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return bTime - aTime;
   });
+  return { tickets, open, resolved, sorted };
+}
+
+export function EscalationTicketsSection({ projectId }: { projectId: string }) {
+  const { tickets, open, resolved, sorted } = useProjectTickets(projectId);
+  if (tickets.length === 0) return null;
 
   return (
     <Card data-testid="section-escalation-tickets">
@@ -50,6 +53,37 @@ export function EscalationTicketsSection({ projectId }: { projectId: string }) {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+export function EscalationTicketsInline({ projectId }: { projectId: string }) {
+  const { tickets, open, resolved, sorted } = useProjectTickets(projectId);
+  if (tickets.length === 0) return null;
+
+  return (
+    <div className="bg-muted/30 rounded-lg p-4 border space-y-2" data-testid="inline-escalation-tickets">
+      <div className="flex items-center gap-2 flex-wrap">
+        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+          Escalation Tickets
+        </h4>
+        {open.length > 0 && (
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+            {open.length} open
+          </Badge>
+        )}
+        {resolved.length > 0 && (
+          <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
+            {resolved.length} resolved
+          </Badge>
+        )}
+      </div>
+      <div className="space-y-2">
+        {sorted.map(ticket => (
+          <TicketSummary key={ticket.id} ticket={ticket} />
+        ))}
+      </div>
+    </div>
   );
 }
 

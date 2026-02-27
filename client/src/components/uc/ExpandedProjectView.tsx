@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { HydroInfoSection } from "./HydroInfoSection";
 import { FollowUpDialog } from "./FollowUpDialog";
 import { SubtaskPanel } from "./SubtaskPanel";
+import { EscalationTicketsInline } from "@/components/project-profile/EscalationTicketsSection";
 import type { Project } from "@shared/schema";
 
 interface AsanaCustomField {
@@ -140,6 +141,7 @@ export function ExpandedProjectView({ project, statusOptions, onStatusChange }: 
           <div className="bg-muted/30 rounded-lg p-4 border">
             <HydroInfoSection project={project} />
           </div>
+          <EscalationTicketsInline projectId={project.id} />
         </div>
         <div className="lg:col-span-2">
           <div className="bg-muted/30 rounded-lg p-4 border">
