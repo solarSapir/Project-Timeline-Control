@@ -130,6 +130,14 @@ function PausedCard({ project, pauseReasonOptions, staffMembers }: { project: Pr
                 </span>
               </>
             )}
+            {project.paymentMethod && (
+              <>
+                <span className="text-muted-foreground">Payment:</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400 font-medium" data-testid={`text-payment-${project.id}`}>
+                  {project.paymentMethod}
+                </span>
+              </>
+            )}
           </div>
 
           {project.pauseReason && !expanded && (
