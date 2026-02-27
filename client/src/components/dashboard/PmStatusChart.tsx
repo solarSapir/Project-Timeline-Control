@@ -103,7 +103,7 @@ export function PmStatusChart() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col lg:flex-row items-center gap-4">
-            <div className="w-full lg:w-1/2 h-[280px]">
+            <div className="w-full lg:w-1/2 h-[320px]">
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -111,8 +111,8 @@ export function PmStatusChart() {
                       data={chartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={65}
-                      outerRadius={100}
+                      innerRadius={80}
+                      outerRadius={120}
                       paddingAngle={2}
                       dataKey="value"
                       activeIndex={activeIndex}
