@@ -56,12 +56,18 @@ export default function UCView() {
     return hideUntil > Date.now();
   };
 
-  const isNsNotReady = (p: Project) => {
+  const isPlannerIncomplete = (p: Project) => {
+    if (p.installType?.toLowerCase() !== 'install') return false;
     const isNS = p.province?.toLowerCase().includes('nova scotia') || p.province?.toLowerCase() === 'ns';
-    if (!isNS || p.installType?.toLowerCase() !== 'install') return false;
-    const noContractor = !p.contractStatus || p.contractStatus === 'A. Not Assign';
-    const noPermit = !p.electricalPermitUrl;
-    return noContractor || noPermit;
+    const hasContractor = !!p.contractStatus && p.contractStatus !== 'A. Not Assign';
+    const scopeOk = !!p.plannerScopeConfirmed;
+    const proposalOk = !!p.plannerProposalUrl;
+    const costOk = !!p.plannerTotalCost;
+    const payoutOk = !!p.plannerContractorPayout;
+    const contractSent = !!p.plannerContractSent;
+    const contractSigned = !!p.plannerContractSigned;
+    const permitOk = !isNS || !!p.electricalPermitUrl;
+    return !(hasContractor && scopeOk && proposalOk && costOk && payoutOk && contractSent && contractSigned && permitOk);
   };
 
   const installProjects = (projects || []).filter((p) =>
@@ -70,17 +76,17 @@ export default function UCView() {
     !['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')
   );
 
-  const waitingForPlannerCount = installProjects.filter(p => isNsNotReady(p)).length;
+  const waitingForPlannerCount = installProjects.filter(p => isPlannerIncomplete(p)).length;
   const escalatedCount = installProjects.filter(p => openEscalations.has(p.id)).length;
   const hiddenCount = installProjects.filter(p => isHiddenByWorkflow(p.id)).length;
 
   const filtered = installProjects.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === "waiting_for_planner") return isNsNotReady(p);
+    if (filter === "waiting_for_planner") return isPlannerIncomplete(p);
     if (filter === "all") return true;
-    if (filter === "escalated") return openEscalations.has(p.id) && !isNsNotReady(p);
+    if (filter === "escalated") return openEscalations.has(p.id) && !isPlannerIncomplete(p);
     if (filter === "hidden") return isHiddenByWorkflow(p.id);
-    if (isNsNotReady(p)) return false;
+    if (isPlannerIncomplete(p)) return false;
     if (filter === "overdue") {
       if (isUcComplete(p.ucStatus)) return false;
       return (getDaysUntilDue(p.ucDueDate) ?? 1) < 0;
@@ -120,7 +126,7 @@ export default function UCView() {
     return <PageLoader title="Loading UC applications..." />;
   }
 
-  const totalNeedAction = installProjects.filter(p => !isUcComplete(p.ucStatus) && !isHiddenByWorkflow(p.id) && !isNsNotReady(p)).length;
+  const totalNeedAction = installProjects.filter(p => !isUcComplete(p.ucStatus) && !isHiddenByWorkflow(p.id) && !isPlannerIncomplete(p)).length;
   const totalCompleted = installProjects.filter(p => isUcComplete(p.ucStatus)).length;
   const totalSubmitted = installProjects.filter(p => p.ucStatus?.toLowerCase() === 'submitted').length;
   const needsFollowUpCount = installProjects.filter(p => {

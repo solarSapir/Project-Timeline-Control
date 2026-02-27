@@ -82,6 +82,13 @@ export const projects = pgTable("projects", {
   ucMeterbaseUrl: text("uc_meterbase_url"),
   electricalPermitUrl: text("electrical_permit_url"),
   electricalPermitUploadedAt: timestamp("electrical_permit_uploaded_at"),
+  plannerScopeConfirmed: boolean("planner_scope_confirmed").default(false),
+  plannerProposalUrl: text("planner_proposal_url"),
+  plannerProposalUploadedAt: timestamp("planner_proposal_uploaded_at"),
+  plannerTotalCost: text("planner_total_cost"),
+  plannerContractorPayout: text("planner_contractor_payout"),
+  plannerContractSent: boolean("planner_contract_sent").default(false),
+  plannerContractSigned: boolean("planner_contract_signed").default(false),
   rebateCloseOffDate: text("rebate_close_off_date"),
 });
 

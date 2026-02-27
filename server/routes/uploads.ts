@@ -412,6 +412,25 @@ uploadsRouter.post("/:id/meterbase", upload.single('meterbase'), async (req, res
   }
 });
 
+uploadsRouter.post("/:id/planner-proposal", upload.single('proposal'), async (req, res) => {
+  try {
+    const projectId = req.params.id as string;
+    const project = await storage.getProject(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (!req.file) return res.status(400).json({ message: "File is required" });
+
+    const savedFile = await saveFileLocally(projectId, 'planner', req.file.buffer, `PROPOSAL - ${req.file.originalname}`, req.file.mimetype, req.body.uploadedBy, 'Original proposal upload');
+    const localUrl = getDownloadUrl(projectId, savedFile.id);
+    const updated = await storage.updateProject(projectId, { plannerProposalUrl: localUrl, plannerProposalUploadedAt: new Date() });
+
+    res.json({ project: updated, fileId: savedFile.id, message: "Proposal uploaded" });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Planner Proposal] Upload error:", msg);
+    res.status(500).json({ message: msg });
+  }
+});
+
 uploadsRouter.post("/:id/electrical-permit", upload.single('electricalPermit'), async (req, res) => {
   try {
     const projectId = req.params.id as string;

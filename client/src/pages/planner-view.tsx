@@ -5,12 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
   Search, Check, Circle, Upload, Loader2, RefreshCw,
-  CheckCircle2, AlertTriangle, HardHat, FileText
+  CheckCircle2, AlertTriangle, HardHat, FileText, DollarSign,
+  Send, FileSignature
 } from "lucide-react";
 import type { Project } from "@shared/schema";
 
@@ -29,35 +31,100 @@ function isNsProject(p: Project) {
   return p.province?.toLowerCase().includes('nova scotia') || p.province?.toLowerCase() === 'ns';
 }
 
+function isPlannerComplete(p: Project) {
+  const hasContractor = !!p.contractStatus && p.contractStatus !== 'A. Not Assign';
+  const isNS = isNsProject(p);
+  const hasPermit = !!p.electricalPermitUrl;
+  const scopeOk = !!p.plannerScopeConfirmed;
+  const proposalOk = !!p.plannerProposalUrl;
+  const costOk = !!p.plannerTotalCost;
+  const payoutOk = !!p.plannerContractorPayout;
+  const contractSent = !!p.plannerContractSent;
+  const contractSigned = !!p.plannerContractSigned;
+  return hasContractor && scopeOk && proposalOk && costOk && payoutOk && contractSent && contractSigned && (!isNS || hasPermit);
+}
+
 function needsPlanning(p: Project) {
   if (p.installType?.toLowerCase() !== 'install') return false;
   if (['complete', 'project paused', 'project lost'].includes(p.pmStatus?.toLowerCase() || '')) return false;
   if (!p.propertySector || p.propertySector.toLowerCase() === 'residential') {
-    const noContractor = !p.contractStatus || p.contractStatus === 'A. Not Assign';
-    const nsNoPermit = isNsProject(p) && !p.electricalPermitUrl;
-    return noContractor || nsNoPermit;
+    return !isPlannerComplete(p);
   }
   return false;
+}
+
+function CheckItem({ done, label, required, children }: {
+  done: boolean; label: string; required?: boolean; children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {done ? (
+        <Check className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+      ) : (
+        <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+      )}
+      <span className={`text-[11px] ${done ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
+        {label}
+      </span>
+      {required && !done && (
+        <span className="text-[9px] text-red-500 font-medium">Required</span>
+      )}
+      {children}
+    </div>
+  );
 }
 
 function PlannerCard({ project }: { project: Project }) {
   const { toast } = useToast();
   const permitRef = useRef<HTMLInputElement>(null);
+  const proposalRef = useRef<HTMLInputElement>(null);
+  const [editCost, setEditCost] = useState(false);
+  const [editPayout, setEditPayout] = useState(false);
+  const [costValue, setCostValue] = useState(project.plannerTotalCost || "");
+  const [payoutValue, setPayoutValue] = useState(project.plannerContractorPayout || "");
+
   const isNS = isNsProject(project);
   const hasContractor = !!project.contractStatus && project.contractStatus !== 'A. Not Assign';
   const hasPermit = !!project.electricalPermitUrl;
-  const isReady = hasContractor && (!isNS || hasPermit);
+  const hasProposal = !!project.plannerProposalUrl;
+  const scopeConfirmed = !!project.plannerScopeConfirmed;
+  const hasCost = !!project.plannerTotalCost;
+  const hasPayout = !!project.plannerContractorPayout;
+  const contractSent = !!project.plannerContractSent;
+  const contractSigned = !!project.plannerContractSigned;
+  const isReady = isPlannerComplete(project);
 
-  const contractorMutation = useMutation({
-    mutationFn: async (contractor: string) => {
-      await apiRequest("PATCH", `/api/projects/${project.id}`, { contractStatus: contractor });
+  const completedCount = [hasContractor, scopeConfirmed, hasProposal, hasCost, hasPayout, contractSent, contractSigned, ...(isNS ? [hasPermit] : [])].filter(Boolean).length;
+  const totalCount = 7 + (isNS ? 1 : 0);
+
+  const updateField = useMutation({
+    mutationFn: async (fields: Record<string, unknown>) => {
+      await apiRequest("PATCH", `/api/projects/${project.id}`, fields);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({ title: "Updated", description: "Contractor assigned" });
+      toast({ title: "Updated", description: "Project planner updated" });
     },
     onError: (err: Error) => {
       toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const proposalMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("proposal", file);
+      const res = await fetch(`/api/projects/${project.id}/planner-proposal`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files"] });
+      toast({ title: "Uploaded", description: "Proposal saved" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -78,6 +145,20 @@ function PlannerCard({ project }: { project: Project }) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     },
   });
+
+  const saveCost = () => {
+    if (costValue.trim()) {
+      updateField.mutate({ plannerTotalCost: costValue.trim() });
+    }
+    setEditCost(false);
+  };
+
+  const savePayout = () => {
+    if (payoutValue.trim()) {
+      updateField.mutate({ plannerContractorPayout: payoutValue.trim() });
+    }
+    setEditPayout(false);
+  };
 
   return (
     <Card className={`transition-colors ${isReady ? "border-l-4 border-l-green-400" : ""}`} data-testid={`card-planner-${project.id}`}>
@@ -102,6 +183,7 @@ function PlannerCard({ project }: { project: Project }) {
                 Ready for UC
               </span>
             )}
+            <span className="text-[10px] text-muted-foreground ml-auto">{completedCount}/{totalCount} complete</span>
           </div>
 
           <div className="mt-2 pt-2 border-t">
@@ -112,53 +194,168 @@ function PlannerCard({ project }: { project: Project }) {
               {!isReady && <AlertTriangle className="h-3 w-3 text-amber-500" />}
             </div>
 
-            <div className="space-y-2 ml-0.5">
-              <div className="flex items-center gap-1.5">
-                {hasContractor ? (
-                  <Check className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
-                ) : (
-                  <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                )}
-                <span className={`text-[11px] ${hasContractor ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
-                  Contractor Assignment
-                </span>
-                {!hasContractor && <span className="text-[9px] text-red-500 font-medium">Required</span>}
+            <div className="space-y-2.5 ml-0.5">
+              <div>
+                <CheckItem done={scopeConfirmed} label="Confirm Scope of Work" required>
+                  <div className="ml-2 flex items-center gap-1">
+                    <Checkbox
+                      checked={scopeConfirmed}
+                      onCheckedChange={(checked) => updateField.mutate({ plannerScopeConfirmed: !!checked })}
+                      disabled={updateField.isPending}
+                      className="h-3.5 w-3.5"
+                      data-testid={`checkbox-scope-${project.id}`}
+                    />
+                    <span className="text-[10px] text-muted-foreground">{scopeConfirmed ? "Confirmed" : "Mark confirmed"}</span>
+                  </div>
+                </CheckItem>
               </div>
 
-              <div className="ml-4">
-                <Select
-                  value={project.contractStatus || ''}
-                  onValueChange={(v) => contractorMutation.mutate(v)}
-                  disabled={contractorMutation.isPending}
-                >
-                  <SelectTrigger className="w-[220px] h-7 text-xs" data-testid={`select-contractor-${project.id}`}>
-                    <SelectValue placeholder="Assign contractor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A. Not Assign">Not Assigned</SelectItem>
-                    {CONTRACTORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {contractorMutation.isPending && (
-                  <span className="text-[10px] text-muted-foreground ml-2 inline-flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Saving...
-                  </span>
-                )}
+              <div>
+                <CheckItem done={hasProposal} label="Upload Original Proposal" required>
+                  <input
+                    ref={proposalRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) proposalMutation.mutate(f);
+                      e.target.value = "";
+                    }}
+                    data-testid={`input-planner-proposal-${project.id}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 text-[10px] px-1.5 ml-1"
+                    onClick={() => proposalRef.current?.click()}
+                    disabled={proposalMutation.isPending}
+                    data-testid={`button-upload-proposal-${project.id}`}
+                  >
+                    {proposalMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : hasProposal ? (
+                      <><RefreshCw className="h-3 w-3 mr-0.5" /> Replace</>
+                    ) : (
+                      <><Upload className="h-3 w-3 mr-0.5" /> Upload</>
+                    )}
+                  </Button>
+                </CheckItem>
+              </div>
+
+              <div>
+                <CheckItem done={hasCost} label="Total Project Cost (Customer)" required>
+                  {!editCost && hasCost ? (
+                    <button onClick={() => setEditCost(true)} className="text-[10px] text-primary hover:underline ml-1" data-testid={`text-cost-${project.id}`}>
+                      ${project.plannerTotalCost}
+                    </button>
+                  ) : (
+                    <div className="inline-flex items-center gap-1 ml-1">
+                      <DollarSign className="h-3 w-3 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="e.g. 25000"
+                        value={costValue}
+                        onChange={(e) => setCostValue(e.target.value)}
+                        className="h-5 text-[10px] w-[100px] px-1"
+                        onKeyDown={(e) => e.key === 'Enter' && saveCost()}
+                        data-testid={`input-cost-${project.id}`}
+                      />
+                      <Button variant="outline" size="sm" className="h-5 text-[10px] px-1.5" onClick={saveCost} disabled={updateField.isPending} data-testid={`button-save-cost-${project.id}`}>
+                        Save
+                      </Button>
+                    </div>
+                  )}
+                </CheckItem>
+              </div>
+
+              <div>
+                <CheckItem done={hasPayout} label="Contractor Payout Amount" required>
+                  {!editPayout && hasPayout ? (
+                    <button onClick={() => setEditPayout(true)} className="text-[10px] text-primary hover:underline ml-1" data-testid={`text-payout-${project.id}`}>
+                      ${project.plannerContractorPayout}
+                    </button>
+                  ) : (
+                    <div className="inline-flex items-center gap-1 ml-1">
+                      <DollarSign className="h-3 w-3 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="e.g. 12000"
+                        value={payoutValue}
+                        onChange={(e) => setPayoutValue(e.target.value)}
+                        className="h-5 text-[10px] w-[100px] px-1"
+                        onKeyDown={(e) => e.key === 'Enter' && savePayout()}
+                        data-testid={`input-payout-${project.id}`}
+                      />
+                      <Button variant="outline" size="sm" className="h-5 text-[10px] px-1.5" onClick={savePayout} disabled={updateField.isPending} data-testid={`button-save-payout-${project.id}`}>
+                        Save
+                      </Button>
+                    </div>
+                  )}
+                </CheckItem>
+              </div>
+
+              <div>
+                <CheckItem done={hasContractor} label="Contractor Assignment" required />
+                <div className="ml-4 mt-1">
+                  <Select
+                    value={project.contractStatus || ''}
+                    onValueChange={(v) => updateField.mutate({ contractStatus: v })}
+                    disabled={updateField.isPending}
+                  >
+                    <SelectTrigger className="w-[220px] h-7 text-xs" data-testid={`select-contractor-${project.id}`}>
+                      <SelectValue placeholder="Assign contractor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A. Not Assign">Not Assigned</SelectItem>
+                      {CONTRACTORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {updateField.isPending && (
+                    <span className="text-[10px] text-muted-foreground ml-2 inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <CheckItem done={contractSent} label="Contractor Contract Sent" required>
+                  <div className="ml-2 flex items-center gap-1">
+                    <Checkbox
+                      checked={contractSent}
+                      onCheckedChange={(checked) => updateField.mutate({ plannerContractSent: !!checked })}
+                      disabled={updateField.isPending}
+                      className="h-3.5 w-3.5"
+                      data-testid={`checkbox-contract-sent-${project.id}`}
+                    />
+                    <Send className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">{contractSent ? "Sent" : "Mark sent"}</span>
+                  </div>
+                </CheckItem>
+              </div>
+
+              <div>
+                <CheckItem done={contractSigned} label="Contractor Contract Signed" required>
+                  <div className="ml-2 flex items-center gap-1">
+                    <Checkbox
+                      checked={contractSigned}
+                      onCheckedChange={(checked) => updateField.mutate({ plannerContractSigned: !!checked })}
+                      disabled={updateField.isPending || !contractSent}
+                      className="h-3.5 w-3.5"
+                      data-testid={`checkbox-contract-signed-${project.id}`}
+                    />
+                    <FileSignature className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">
+                      {contractSigned ? "Signed" : contractSent ? "Mark signed" : "Send contract first"}
+                    </span>
+                  </div>
+                </CheckItem>
               </div>
 
               {isNS && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    {hasPermit ? (
-                      <Check className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    ) : (
-                      <Circle className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <span className={`text-[11px] ${hasPermit ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}>
-                      Electrical Permit (NS)
-                    </span>
-                    {!hasPermit && <span className="text-[9px] text-red-500 font-medium">Required</span>}
-
+                <div>
+                  <CheckItem done={hasPermit} label="Electrical Permit (NS)" required>
                     <input
                       ref={permitRef}
                       type="file"
@@ -187,8 +384,8 @@ function PlannerCard({ project }: { project: Project }) {
                         <><Upload className="h-3 w-3 mr-0.5" /> Upload</>
                       )}
                     </Button>
-                  </div>
-                </>
+                  </CheckItem>
+                </div>
               )}
             </div>
           </div>
@@ -215,12 +412,7 @@ export default function PlannerView() {
   );
 
   const plannerProjects = installProjects.filter(needsPlanning);
-  const readyProjects = installProjects.filter(p => {
-    const hasContractor = !!p.contractStatus && p.contractStatus !== 'A. Not Assign';
-    const isNS = isNsProject(p);
-    const hasPermit = !!p.electricalPermitUrl;
-    return hasContractor && (!isNS || hasPermit);
-  });
+  const readyProjects = installProjects.filter(isPlannerComplete);
 
   const filtered = (filter === "needs_planning" ? plannerProjects : filter === "ready" ? readyProjects : installProjects).filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -228,8 +420,8 @@ export default function PlannerView() {
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    const aReady = !!a.contractStatus && a.contractStatus !== 'A. Not Assign';
-    const bReady = !!b.contractStatus && b.contractStatus !== 'A. Not Assign';
+    const aReady = isPlannerComplete(a);
+    const bReady = isPlannerComplete(b);
     if (aReady && !bReady) return 1;
     if (!aReady && bReady) return -1;
     return a.name.localeCompare(b.name);
