@@ -90,7 +90,7 @@ export function AppSidebar() {
     queryKey: ['/api/escalation-tickets'],
     refetchInterval: 60000,
   });
-  const openTicketCount = (escalationTickets || []).filter(t => t.status === 'open' || t.status === 'responded').length;
+  const openTicketCount = (escalationTickets || []).filter(t => t.status === 'open').length;
 
   const handleQuickSync = async () => {
     setSyncing(true);
