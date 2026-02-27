@@ -5,6 +5,7 @@ import { PageLoader } from "@/components/ui/logo-spinner";
 import { AlertTriangle, CheckCircle2, Wrench, Zap } from "lucide-react";
 import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
 import { RebateKpiSection } from "@/components/dashboard/RebateKpiSection";
+import { EscalationKpiSection } from "@/components/dashboard/EscalationKpiSection";
 import { type Project, type ProjectDeadline } from "@shared/schema";
 import { TimelineIndicator, TimelineHealth } from "@/components/timeline-indicator";
 import { StatusBadge } from "@/components/status-badge";
@@ -101,6 +102,8 @@ export default function Dashboard() {
       <UcKpiSection />
 
       <RebateKpiSection />
+
+      <EscalationKpiSection />
 
       <Card>
         <CardHeader>

@@ -20,6 +20,7 @@ import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
 import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import { InstallTeamSubtaskPanel, AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
+import { EscalationSlaTimer } from "@/components/shared/EscalationSlaTimer";
 
 function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
   const [respondOpen, setRespondOpen] = useState(false);
@@ -129,6 +130,7 @@ function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; pr
               <Badge className={`text-[10px] px-1.5 py-0.5 border-0 ${statusColors[ticket.status as keyof typeof statusColors] || statusColors.open}`} data-testid={`badge-ticket-status-${ticket.id}`}>
                 {ticket.status === "open" ? "Open" : ticket.status === "responded" ? "Responded" : "Resolved"}
               </Badge>
+              <EscalationSlaTimer createdAt={ticket.createdAt} status={ticket.status} />
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
               Created by {ticket.createdBy} on{" "}

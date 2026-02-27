@@ -11,6 +11,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, MessageSquare, Loa
 import { ESCALATION_VIEW_LABELS } from "@shared/schema";
 import type { EscalationTicket } from "@shared/schema";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
+import { EscalationSlaTimer } from "@/components/shared/EscalationSlaTimer";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -235,6 +236,7 @@ function TicketSummary({ ticket, showActions }: { ticket: EscalationTicket; show
               <><CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Resolved</>
             )}
           </Badge>
+          <EscalationSlaTimer createdAt={ticket.createdAt} status={ticket.status} />
           <span className="text-[10px] text-muted-foreground ml-auto">
             {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
           </span>

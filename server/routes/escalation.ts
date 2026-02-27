@@ -50,6 +50,74 @@ escalationRouter.put("/escalation-settings", async (req, res) => {
   }
 });
 
+escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
+  try {
+    const allTickets = await storage.getEscalationTickets();
+    const now = new Date();
+    const SLA_HOURS = 48;
+
+    const open = allTickets.filter(t => t.status === "open" || t.status === "responded");
+    const resolved = allTickets.filter(t => t.status === "resolved");
+
+    const overdue = open.filter(t => {
+      if (!t.createdAt) return false;
+      const hoursElapsed = (now.getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60);
+      return hoursElapsed > SLA_HOURS;
+    });
+
+    const responseTimesHours: number[] = [];
+    for (const t of allTickets) {
+      if (t.respondedAt && t.createdAt) {
+        const hours = (new Date(t.respondedAt).getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60);
+        responseTimesHours.push(hours);
+      }
+    }
+
+    const resolutionTimesHours: number[] = [];
+    for (const t of resolved) {
+      if (t.resolvedAt && t.createdAt) {
+        const hours = (new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60);
+        resolutionTimesHours.push(hours);
+      }
+    }
+
+    const avgResponseHours = responseTimesHours.length > 0
+      ? responseTimesHours.reduce((a, b) => a + b, 0) / responseTimesHours.length
+      : null;
+
+    const avgResolutionHours = resolutionTimesHours.length > 0
+      ? resolutionTimesHours.reduce((a, b) => a + b, 0) / resolutionTimesHours.length
+      : null;
+
+    const withinSla = resolved.filter(t => {
+      if (!t.resolvedAt || !t.createdAt) return false;
+      const hours = (new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60);
+      return hours <= SLA_HOURS;
+    }).length;
+    const slaRate = resolved.length > 0 ? (withinSla / resolved.length) * 100 : null;
+
+    const byView: Record<string, number> = {};
+    for (const t of allTickets) {
+      byView[t.viewType] = (byView[t.viewType] || 0) + 1;
+    }
+
+    res.json({
+      totalTickets: allTickets.length,
+      openCount: open.length,
+      resolvedCount: resolved.length,
+      overdueCount: overdue.length,
+      avgResponseHours,
+      avgResolutionHours,
+      slaRate,
+      byView,
+      slaHours: SLA_HOURS,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 escalationRouter.get("/escalation-tickets", async (req, res) => {
   try {
     const { status, viewType, projectId } = req.query;

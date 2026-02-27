@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertTriangle, MessageSquare, CheckCircle2, Loader2, Paperclip } from "lucide-react";
+import { AlertTriangle, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { EscalationSlaTimer } from "./EscalationSlaTimer";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EscalationTicket } from "@shared/schema";
@@ -98,6 +99,7 @@ export function EscalationInlineCard({ ticketId }: Props) {
             <Badge className={`text-[10px] px-1.5 py-0.5 border-0 ${statusColors[ticket.status as keyof typeof statusColors] || statusColors.open}`}>
               {ticket.status === "open" ? "Open" : ticket.status === "responded" ? "Responded" : "Resolved"}
             </Badge>
+            <EscalationSlaTimer createdAt={ticket.createdAt} status={ticket.status} />
             <span className="text-[11px] text-muted-foreground ml-auto">
               by {ticket.createdBy} · {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
             </span>
