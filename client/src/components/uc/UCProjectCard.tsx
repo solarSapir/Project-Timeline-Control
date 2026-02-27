@@ -53,6 +53,11 @@ export function UCProjectCard({ project, statusOptions, isExpanded, onToggleExpa
                 {ucTeam}
               </span>
             )}
+            {project.installType && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                {project.installType}
+              </span>
+            )}
             <EscalationBadge projectId={project.id} />
           </div>
 
