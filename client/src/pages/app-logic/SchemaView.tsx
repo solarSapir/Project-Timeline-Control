@@ -59,6 +59,12 @@ const tables: TableDef[] = [
       { name: "lastUnpausedDate", type: "text" },
       { name: "ucConnectionFee", type: "text" },
       { name: "ucMeterbaseUrl", type: "text" },
+      { name: "planner* (x9)", type: "text/boolean", note: "scope, proposal, sitePlan, cost, payout, contractSent, contractSigned" },
+      { name: "electricalPermitUrl", type: "text" },
+      { name: "electricalPermitUploadedAt", type: "timestamp" },
+      { name: "pauseReason", type: "text" },
+      { name: "pauseNote", type: "text" },
+      { name: "pauseReasonSetAt", type: "timestamp" },
     ],
   },
   {
@@ -142,6 +148,10 @@ const tables: TableDef[] = [
       { name: "respondedBy", type: "text" },
       { name: "respondedAt / resolvedAt", type: "timestamp" },
       { name: "hideUntil", type: "timestamp" },
+      { name: "staffReply", type: "text" },
+      { name: "staffReplyAt", type: "timestamp" },
+      { name: "snoozedUntil", type: "timestamp" },
+      { name: "aiSummary", type: "text" },
       { name: "createdAt", type: "timestamp" },
     ],
   },
@@ -222,6 +232,38 @@ const tables: TableDef[] = [
       { name: "createdAt", type: "timestamp" },
     ],
   },
+  {
+    name: "pause_reasons", domain: "workflow",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "name", type: "text" },
+      { name: "createdAt", type: "timestamp" },
+    ],
+  },
+  {
+    name: "pause_logs", domain: "workflow",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "projectId", type: "varchar FK→projects" },
+      { name: "reason", type: "text" },
+      { name: "note", type: "text" },
+      { name: "staffName", type: "text" },
+      { name: "pausedAt", type: "timestamp" },
+    ],
+  },
+  {
+    name: "task_claims", domain: "kpi",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "projectId", type: "varchar FK→projects" },
+      { name: "viewType", type: "text" },
+      { name: "staffName", type: "text" },
+      { name: "active", type: "boolean", note: "default: true" },
+      { name: "completionAction", type: "text" },
+      { name: "claimedAt", type: "timestamp" },
+      { name: "completedAt", type: "timestamp" },
+    ],
+  },
 ];
 
 const domainColors: Record<string, { bg: string; border: string; label: string }> = {
@@ -265,19 +307,22 @@ const nodeTypes = { tableNode: TableNode };
 const positions: Record<string, { x: number; y: number }> = {
   users: { x: 0, y: 0 },
   projects: { x: 300, y: 0 },
-  project_deadlines: { x: 650, y: 0 },
-  task_actions: { x: 0, y: 350 },
-  install_schedule: { x: 280, y: 350 },
-  workflow_config: { x: 560, y: 350 },
-  project_files: { x: 0, y: 620 },
-  hrsp_config: { x: 280, y: 620 },
-  escalation_tickets: { x: 560, y: 620 },
-  uc_completions: { x: 900, y: 0 },
-  uc_workflow_rules: { x: 900, y: 280 },
-  rebate_completions: { x: 900, y: 520 },
-  rebate_workflow_rules: { x: 900, y: 780 },
-  error_logs: { x: 0, y: 920 },
-  staff_members: { x: 280, y: 920 },
+  project_deadlines: { x: 700, y: 0 },
+  task_actions: { x: 0, y: 420 },
+  install_schedule: { x: 280, y: 420 },
+  workflow_config: { x: 560, y: 420 },
+  pause_reasons: { x: 840, y: 420 },
+  pause_logs: { x: 840, y: 700 },
+  project_files: { x: 0, y: 700 },
+  hrsp_config: { x: 280, y: 700 },
+  escalation_tickets: { x: 560, y: 700 },
+  uc_completions: { x: 1100, y: 0 },
+  uc_workflow_rules: { x: 1100, y: 280 },
+  rebate_completions: { x: 1100, y: 520 },
+  rebate_workflow_rules: { x: 1100, y: 780 },
+  task_claims: { x: 1100, y: 1020 },
+  error_logs: { x: 0, y: 1020 },
+  staff_members: { x: 280, y: 1020 },
 };
 
 const initialNodes: Node[] = tables.map((t) => ({
@@ -289,7 +334,7 @@ const initialNodes: Node[] = tables.map((t) => ({
 
 const fkEdges: Edge[] = [
   "project_deadlines", "task_actions", "install_schedule", "project_files",
-  "escalation_tickets", "uc_completions", "rebate_completions",
+  "escalation_tickets", "uc_completions", "rebate_completions", "task_claims", "pause_logs",
 ].map((source) => ({
   id: `${source}-projects`,
   source,

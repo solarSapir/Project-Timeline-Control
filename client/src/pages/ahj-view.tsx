@@ -9,7 +9,7 @@ import { DueIndicator } from "@/components/uc/DueIndicator";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, AlertTriangle, CheckCircle2, Clock, Camera, Lock, FolderOpen } from "lucide-react";
+import { Search, AlertTriangle, CheckCircle2, Clock, Camera, Lock, FolderOpen, Maximize2 } from "lucide-react";
 import { Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects } from "@/hooks/use-projects";
@@ -24,6 +24,7 @@ import { AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { FocusDialog } from "@/components/shared/FocusDialog";
 import type { Project } from "@shared/schema";
 
 function getExpectedAhjDueDate(svCompletionDate: string | null): string | null {

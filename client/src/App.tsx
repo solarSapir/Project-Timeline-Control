@@ -39,6 +39,10 @@ import CloseOffFlowView from "@/pages/app-logic/flows/CloseOffFlowView";
 import DashboardFlowView from "@/pages/app-logic/flows/DashboardFlowView";
 import SettingsFlowView from "@/pages/app-logic/flows/SettingsFlowView";
 import EscalatedTicketsFlowView from "@/pages/app-logic/flows/EscalatedTicketsFlowView";
+import PlannerFlowView from "@/pages/app-logic/flows/PlannerFlowView";
+import PausedFlowView from "@/pages/app-logic/flows/PausedFlowView";
+import ClaimsFlowView from "@/pages/app-logic/flows/ClaimsFlowView";
+import PaymentMethodFlowView from "@/pages/app-logic/flows/PaymentMethodFlowView";
 
 initGlobalErrorHandlers();
 
@@ -84,6 +88,10 @@ function Router() {
         <Route path="/app-logic/flow/dashboard" component={DashboardFlowView} />
         <Route path="/app-logic/flow/settings" component={SettingsFlowView} />
         <Route path="/app-logic/flow/escalated" component={EscalatedTicketsFlowView} />
+        <Route path="/app-logic/flow/planner" component={PlannerFlowView} />
+        <Route path="/app-logic/flow/paused" component={PausedFlowView} />
+        <Route path="/app-logic/flow/claims" component={ClaimsFlowView} />
+        <Route path="/app-logic/flow/payment-method" component={PaymentMethodFlowView} />
         <Route component={NotFound} />
       </Switch>
     </>

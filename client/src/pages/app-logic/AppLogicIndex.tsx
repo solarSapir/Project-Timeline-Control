@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, GitBranch, Server, Zap, Gift, CreditCard, FileText, MapPin, Building2, Wrench, CheckCircle2, LayoutDashboard, Settings, AlertTriangle } from "lucide-react";
+import { Database, GitBranch, Server, Zap, Gift, CreditCard, FileText, MapPin, Building2, Wrench, CheckCircle2, LayoutDashboard, Settings, AlertTriangle, HardHat, PauseCircle, Timer } from "lucide-react";
 
 const flowPages = [
   { title: "UC Applications", url: "/app-logic/flow/uc", icon: Zap, desc: "Status changes, approval/rejection dialogs, hide logic, KPIs" },
@@ -13,6 +13,10 @@ const flowPages = [
   { title: "Escalated Tickets", url: "/app-logic/flow/escalated", icon: AlertTriangle, desc: "I'm Stuck lifecycle: create → hide → respond → resolve → reappear" },
   { title: "Dashboard", url: "/app-logic/flow/dashboard", icon: LayoutDashboard, desc: "KPI sections, stats cards, recent projects" },
   { title: "Settings", url: "/app-logic/flow/settings", icon: Settings, desc: "Sync, workflow config, HRSP config, UC rules" },
+  { title: "Project Planner", url: "/app-logic/flow/planner", icon: HardHat, desc: "Contractor assignment, scope, proposal, site plan, NS permits" },
+  { title: "Paused Projects & Insights", url: "/app-logic/flow/paused", icon: PauseCircle, desc: "Pause reasons, AI insights, repeat pauser detection" },
+  { title: "Claims & KPI", url: "/app-logic/flow/claims", icon: Timer, desc: "Task claiming, time tracking, staff productivity" },
+  { title: "Payment Method", url: "/app-logic/flow/payment-method", icon: CreditCard, desc: "Payment method tracking and updates" },
 ];
 
 export default function AppLogicIndex() {
@@ -34,7 +38,7 @@ export default function AppLogicIndex() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                15 tables with fields, types, and relationships. Color-coded by domain.
+                18 tables with fields, types, and relationships. Color-coded by domain.
               </p>
             </CardContent>
           </Card>
@@ -61,7 +65,7 @@ export default function AppLogicIndex() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              10 interactive flow diagrams showing data flow, actions, and wiring per tab.
+              14 interactive flow diagrams showing data flow, actions, and wiring per tab.
             </p>
           </CardContent>
         </Card>

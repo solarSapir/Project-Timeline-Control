@@ -44,7 +44,7 @@ Solar PM is a project management application designed for solar installation com
 - **Project Planner View**: New `/planner` page between AHJ and Install Coordination in sidebar. Full pre-install preparation checklist: Confirm Scope of Work, Upload Final Proposal (customer-agreed version), Upload Site Plan, Total Project Cost (customer billing amount), Contractor Payout Amount, Contractor Assignment (syncs to Asana), Contractor Contract Sent, Contractor Contract Signed, and Electrical Permit (NS-only). Install projects are hidden from all UC view filters until the full planner checklist is complete; they appear under "Awaiting Planner" filter in UC view. **Proposal and Site Plan sync bidirectionally** between Planner and Contract Documents dialog — uploading from either location stores the file in both planner and contract categories and updates the planner URL fields. Contract dialog shows green "Already uploaded from planner" indicators. **Focus mode**: Each card has Subtasks toggle (inline) and Focus button (opens dialog with checklist + planning subtask side-by-side). Planning subtask connects to Asana subtask containing "Plan" in name, or auto-creates "Planning" subtask. Schema fields: `plannerScopeConfirmed`, `plannerProposalUrl`, `plannerSitePlanUrl`, `plannerTotalCost`, `plannerContractorPayout`, `plannerContractSent`, `plannerContractSigned`, `electricalPermitUrl`.
 
 ### Database Tables
-- `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`, `pause_reasons`, `pause_logs`.
+- `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`, `pause_reasons`, `pause_logs`, `task_claims`.
 
 ## Asana Independence Strategy
 **Long-term goal: fully disconnect from Asana without data loss.**
@@ -63,8 +63,8 @@ Solar PM is a project management application designed for solar installation com
 - **PostgreSQL + Local Filesystem**: File uploads stored in DB (persistent) + disk cache. DB is source of truth.
 
 ## App Logic Documentation (Maintenance Convention)
-- **Location**: `/app-logic` route with sub-routes for schema, API map, and 10 tab-specific flow diagrams
-- **Files**: `client/src/pages/app-logic/` (13 files), `client/src/components/app-logic/` (2 files)
+- **Location**: `/app-logic` route with sub-routes for schema, API map, and 14 tab-specific flow diagrams
+- **Files**: `client/src/pages/app-logic/` (17 files), `client/src/components/app-logic/` (2 files)
 - **Library**: `reactflow` for interactive node-based diagrams
 - **Standard**: Whenever a new feature is added or an existing feature is modified, update the corresponding App Logic flow diagram and schema view in the same session. This includes:
   - Adding new tables to `SchemaView.tsx` (with correct domain color)

@@ -29,6 +29,11 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/asana/sync-all", description: "Full sync from Asana Project Manage Team", tables: ["projects"], usedBy: ["Settings", "Sidebar"] },
       { method: "GET", path: "/api/asana/field-options/:field", description: "Get dropdown options for an Asana custom field", tables: [], usedBy: ["UC", "Rebates", "Contracts", "AHJ", "Installs"] },
       { method: "GET", path: "/api/hrsp/sync-statuses", description: "Sync HRSP subtask statuses for all projects", tables: ["projects"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/asana/workspaces", description: "List Asana workspaces", tables: [], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/asana/projects/:workspaceGid", description: "List projects in workspace", tables: [], usedBy: ["Settings"] },
+      { method: "POST", path: "/api/asana/sync/:projectGid", description: "Sync single project", tables: ["projects"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/hrsp/field-options/:subtaskGid", description: "HRSP field options", tables: [], usedBy: ["Rebates"] },
+      { method: "PATCH", path: "/api/hrsp/:projectId", description: "Update HRSP status", tables: ["projects"], usedBy: ["Rebates"] },
     ],
   },
   {
@@ -47,6 +52,10 @@ const apiGroups: ApiGroup[] = [
       { method: "GET", path: "/api/projects/:id/install-team-subtask", description: "Find or create Install Team subtask", tables: [], usedBy: ["Installs"] },
       { method: "GET", path: "/api/projects/:id/ahj-subtasks", description: "List AHJ-related subtasks from Asana", tables: [], usedBy: ["AHJ"] },
       { method: "GET", path: "/api/projects/:id/hrsp-subtask", description: "Get HRSP subtask for a project", tables: [], usedBy: ["Rebates"] },
+      { method: "GET", path: "/api/projects/contract-file-counts", description: "File counts for contracts", tables: ["project_files"], usedBy: ["Contracts"] },
+      { method: "GET", path: "/api/projects/:id/planning-subtask", description: "Planning subtasks", tables: [], usedBy: ["Planner"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-resync", description: "Force resync HRSP", tables: ["projects"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-create", description: "Create HRSP subtask", tables: [], usedBy: ["Rebates"] },
     ],
   },
   {
@@ -69,6 +78,10 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/projects/:id/contract-documents", description: "Upload contract/proposal/site plan documents", tables: ["project_files"], usedBy: ["Contracts"] },
       { method: "POST", path: "/api/projects/:id/contract-approve", description: "Record contract approval with metadata", tables: ["projects", "project_files"], usedBy: ["Contracts"] },
       { method: "POST", path: "/api/projects/:id/site-visit-photos", description: "Upload site visit photos", tables: ["project_files"], usedBy: ["Site Visits"] },
+      { method: "POST", path: "/api/projects/:id/pm-status-change", description: "PM status change with notes", tables: ["projects"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/projects/:id/planner-proposal", description: "Upload proposal", tables: ["projects", "project_files"], usedBy: ["Planner"] },
+      { method: "POST", path: "/api/projects/:id/planner-site-plan", description: "Upload site plan", tables: ["projects", "project_files"], usedBy: ["Planner"] },
+      { method: "POST", path: "/api/projects/:id/electrical-permit", description: "Upload electrical permit", tables: ["projects", "project_files"], usedBy: ["Planner"] },
     ],
   },
   {
@@ -79,6 +92,8 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/projects/:id/files", description: "Upload a file with category, uploadedBy, notes", tables: ["project_files"], usedBy: ["UC Approval/Rejection", "All views"] },
       { method: "GET", path: "/api/projects/:id/files/:fileId/download", description: "Download a specific file", tables: ["project_files"], usedBy: ["Project Profile"] },
       { method: "DELETE", path: "/api/projects/:id/files/:fileId", description: "Delete a file", tables: ["project_files"], usedBy: ["Project Profile"] },
+      { method: "POST", path: "/api/projects/:id/files/recover-from-asana", description: "Recover from Asana", tables: ["project_files"], usedBy: ["Project Profile"] },
+      { method: "POST", path: "/api/projects/bulk-recover-contracts", description: "Bulk recover contracts", tables: ["project_files"], usedBy: ["Settings"] },
     ],
   },
   {
@@ -88,6 +103,10 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/projects/:id/hrsp-invoice", description: "Generate HRSP invoice PDF", tables: ["projects", "hrsp_config"], usedBy: ["Rebates"] },
       { method: "POST", path: "/api/projects/:id/hrsp-paid-invoice", description: "Generate paid invoice PDF with install date", tables: ["projects", "hrsp_config"], usedBy: ["Rebates"] },
       { method: "GET", path: "/api/projects/hrsp-invoice/sample", description: "Download sample invoice PDF (no project data)", tables: ["hrsp_config"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/projects/:id/hrsp-invoice/download", description: "Download invoice", tables: ["projects", "hrsp_config"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-invoice-upload", description: "Upload HRSP invoice", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-paid-invoice-upload", description: "Upload paid invoice", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
+      { method: "POST", path: "/api/projects/:id/hrsp-ldc-agreement", description: "Upload LDC agreement", tables: ["projects", "project_files"], usedBy: ["Rebates"] },
     ],
   },
   {
@@ -96,9 +115,11 @@ const apiGroups: ApiGroup[] = [
     endpoints: [
       { method: "POST", path: "/api/uc/complete-action", description: "Log a UC workflow completion (status change or follow-up)", tables: ["uc_completions"], usedBy: ["UC"] },
       { method: "GET", path: "/api/uc/completions", description: "Get all UC completions, with optional staff/date filters", tables: ["uc_completions"], usedBy: ["UC", "Dashboard"] },
+      { method: "GET", path: "/api/uc/completions/:projectId", description: "Project completions", tables: ["uc_completions"], usedBy: ["UC", "Project Profile"] },
       { method: "GET", path: "/api/uc/kpi-stats", description: "Calculate UC KPIs: tasks/day, time-to-submit, rejections by utility", tables: ["uc_completions", "projects"], usedBy: ["Dashboard"] },
       { method: "GET", path: "/api/uc/workflow-rules", description: "Get configurable UC workflow rules", tables: ["uc_workflow_rules"], usedBy: ["UC", "Settings"] },
       { method: "PUT", path: "/api/uc/workflow-rules", description: "Update UC workflow rules (batch upsert)", tables: ["uc_workflow_rules"], usedBy: ["Settings"] },
+      { method: "POST", path: "/api/uc/backfill", description: "Backfill completions", tables: ["uc_completions"], usedBy: ["Settings"] },
     ],
   },
   {
@@ -112,6 +133,7 @@ const apiGroups: ApiGroup[] = [
       { method: "GET", path: "/api/rebate/kpi-stats", description: "Calculate rebate KPIs: submit time, approval time, rejection rate", tables: ["rebate_completions", "projects"], usedBy: ["Dashboard"] },
       { method: "GET", path: "/api/rebate/workflow-rules", description: "Get configurable rebate workflow rules", tables: ["rebate_workflow_rules"], usedBy: ["Rebates", "Settings"] },
       { method: "PUT", path: "/api/rebate/workflow-rules", description: "Update rebate workflow rules (batch upsert)", tables: ["rebate_workflow_rules"], usedBy: ["Settings"] },
+      { method: "POST", path: "/api/rebate/backfill", description: "Backfill completions", tables: ["rebate_completions"], usedBy: ["Settings"] },
     ],
   },
   {
@@ -122,6 +144,14 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/escalation-tickets", description: "Create escalation ticket with 48h hide period", tables: ["escalation_tickets"], usedBy: ["All views"] },
       { method: "PATCH", path: "/api/escalation-tickets/:id/respond", description: "Manager responds to ticket", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
       { method: "PATCH", path: "/api/escalation-tickets/:id/resolve", description: "Resolve a ticket", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "GET", path: "/api/escalation-settings", description: "Get settings", tables: ["escalation_tickets"], usedBy: ["Settings"] },
+      { method: "PUT", path: "/api/escalation-settings", description: "Update settings", tables: ["escalation_tickets"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/escalation/kpi-stats", description: "KPI stats", tables: ["escalation_tickets"], usedBy: ["Dashboard"] },
+      { method: "GET", path: "/api/escalation-tickets/:id", description: "Get ticket details", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "PATCH", path: "/api/escalation-tickets/:id/staff-reply", description: "Staff reply", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "PATCH", path: "/api/escalation-tickets/:id/snooze", description: "Snooze ticket", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "POST", path: "/api/escalation-tickets/:id/generate-summary", description: "AI summary", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
+      { method: "POST", path: "/api/escalation-tickets/generate-all-summaries", description: "Batch AI summaries", tables: ["escalation_tickets"], usedBy: ["Escalated Tickets"] },
     ],
   },
   {
@@ -154,7 +184,7 @@ const apiGroups: ApiGroup[] = [
       { method: "GET", path: "/api/error-logs", description: "Get all error logs", tables: ["error_logs"], usedBy: ["Error Log"] },
       { method: "POST", path: "/api/error-logs", description: "Submit a frontend error with breadcrumbs", tables: ["error_logs"], usedBy: ["Error Logger (auto)"] },
       { method: "PATCH", path: "/api/error-logs/:id/resolve", description: "Mark error as resolved", tables: ["error_logs"], usedBy: ["Error Log"] },
-      { method: "DELETE", path: "/api/error-logs", description: "Clear all error logs", tables: ["error_logs"], usedBy: ["Error Log"] },
+      { method: "DELETE", path: "/api/error-logs/resolved", description: "Clear resolved error logs", tables: ["error_logs"], usedBy: ["Error Log"] },
     ],
   },
   {
@@ -178,6 +208,31 @@ const apiGroups: ApiGroup[] = [
     ],
   },
   {
+    name: "Pause Reasons",
+    file: "server/routes/pause-reasons.ts",
+    endpoints: [
+      { method: "GET", path: "/api/pause-reasons", description: "List reasons", tables: ["pause_reasons"], usedBy: ["Paused Projects"] },
+      { method: "POST", path: "/api/pause-reasons", description: "Create reason", tables: ["pause_reasons"], usedBy: ["Settings"] },
+      { method: "DELETE", path: "/api/pause-reasons/:id", description: "Delete reason", tables: ["pause_reasons"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/pause-reasons/logs", description: "Get pause logs", tables: ["pause_reasons"], usedBy: ["Paused Projects", "Insights"] },
+      { method: "POST", path: "/api/pause-reasons/logs", description: "Create pause log", tables: ["pause_reasons"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/pause-reasons/insights", description: "AI insights", tables: ["pause_reasons"], usedBy: ["Insights"] },
+    ],
+  },
+  {
+    name: "Claims",
+    file: "server/routes/claims.ts",
+    endpoints: [
+      { method: "GET", path: "/api/claims", description: "Active claims", tables: ["task_claims"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/claims", description: "Create claim", tables: ["task_claims"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/claims/:id/complete", description: "Complete claim", tables: ["task_claims"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/claims/:id/release", description: "Release claim", tables: ["task_claims"], usedBy: ["All views"] },
+      { method: "POST", path: "/api/claims/complete-by-project", description: "Complete by project", tables: ["task_claims"], usedBy: ["All views"] },
+      { method: "GET", path: "/api/claims/history", description: "Claim history", tables: ["task_claims"], usedBy: ["Dashboard"] },
+      { method: "GET", path: "/api/claims/kpi-stats", description: "KPI stats", tables: ["task_claims"], usedBy: ["Dashboard"] },
+    ],
+  },
+  {
     name: "Misc (inline routes)",
     file: "server/routes.ts",
     endpoints: [
@@ -191,6 +246,8 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/task-actions", description: "Create a task action (follow-up, status change)", tables: ["task_actions"], usedBy: ["All views"] },
       { method: "GET", path: "/api/task-actions/:viewType", description: "Get task actions for a view", tables: ["task_actions"], usedBy: ["All views"] },
       { method: "GET", path: "/api/task-actions/:viewType/follow-ups", description: "Get follow-up actions due today", tables: ["task_actions"], usedBy: ["All views"] },
+      { method: "GET", path: "/api/asana/asset/:assetId", description: "Proxy Asana asset", tables: [], usedBy: ["All views"] },
+      { method: "POST", path: "/api/subtasks/:gid/attachment", description: "Upload subtask attachment", tables: [], usedBy: ["UC", "Rebates"] },
     ],
   },
 ];
