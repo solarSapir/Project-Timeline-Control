@@ -51,14 +51,14 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
       })}
 
       <motion.div
-        className={`relative z-10 ${cfg.logo} flex items-center justify-center rounded-full overflow-hidden bg-transparent shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
+        className={`relative z-10 ${cfg.logo} flex items-center justify-center rounded-full overflow-hidden bg-white dark:bg-gray-900 shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       >
         <img
           src={mapleLeafLogo}
           alt="Logo"
-          className="absolute max-w-none w-[260%] h-[260%] object-cover"
+          className="w-[70%] h-[70%] object-contain"
         />
       </motion.div>
     </motion.div>
