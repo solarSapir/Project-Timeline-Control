@@ -6,14 +6,15 @@ import type { StageExpectations } from "@/hooks/use-expected-dates";
 import type { LucideIcon } from "lucide-react";
 
 const stageIcons: Record<string, LucideIcon> = {
-  uc_application: FileText, rebates_payment: DollarSign, contract_signing: FileText,
+  uc_application: FileText, rebates: DollarSign, payment: DollarSign, contract_signing: FileText,
   site_visit: Camera, ahj_permitting: Shield, install_booking: Calendar,
   installation: Wrench, close_off: CheckCircle2,
 };
 
 const STAGE_COLORS: Record<string, { bar: string; text: string }> = {
   uc_application: { bar: "bg-blue-500", text: "text-white" },
-  rebates_payment: { bar: "bg-purple-500", text: "text-white" },
+  rebates: { bar: "bg-purple-500", text: "text-white" },
+  payment: { bar: "bg-pink-500", text: "text-white" },
   contract_signing: { bar: "bg-amber-500", text: "text-white" },
   site_visit: { bar: "bg-emerald-500", text: "text-white" },
   ahj_permitting: { bar: "bg-orange-500", text: "text-white" },
@@ -45,7 +46,7 @@ export function GanttChart({ stages }: { stages: StageExpectations }) {
       const prevExpected = prevStage?.expected ? parseISO(prevStage.expected) : null;
       startDay = prevExpected ? Math.max(0, differenceInDays(prevExpected, zoomBase)) : 0;
     }
-    if (key === "rebates_payment") startDay = 0;
+    if (key === "rebates" || key === "payment") startDay = 0;
     const duration = Math.max(1, endDay - startDay);
     const isLate = !!(stage.target && stage.expected && new Date(stage.expected) > new Date(stage.target));
     return { key, startDay, endDay, duration, stage, isLate };

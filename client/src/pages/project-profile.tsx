@@ -26,7 +26,7 @@ import { hasAction, findAction, getLastFollowUp } from "@/hooks/use-contract-fil
 import { SubtaskPanel } from "@/components/uc/SubtaskPanel";
 import type { Project, TaskAction, InstallSchedule } from "@shared/schema";
 import type { ContractFileCounts } from "@/pages/contracts-view";
-import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, Camera } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, FileText, Shield, DollarSign, CreditCard, Camera } from "lucide-react";
 
 export default function ProjectProfile() {
   const params = useParams<{ id: string }>();
@@ -130,10 +130,12 @@ export default function ProjectProfile() {
             <InfoRow label="Submitted" value={`${formatProfileDate(project.ucSubmittedDate)}${project.ucSubmittedBy ? ` by ${project.ucSubmittedBy}` : ""}`} />
           )}
         </StageSection>
-        <StageSection title="Rebates & Payment" icon={DollarSign} status={stages.rebates_payment.status} onFocus={() => setFocusStage('rebates')}>
+        <StageSection title="Rebates" icon={DollarSign} status={stages.rebates.status} onFocus={() => setFocusStage('rebates')}>
           <InfoRow label="Rebate Status" value={<StatusBadge status={project.rebateStatus} />} testId="text-rebate-status" />
-          <InfoRow label="Payment Method" value={project.paymentMethod} testId="text-payment-method" />
           {project.hrspStatus && <InfoRow label="HRSP Status" value={project.hrspStatus} testId="text-hrsp-status" />}
+        </StageSection>
+        <StageSection title="Payment Method" icon={CreditCard} status={stages.payment.status} onFocus={() => setFocusStage('payment')}>
+          <InfoRow label="Payment Method" value={project.paymentMethod} testId="text-payment-method" />
         </StageSection>
         <StageSection title="Contract & Permit Payment" icon={FileText} status={stages.contract_signing.status} onFocus={() => setFocusStage('contract')}>
           <InfoRow label="Contract Status" value={<StatusBadge status={project.installTeamStage} />} testId="text-contract-status" />
@@ -214,12 +216,12 @@ export default function ProjectProfile() {
         </DialogContent>
       </Dialog>
 
-      {['rebates', 'site_visit', 'ahj', 'installation', 'close_off'].includes(focusStage || '') && (
+      {['rebates', 'payment', 'site_visit', 'ahj', 'installation', 'close_off'].includes(focusStage || '') && (
         <Dialog open={true} onOpenChange={(open) => !open && setFocusStage(null)}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {focusStage === 'rebates' ? 'Rebates & Payment' : focusStage === 'site_visit' ? 'Site Visit' : focusStage === 'ahj' ? 'AHJ / Permitting' : focusStage === 'installation' ? 'Installation' : 'Close-off'} — {project.name}
+                {focusStage === 'rebates' ? 'Rebates' : focusStage === 'payment' ? 'Payment Method' : focusStage === 'site_visit' ? 'Site Visit' : focusStage === 'ahj' ? 'AHJ / Permitting' : focusStage === 'installation' ? 'Installation' : 'Close-off'} — {project.name}
               </DialogTitle>
               <DialogDescription>Subtasks and detailed information for this stage.</DialogDescription>
             </DialogHeader>

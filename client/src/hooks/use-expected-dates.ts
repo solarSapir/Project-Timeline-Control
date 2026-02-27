@@ -91,10 +91,16 @@ export function computeExpectedDates(project: Project, _taskActions: TaskAction[
     status: ucDone ? "completed" : project.ucStatus ? "in_progress" : "pending",
   };
 
-  stages.rebates_payment = {
+  stages.rebates = {
     target: project.ucDueDate,
     expected: toStr(expectedUc),
     status: getStageStatus(project.rebateStatus, ["complete", "not required", "approved"]),
+  };
+
+  stages.payment = {
+    target: project.ucDueDate,
+    expected: toStr(expectedUc),
+    status: project.paymentMethod ? "completed" : "pending",
   };
 
   stages.contract_signing = {

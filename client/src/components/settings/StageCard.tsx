@@ -9,7 +9,8 @@ import type { StageConfig } from "@/utils/workflow-config";
 
 const STAGE_TAB_MAP: Record<string, string> = {
   uc_application: "UC Applications",
-  rebates_payment: "Rebates / Payment Method",
+  rebates: "Rebates",
+  payment: "Payment Method",
   contract_signing: "Contracts",
   site_visit: "Site Visits",
   ahj_permitting: "AHJ / Permitting",

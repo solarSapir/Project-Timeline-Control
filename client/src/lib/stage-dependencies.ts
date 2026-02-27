@@ -6,7 +6,8 @@ export const STAGE_FIELD_MAP: Record<string, {
   asanaFieldKey: string;
 }> = {
   uc_application: { field: "ucStatus", fieldLabel: "UC Team Status", asanaFieldKey: "ucStatus" },
-  rebates_payment: { field: "rebateStatus", fieldLabel: "Grants Status", asanaFieldKey: "rebateStatus" },
+  rebates: { field: "rebateStatus", fieldLabel: "Grants Status", asanaFieldKey: "rebateStatus" },
+  payment: { field: "paymentMethod", fieldLabel: "Payment Method", asanaFieldKey: "paymentMethod" },
   contract_signing: { field: "installTeamStage", fieldLabel: "Install Team Stage", asanaFieldKey: "installTeamStage" },
   site_visit: { field: "siteVisitStatus", fieldLabel: "Site Visit Request", asanaFieldKey: "siteVisitStatus" },
   ahj_permitting: { field: "ahjStatus", fieldLabel: "AHJ Status", asanaFieldKey: "ahjStatus" },
@@ -17,7 +18,8 @@ export const STAGE_FIELD_MAP: Record<string, {
 
 export const DEFAULT_COMPLETION_CRITERIA: Record<string, string[]> = {
   uc_application: ["approved", "complete", "not required", "closed", "close off"],
-  rebates_payment: ["complete", "not required", "approved"],
+  rebates: ["complete", "not required", "approved"],
+  payment: [],
   contract_signing: ["pending deposit", "deposit collected", "pending site visit", "active install", "complete"],
   site_visit: ["visit complete", "not required", "visit booked"],
   ahj_permitting: ["permit issued", "closed", "not required", "permit close off"],
@@ -28,7 +30,8 @@ export const DEFAULT_COMPLETION_CRITERIA: Record<string, string[]> = {
 
 export const STAGE_TAB_MAP: Record<string, { tabName: string; route: string }> = {
   uc_application: { tabName: "UC Applications", route: "/uc" },
-  rebates_payment: { tabName: "Rebates", route: "/rebates" },
+  rebates: { tabName: "Rebates", route: "/rebates" },
+  payment: { tabName: "Payment Method", route: "/payment-method" },
   contract_signing: { tabName: "Contracts", route: "/contracts" },
   site_visit: { tabName: "Site Visits", route: "/site-visits" },
   ahj_permitting: { tabName: "AHJ / Permitting", route: "/ahj" },
@@ -47,10 +50,15 @@ export const STAGE_COMPLETION_CRITERIA: Record<string, {
     completedValues: DEFAULT_COMPLETION_CRITERIA.uc_application,
     label: "UC Status = Approved / Complete / Not Required / Closed",
   },
-  rebates_payment: {
+  rebates: {
     field: "rebateStatus",
-    completedValues: DEFAULT_COMPLETION_CRITERIA.rebates_payment,
+    completedValues: DEFAULT_COMPLETION_CRITERIA.rebates,
     label: "Grants Status = Complete / Not Required / Approved",
+  },
+  payment: {
+    field: "paymentMethod",
+    completedValues: DEFAULT_COMPLETION_CRITERIA.payment,
+    label: "Payment Method is assigned",
   },
   contract_signing: {
     field: "installTeamStage",
@@ -111,6 +119,9 @@ export function getCompletionLabel(stage: string, workflowConfigs: WorkflowConfi
 export function isStageComplete(project: any, stage: string, workflowConfigs?: WorkflowConfig[] | null): boolean {
   if (stage === "install_booking") {
     return !!project.installStartDate;
+  }
+  if (stage === "payment") {
+    return !!project.paymentMethod;
   }
 
   const fieldInfo = STAGE_FIELD_MAP[stage];

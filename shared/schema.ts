@@ -604,7 +604,8 @@ export type StaffMember = typeof staffMembers.$inferSelect;
 
 export const PROJECT_STAGES = [
   "uc_application",
-  "rebates_payment",
+  "rebates",
+  "payment",
   "contract_signing",
   "site_visit",
   "ahj_permitting",
@@ -615,7 +616,8 @@ export const PROJECT_STAGES = [
 
 export const STAGE_LABELS: Record<string, string> = {
   uc_application: "UC Application",
-  rebates_payment: "Rebates & Payment Method",
+  rebates: "Rebates",
+  payment: "Payment Method",
   contract_signing: "Contract & Permit Payment",
   site_visit: "Site Visit",
   ahj_permitting: "AHJ/Permitting",
@@ -626,9 +628,10 @@ export const STAGE_LABELS: Record<string, string> = {
 
 export const DEFAULT_DEADLINES_WEEKS: Record<string, { min: number; max: number; dependsOn?: string[] }> = {
   uc_application: { min: 0, max: 4 },
-  rebates_payment: { min: 0, max: 2 },
-  contract_signing: { min: 4, max: 5, dependsOn: ["uc_application", "rebates_payment"] },
-  site_visit: { min: 4, max: 6, dependsOn: ["uc_application", "rebates_payment", "contract_signing"] },
+  rebates: { min: 0, max: 2 },
+  payment: { min: 0, max: 2 },
+  contract_signing: { min: 4, max: 5, dependsOn: ["uc_application", "rebates", "payment"] },
+  site_visit: { min: 4, max: 6, dependsOn: ["uc_application", "rebates", "payment", "contract_signing"] },
   ahj_permitting: { min: 5, max: 7, dependsOn: ["site_visit"] },
   install_booking: { min: 8, max: 8, dependsOn: ["ahj_permitting"] },
   installation: { min: 9, max: 12, dependsOn: ["install_booking"] },
@@ -637,7 +640,8 @@ export const DEFAULT_DEADLINES_WEEKS: Record<string, { min: number; max: number;
 
 export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[]; gapRelativeTo: string | null }> = {
   uc_application: { gapDays: 21, dependsOn: [], gapRelativeTo: null },
-  rebates_payment: { gapDays: 14, dependsOn: [], gapRelativeTo: null },
+  rebates: { gapDays: 14, dependsOn: [], gapRelativeTo: null },
+  payment: { gapDays: 14, dependsOn: [], gapRelativeTo: null },
   contract_signing: { gapDays: 7, dependsOn: ["uc_application"], gapRelativeTo: "uc_application" },
   site_visit: { gapDays: 7, dependsOn: ["contract_signing"], gapRelativeTo: "contract_signing" },
   ahj_permitting: { gapDays: 14, dependsOn: ["site_visit"], gapRelativeTo: "site_visit" },
