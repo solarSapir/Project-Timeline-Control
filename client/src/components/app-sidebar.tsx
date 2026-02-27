@@ -43,7 +43,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import logoIcon from "@assets/Untitled_design_(4)_1771966965058.png";
-import type { EscalationTicket } from "@shared/schema";
+import { useSidebarCounts } from "@/hooks/use-sidebar-counts";
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -86,11 +86,7 @@ export function AppSidebar() {
     refetchInterval: 30000,
   });
 
-  const { data: escalationTickets } = useQuery<EscalationTicket[]>({
-    queryKey: ['/api/escalation-tickets'],
-    refetchInterval: 60000,
-  });
-  const openTicketCount = (escalationTickets || []).filter(t => t.status === 'open').length;
+  const sidebarCounts = useSidebarCounts();
 
   const handleQuickSync = async () => {
     setSyncing(true);
@@ -170,9 +166,17 @@ export function AppSidebar() {
                     <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}>
                       <item.icon className="h-4 w-4" />
                       <span className="flex-1">{item.title}</span>
-                      {item.url === "/escalated" && openTicketCount > 0 && (
-                        <Badge variant="destructive" className="h-5 min-w-[20px] text-[10px] px-1.5 justify-center" data-testid="badge-escalation-count">
-                          {openTicketCount}
+                      {sidebarCounts[item.url] != null && sidebarCounts[item.url] > 0 && (
+                        <Badge
+                          variant={item.url === "/escalated" ? "destructive" : "secondary"}
+                          className={`h-5 min-w-[20px] text-[10px] px-1.5 justify-center ${
+                            item.url === "/escalated"
+                              ? ""
+                              : "bg-sidebar-accent text-sidebar-accent-foreground"
+                          }`}
+                          data-testid={`badge-count-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}
+                        >
+                          {sidebarCounts[item.url]}
                         </Badge>
                       )}
                     </Link>
