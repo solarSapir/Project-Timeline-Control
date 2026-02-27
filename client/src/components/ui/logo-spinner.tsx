@@ -58,7 +58,7 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
         <img
           src={mapleLeafLogo}
           alt="Logo"
-          className="w-[70%] h-[70%] object-contain"
+          className="w-full h-full object-cover"
         />
       </motion.div>
     </motion.div>
