@@ -1,12 +1,13 @@
 import { motion } from "framer-motion";
-import mapleLeafLogo from "@assets/maple_leaf_logo_1772224477112.png";
+
+const MAPLE_LEAF_PATH = "M383.8 351.7c2.5-2.5 105.2-92.4 105.2-92.4l-17.5-7.5c-10-4.9-7.4-11.5-5-17.4 2.4-7.6 20.1-67.3 20.1-67.3s-47.7 10-57.7 12.5c-7.5 2.4-10-2.5-12.5-7.5s-15-32.4-15-32.4-52.6 59.9-55.1 62.3c-10 7.5-20.1 0-17.6-10 0-10 27.6-129.6 27.6-129.6s-30.1 17.4-40.1 22.4c-7.5 5-12.6 5-17.6-5C293.5 72.3 255.9 0 255.9 0s-37.5 72.3-42.5 79.8c-5 10-10 10-17.6 5-10-5-40.1-22.4-40.1-22.4S183.3 182 183.3 192c2.5 10-7.5 17.5-17.6 10-2.5-2.5-55.1-62.3-55.1-62.3S98.1 167 95.6 172s-5 9.9-12.5 7.5C73 177 25.4 167 25.4 167s17.6 59.7 20.1 67.3c2.4 6 5 12.5-5 17.4L23 259.3s102.6 89.9 105.2 92.4c5.1 5 10 7.5 5.1 22.5-5.1 15-10.1 35.1-10.1 35.1s95.2-20.1 105.3-22.6c8.7-.9 18.3 2.5 18.3 12.5S241 512 241 512h30s-5.8-102.7-5.8-112.8 9.5-13.4 18.4-12.5c10 2.5 105.2 22.6 105.2 22.6s-5-20.1-10-35.1 0-17.5 5-22.5z";
 
 const RAY_COUNT = 12;
 
 const sizeConfig = {
-  sm: { container: "w-24 h-24", logo: "w-12 h-12", rayW: "w-1", rayH: "h-4" },
-  md: { container: "w-40 h-40", logo: "w-20 h-20", rayW: "w-1.5", rayH: "h-6" },
-  lg: { container: "w-64 h-64", logo: "w-32 h-32", rayW: "w-2", rayH: "h-8" },
+  sm: { container: 96, logo: 48, leaf: 24, rayW: "w-1", rayH: "h-4" },
+  md: { container: 160, logo: 80, leaf: 40, rayW: "w-1.5", rayH: "h-6" },
+  lg: { container: 256, logo: 128, leaf: 64, rayW: "w-2", rayH: "h-8" },
 };
 
 interface LogoSpinnerProps {
@@ -19,7 +20,8 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
 
   return (
     <motion.div
-      className={`relative flex items-center justify-center ${cfg.container} ${className}`}
+      className={`relative flex items-center justify-center ${className}`}
+      style={{ width: cfg.container, height: cfg.container }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       data-testid="logo-spinner"
@@ -51,15 +53,20 @@ export function LogoSpinner({ size = "md", className = "" }: LogoSpinnerProps) {
       })}
 
       <motion.div
-        className={`relative z-10 ${cfg.logo} flex items-center justify-center rounded-full overflow-hidden bg-transparent shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
+        className="relative z-10 flex items-center justify-center rounded-full bg-[#f48221] shadow-[0_0_20px_rgba(244,130,33,0.6)]"
+        style={{ width: cfg.logo, height: cfg.logo }}
         animate={{ scale: [1, 1.05, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
       >
-        <img
-          src={mapleLeafLogo}
-          alt="Logo"
-          className="absolute max-w-none w-[260%] h-[260%] object-cover"
-        />
+        <svg
+          viewBox="0 0 512 512"
+          className="text-white"
+          style={{ width: cfg.leaf, height: cfg.leaf }}
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d={MAPLE_LEAF_PATH} />
+        </svg>
       </motion.div>
     </motion.div>
   );
