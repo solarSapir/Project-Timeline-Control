@@ -14,7 +14,7 @@ import { Placeholder } from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -29,18 +29,37 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 const MERGE_FIELDS = [
-  { value: "{{customer_name}}", label: "Customer Name" },
-  { value: "{{project_name}}", label: "Project Name" },
-  { value: "{{address}}", label: "Address" },
-  { value: "{{province}}", label: "Province" },
-  { value: "{{install_type}}", label: "Install Type" },
-  { value: "{{payment_method}}", label: "Payment Method" },
-  { value: "{{contractor_name}}", label: "Contractor" },
-  { value: "{{due_date}}", label: "Due Date" },
-  { value: "{{date}}", label: "Today's Date" },
-  { value: "{{signature}}", label: "Signature Field" },
-  { value: "{{signer_name}}", label: "Signer Name" },
-  { value: "{{signer_date}}", label: "Signing Date" },
+  { group: "Client Information", fields: [
+    { value: "{{client_name}}", label: "Client Name" },
+    { value: "{{project_address}}", label: "Project Address" },
+    { value: "{{client_phone}}", label: "Client Phone" },
+    { value: "{{client_email}}", label: "Client Email" },
+  ]},
+  { group: "Project Details", fields: [
+    { value: "{{project_name}}", label: "Project Name" },
+    { value: "{{province}}", label: "Province" },
+    { value: "{{install_type}}", label: "Install Type" },
+    { value: "{{contractor_name}}", label: "Contractor" },
+    { value: "{{project_description}}", label: "Project Description" },
+    { value: "{{due_date}}", label: "Due Date" },
+  ]},
+  { group: "Pricing", fields: [
+    { value: "{{subtotal}}", label: "Subtotal (before tax)" },
+    { value: "{{hst_rate}}", label: "HST Rate" },
+    { value: "{{hst_amount}}", label: "HST Amount" },
+    { value: "{{total_price}}", label: "Total Price (incl. tax)" },
+  ]},
+  { group: "Payment", fields: [
+    { value: "{{payment_method}}", label: "Payment Method" },
+    { value: "{{helcim_link}}", label: "Helcim Invoice Link" },
+  ]},
+  { group: "Dates & Signatures", fields: [
+    { value: "{{date}}", label: "Today's Date" },
+    { value: "{{signature}}", label: "Signature Field" },
+    { value: "{{signer_name}}", label: "Signer Name" },
+    { value: "{{signer_date}}", label: "Signing Date" },
+    { value: "{{client_initials}}", label: "Client Initials" },
+  ]},
 ];
 
 interface Props {
@@ -336,13 +355,20 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
           <SelectTrigger className="h-8 w-[180px] text-xs" data-testid="select-merge-field">
             <SelectValue placeholder="Insert merge field..." />
           </SelectTrigger>
-          <SelectContent>
-            {MERGE_FIELDS.map((mf) => (
-              <SelectItem key={mf.value} value={mf.value}>{mf.label}</SelectItem>
+          <SelectContent className="max-h-[320px]">
+            {MERGE_FIELDS.map((group) => (
+              <SelectGroup key={group.group}>
+                <SelectLabel className="text-xs font-semibold text-muted-foreground">{group.group}</SelectLabel>
+                {group.fields.map((mf) => (
+                  <SelectItem key={mf.value} value={mf.value}>{mf.label}</SelectItem>
+                ))}
+              </SelectGroup>
             ))}
-            <SelectItem value="__custom__" className="border-t mt-1 pt-1 font-medium text-primary">
-              + Custom Field...
-            </SelectItem>
+            <SelectGroup>
+              <SelectItem value="__custom__" className="border-t mt-1 pt-1 font-medium text-primary">
+                + Custom Field...
+              </SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
       </div>

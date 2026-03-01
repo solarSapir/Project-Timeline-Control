@@ -27,17 +27,34 @@ interface GeneratedFile {
 }
 
 const MERGE_MAP: Record<string, (p: Project) => string> = {
+  "{{client_name}}": (p) => p.name || "",
   "{{customer_name}}": (p) => p.name || "",
   "{{project_name}}": (p) => p.name || "",
+  "{{project_address}}": () => "",
+  "{{client_phone}}": () => "",
+  "{{client_email}}": () => "",
   "{{address}}": () => "",
   "{{province}}": (p) => (p as any).province || "",
   "{{install_type}}": (p) => (p as any).installType || "",
+  "{{project_description}}": () => "",
   "{{payment_method}}": (p) => (p as any).paymentMethod || "",
   "{{contractor_name}}": (p) => (p as any).contractorName || "",
   "{{due_date}}": (p) => (p as any).asanaDueDate || "",
+  "{{subtotal}}": () => "",
+  "{{hst_rate}}": (p) => {
+    const prov = ((p as any).province || "").toLowerCase();
+    if (prov === "bc" || prov === "ab" || prov === "sk" || prov === "mb") return "5%";
+    if (prov === "on") return "13%";
+    if (prov === "ns" || prov === "nb" || prov === "nl" || prov === "pe") return "15%";
+    return "13%";
+  },
+  "{{hst_amount}}": () => "",
+  "{{total_price}}": () => "",
+  "{{helcim_link}}": () => "",
   "{{date}}": () => new Date().toLocaleDateString("en-CA"),
   "{{signer_name}}": () => "",
   "{{signer_date}}": () => new Date().toLocaleDateString("en-CA"),
+  "{{client_initials}}": () => "",
 };
 
 interface Props {

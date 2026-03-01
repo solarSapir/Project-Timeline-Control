@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateFieldEditor } from "./TemplateFieldEditor";
 import { ContractEditor } from "../contracts/ContractEditor";
+import { SOLAR_CONTRACT_TEMPLATE } from "../contracts/solarContractTemplate";
 
 const VIEW_TYPES = [
   { value: "uc", label: "UC Applications" },
@@ -55,6 +56,7 @@ export function DocumentTemplateManager() {
   const [createContractOpen, setCreateContractOpen] = useState(false);
   const [contractName, setContractName] = useState("");
   const [contractViewType, setContractViewType] = useState("");
+  const [contractStarter, setContractStarter] = useState("solar");
   const [creatingContract, setCreatingContract] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery<TemplateListItem[]>({
@@ -128,6 +130,7 @@ export function DocumentTemplateManager() {
     }
     setCreatingContract(true);
     try {
+      const starterHtml = contractStarter === "solar" ? SOLAR_CONTRACT_TEMPLATE : "";
       const placeholder = new File([new Uint8Array(0)], "contract.html", { type: "text/html" });
       const formData = new FormData();
       formData.append("file", placeholder);
@@ -146,12 +149,18 @@ export function DocumentTemplateManager() {
       }
 
       const created = await res.json();
+
+      if (starterHtml) {
+        await apiRequest("PATCH", `/api/document-templates/${created.id}`, { htmlContent: starterHtml });
+      }
+
       toast({ title: "Contract template created" });
       queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
       setCreateContractOpen(false);
       setContractName("");
       setContractViewType("");
-      setEditingContract({ id: created.id, name: created.name, htmlContent: null });
+      setContractStarter("solar");
+      setEditingContract({ id: created.id, name: created.name, htmlContent: starterHtml || null });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Creation failed";
       toast({ title: msg, variant: "destructive" });
@@ -367,7 +376,7 @@ export function DocumentTemplateManager() {
           <DialogHeader>
             <DialogTitle>Create Contract Template</DialogTitle>
             <DialogDescription>
-              Create an editable contract template with a rich text editor. You can type content directly, import from a Word document, and insert merge fields.
+              Create an editable contract template with a rich text editor. Choose a starter template or start from scratch.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -393,6 +402,23 @@ export function DocumentTemplateManager() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Starter Template</Label>
+              <Select value={contractStarter} onValueChange={setContractStarter}>
+                <SelectTrigger data-testid="select-contract-starter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solar">Solar Installation Contract</SelectItem>
+                  <SelectItem value="blank">Blank (start from scratch)</SelectItem>
+                </SelectContent>
+              </Select>
+              {contractStarter === "solar" && (
+                <p className="text-xs text-muted-foreground">
+                  Includes client info, pricing, payment milestones, Appendix A (terms), Appendix B (scope of work checklist), and signature blocks.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
