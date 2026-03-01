@@ -721,6 +721,88 @@ export const DEFAULT_DEADLINES_WEEKS: Record<string, { min: number; max: number;
   close_off: { min: 12, max: 14, dependsOn: ["installation"] },
 };
 
+export const contractCompletions = pgTable("contract_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  staffName: text("staff_name").notNull(),
+  actionType: text("action_type").notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  notes: text("notes"),
+  hideDays: integer("hide_days").default(0),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export const insertContractCompletionSchema = createInsertSchema(contractCompletions).omit({
+  id: true,
+  completedAt: true,
+});
+
+export type ContractCompletion = typeof contractCompletions.$inferSelect;
+export type InsertContractCompletion = z.infer<typeof insertContractCompletionSchema>;
+
+export const contractWorkflowRules = pgTable("contract_workflow_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  triggerAction: text("trigger_action").notNull().unique(),
+  hideDays: integer("hide_days").notNull().default(1),
+  requiresFiles: boolean("requires_files").default(false),
+  requiresNotes: boolean("requires_notes").default(false),
+  autoEscalate: boolean("auto_escalate").default(false),
+  label: text("label").notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").default(true),
+});
+
+export const insertContractWorkflowRuleSchema = createInsertSchema(contractWorkflowRules).omit({
+  id: true,
+});
+
+export type ContractWorkflowRule = typeof contractWorkflowRules.$inferSelect;
+export type InsertContractWorkflowRule = z.infer<typeof insertContractWorkflowRuleSchema>;
+
+export const DEFAULT_CONTRACT_WORKFLOW_RULES: InsertContractWorkflowRule[] = [
+  {
+    triggerAction: "ready_for_review",
+    hideDays: 1,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Ready for Review",
+    description: "When contract documents are uploaded and marked ready for manager review. Hidden for 1 day (24h) while under review.",
+    enabled: true,
+  },
+  {
+    triggerAction: "follow_up_review",
+    hideDays: 1,
+    requiresFiles: false,
+    requiresNotes: true,
+    autoEscalate: false,
+    label: "Follow-up (Review)",
+    description: "When following up on a contract under review. Resets the hide timer by 1 day.",
+    enabled: true,
+  },
+  {
+    triggerAction: "document_upload",
+    hideDays: 0,
+    requiresFiles: true,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Document Upload",
+    description: "When contract documents (contract, proposal, site plan) are uploaded.",
+    enabled: true,
+  },
+  {
+    triggerAction: "contract_approved",
+    hideDays: 0,
+    requiresFiles: false,
+    requiresNotes: false,
+    autoEscalate: false,
+    label: "Contract Approved",
+    description: "When a manager approves the uploaded contract documents.",
+    enabled: true,
+  },
+];
+
 export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[]; gapRelativeTo: string | null }> = {
   uc_application: { gapDays: 21, dependsOn: [], gapRelativeTo: null },
   rebates: { gapDays: 14, dependsOn: [], gapRelativeTo: null },

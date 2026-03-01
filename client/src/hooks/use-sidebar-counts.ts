@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Project, EscalationTicket } from "@shared/schema";
+import type { Project, EscalationTicket, ContractCompletion } from "@shared/schema";
 import { isUcComplete, isAhjComplete, isVisitComplete, isVisitBooked, isPermitIssued, isContractSent } from "@/utils/stages";
 import { areDependenciesMet, type WorkflowConfig } from "@/lib/stage-dependencies";
 
@@ -51,6 +51,11 @@ export function useSidebarCounts() {
     queryKey: ['/api/workflow-config'],
   });
 
+  const { data: contractCompletions } = useQuery<ContractCompletion[]>({
+    queryKey: ['/api/contracts/completions'],
+    refetchInterval: 60000,
+  });
+
   if (!projects) return {};
 
   const allProjects = projects;
@@ -71,10 +76,20 @@ export function useSidebarCounts() {
 
   const paymentNeeded = residential.filter(p => !p.paymentMethod).length;
 
-  const contractsNeeded = residential.filter(p =>
-    areDependenciesMet(p, "contract_signing", workflowConfigs ?? null) &&
+  const contractDepsMetProjects = residential.filter(p =>
+    areDependenciesMet(p, "contract_signing", workflowConfigs ?? null)
+  );
+
+  const contractsNeeded = contractDepsMetProjects.filter(p =>
     !isContractSent(p.installTeamStage)
   ).length;
+
+  const completionsArr = contractCompletions || [];
+  const contractsForReview = contractDepsMetProjects.filter(p => {
+    const hasReady = completionsArr.some(c => c.projectId === p.id && c.actionType === 'ready_for_review');
+    const hasApproved = completionsArr.some(c => c.projectId === p.id && c.actionType === 'contract_approved');
+    return hasReady && !hasApproved;
+  }).length;
 
   const siteVisitsPending = residential.filter(p => {
     if (!areDependenciesMet(p, "site_visit", workflowConfigs ?? null)) return false;
@@ -110,6 +125,8 @@ export function useSidebarCounts() {
     '/rebates': rebatesNeedAttention,
     '/payment-method': paymentNeeded,
     '/contracts': contractsNeeded,
+    '/contracts/to_create': contractsNeeded,
+    '/contracts/for_review': contractsForReview,
     '/site-visits': siteVisitsPending,
     '/ahj': ahjAction,
     '/planner': plannerNeeded,

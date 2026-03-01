@@ -13,6 +13,7 @@ import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
 import { getContractDueDate, getContractSentDate, getContractFollowUpDate } from "./contract-helpers";
 import { DueIndicator } from "@/components/uc/DueIndicator";
 import { ContractFollowUpDialog } from "./ContractFollowUpDialog";
+import { ContractReviewFollowUpDialog } from "./ContractReviewFollowUpDialog";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
@@ -32,11 +33,18 @@ interface ContractCardProps {
   onContractSent: (project: Project, checked: boolean) => void;
   onContractSigned: (project: Project, checked: boolean) => void;
   onDepositCollected: (project: Project, checked: boolean) => void;
+  readyForReview?: boolean;
+  contractApproved?: boolean;
+  showReviewFollowUp?: boolean;
+  reviewFollowUpHideDays?: number;
+  onReadyForReview?: () => void;
+  readyForReviewPending?: boolean;
 }
 
 export function ContractCard({
   project: p, lastFollowUp, docUploaded, uploadedCount, docUploadAction, approved, approvalAction,
   updating, isExpanded, onToggleExpand, onExpand, onContractSent, onContractSigned, onDepositCollected,
+  readyForReview, contractApproved, showReviewFollowUp, reviewFollowUpHideDays, onReadyForReview, readyForReviewPending,
 }: ContractCardProps) {
   const contractDueDate = getContractDueDate(p);
   const contractSentAsana = getContractSentDate(p);
@@ -155,6 +163,22 @@ export function ContractCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
+          {docUploaded && !readyForReview && !contractApproved && onReadyForReview && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 px-2 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400 dark:hover:bg-teal-950"
+              onClick={onReadyForReview}
+              disabled={readyForReviewPending}
+              data-testid={`button-ready-for-review-${p.id}`}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              {readyForReviewPending ? "Submitting..." : "Ready for Review"}
+            </Button>
+          )}
+          {showReviewFollowUp && (
+            <ContractReviewFollowUpDialog project={p} hideDays={reviewFollowUpHideDays ?? 1} />
+          )}
           <ContractFollowUpDialog project={p} lastFollowUp={lastFollowUp} />
           <EscalationDialog projectId={p.id} projectName={p.name} viewType="contracts" />
           <Button

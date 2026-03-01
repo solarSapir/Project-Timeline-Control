@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
   ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers, pauseReasons,
-  taskClaims,
+  taskClaims, contractCompletions, contractWorkflowRules,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -22,6 +22,8 @@ import {
   type PauseReason, type InsertPauseReason,
   type PauseLog, type InsertPauseLog,
   type TaskClaim, type InsertTaskClaim,
+  type ContractCompletion, type InsertContractCompletion,
+  type ContractWorkflowRule, type InsertContractWorkflowRule,
   pauseLogs,
 } from "@shared/schema";
 
@@ -105,6 +107,12 @@ export interface IStorage {
   completeClaim(id: string, completionAction: string): Promise<TaskClaim | undefined>;
   releaseClaim(id: string): Promise<boolean>;
   getClaimHistory(filters?: { staffName?: string; projectId?: string; limit?: number }): Promise<TaskClaim[]>;
+
+  createContractCompletion(data: InsertContractCompletion & { completedAt?: Date }): Promise<ContractCompletion>;
+  getContractCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<ContractCompletion[]>;
+  getContractCompletionsByProject(projectId: string): Promise<ContractCompletion[]>;
+  getContractWorkflowRules(): Promise<ContractWorkflowRule[]>;
+  upsertContractWorkflowRule(data: InsertContractWorkflowRule): Promise<ContractWorkflowRule>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -589,6 +597,50 @@ export class DatabaseStorage implements IStorage {
     const query = db.select().from(taskClaims).where(and(...conditions)).orderBy(desc(taskClaims.completedAt));
     if (filters?.limit) return query.limit(filters.limit);
     return query;
+  }
+  async createContractCompletion(data: InsertContractCompletion & { completedAt?: Date }): Promise<ContractCompletion> {
+    const { completedAt, ...rest } = data;
+    const values = completedAt ? { ...rest, completedAt } : rest;
+    const [completion] = await db.insert(contractCompletions).values(values).returning();
+    return completion;
+  }
+
+  async getContractCompletions(filters?: { staffName?: string; startDate?: string; endDate?: string }): Promise<ContractCompletion[]> {
+    const conditions = [];
+    if (filters?.staffName) conditions.push(eq(contractCompletions.staffName, filters.staffName));
+    if (filters?.startDate) conditions.push(gte(contractCompletions.completedAt, new Date(filters.startDate)));
+    if (filters?.endDate) conditions.push(lte(contractCompletions.completedAt, new Date(filters.endDate)));
+
+    if (conditions.length > 0) {
+      return db.select().from(contractCompletions)
+        .where(and(...conditions))
+        .orderBy(desc(contractCompletions.completedAt));
+    }
+    return db.select().from(contractCompletions).orderBy(desc(contractCompletions.completedAt));
+  }
+
+  async getContractCompletionsByProject(projectId: string): Promise<ContractCompletion[]> {
+    return db.select().from(contractCompletions)
+      .where(eq(contractCompletions.projectId, projectId))
+      .orderBy(desc(contractCompletions.completedAt));
+  }
+
+  async getContractWorkflowRules(): Promise<ContractWorkflowRule[]> {
+    return db.select().from(contractWorkflowRules).orderBy(asc(contractWorkflowRules.triggerAction));
+  }
+
+  async upsertContractWorkflowRule(data: InsertContractWorkflowRule): Promise<ContractWorkflowRule> {
+    const existing = await db.select().from(contractWorkflowRules)
+      .where(eq(contractWorkflowRules.triggerAction, data.triggerAction));
+    if (existing.length > 0) {
+      const [updated] = await db.update(contractWorkflowRules)
+        .set(data)
+        .where(eq(contractWorkflowRules.triggerAction, data.triggerAction))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(contractWorkflowRules).values(data).returning();
+    return created;
   }
 }
 

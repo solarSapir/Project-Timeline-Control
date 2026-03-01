@@ -43,6 +43,20 @@ export function ContractApproveDialog({ project, hasDocUpload, isApproved }: Con
       }
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/task-actions', 'contracts'] });
+      try {
+        await fetch('/api/contracts/complete-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: project.id,
+            staffName: approvedBy,
+            actionType: 'contract_approved',
+            notes: notes || undefined,
+          }),
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/contracts/completions'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/contracts/kpi-stats'] });
+      } catch {}
       toast({ title: "Contract approved", description: "Approval posted to Asana — ready to send via DocuSign" });
       setOpen(false);
       setApprovedBy("");

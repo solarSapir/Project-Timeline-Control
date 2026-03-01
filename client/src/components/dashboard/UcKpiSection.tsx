@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Activity, TrendingUp, Clock, CheckCircle2, Timer } from "lucide-react";
+import { FormulaTooltip } from "./FormulaTooltip";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
 import { DecisionTimeDrilldown } from "./DecisionTimeDrilldown";
@@ -131,7 +132,10 @@ export function UcKpiSection() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               This Week
             </CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Count of all UC status changes recorded in the last 7 days.\n\nFormula: COUNT(completions) WHERE completedAt >= (today - 7 days)"} />
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-completions-week">
@@ -146,7 +150,10 @@ export function UcKpiSection() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Tasks/Day
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Total completions divided by the number of days that had at least one completion.\n\nFormula: Total Completions / Days With Activity"} />
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-avg-tasks-day">
@@ -165,7 +172,10 @@ export function UcKpiSection() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Days to Submit
             </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Average days from project creation (or last unpause) to UC submitted date.\n\nFormula: AVG(ucSubmittedDate - projectCreatedDate) for residential Install projects"} />
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-avg-submit">
@@ -184,7 +194,10 @@ export function UcKpiSection() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Days to Decision
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Average days from UC submitted to approval or rejection.\n\nFormula: AVG(decisionDate - submittedDate)"} />
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-avg-decision">
@@ -199,7 +212,10 @@ export function UcKpiSection() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Avg Close-Off Time
             </CardTitle>
-            <Timer className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Average days from entering Close-Off status to Closed.\n\nFormula: AVG(closedDate - closeOffDate)"} />
+              <Timer className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-uc-avg-close">

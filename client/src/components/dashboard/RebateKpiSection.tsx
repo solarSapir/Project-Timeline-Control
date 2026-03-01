@@ -2,15 +2,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
 } from "recharts";
-import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send, Info } from "lucide-react";
+import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
+import { FormulaTooltip } from "./FormulaTooltip";
 
 interface SubmitTimeEntry {
   projectName: string;
@@ -35,19 +34,6 @@ interface RebateKpiStats {
   rejectionRate: number | null;
   totalCompletions: number;
   totalRebateProjects: number;
-}
-
-function FormulaTooltip({ formula }: { formula: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" data-testid="icon-formula-info" />
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed whitespace-pre-line">
-        {formula}
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 export function RebateKpiSection() {

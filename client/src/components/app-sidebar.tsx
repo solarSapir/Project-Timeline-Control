@@ -23,6 +23,8 @@ import {
   HardHat,
   PauseCircle,
   TrendingUp,
+  ChevronRight,
+  Eye,
 } from "lucide-react";
 import {
   Sidebar,
@@ -74,6 +76,79 @@ const itNav = [
   { title: "Error Log", url: "/error-log", icon: Bug },
   { title: "App Logic", url: "/app-logic", icon: GitBranch },
 ];
+
+function ContractsSidebarItem({ icon: Icon, location, toCreateCount, forReviewCount }: {
+  icon: React.ComponentType<{ className?: string }>;
+  location: string;
+  toCreateCount: number;
+  forReviewCount: number;
+}) {
+  const searchStr = typeof window !== "undefined" ? window.location.search : "";
+  const hasToCreateFilter = location === "/contracts" && searchStr.includes("filter=to_create");
+  const hasForReviewFilter = location === "/contracts" && searchStr.includes("filter=for_review");
+  const [expanded, setExpanded] = useState(hasToCreateFilter || hasForReviewFilter);
+  const isActive = location === "/contracts" || location.startsWith("/contracts");
+  const totalCount = toCreateCount + forReviewCount;
+
+  return (
+    <>
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild data-active={isActive}>
+          <Link href="/contracts" data-testid="link-contracts">
+            <Icon className="h-4 w-4" />
+            <span className="flex-1">Contracts</span>
+            {totalCount > 0 && (
+              <Badge
+                variant="secondary"
+                className="h-5 min-w-[20px] text-[10px] px-1.5 justify-center bg-sidebar-accent text-sidebar-accent-foreground"
+                data-testid="badge-count-contracts"
+              >
+                {totalCount}
+              </Badge>
+            )}
+            <button
+              className="ml-1 p-0.5 rounded hover:bg-sidebar-accent"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded); }}
+              data-testid="button-expand-contracts"
+            >
+              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
+            </button>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      {expanded && (
+        <>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="pl-8 h-7 text-xs" data-active={hasToCreateFilter}>
+              <Link href="/contracts?filter=to_create" data-testid="link-contracts-to-create">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="flex-1">To Create</span>
+                {toCreateCount > 0 && (
+                  <Badge variant="secondary" className="h-4 min-w-[16px] text-[9px] px-1 justify-center bg-sidebar-accent text-sidebar-accent-foreground" data-testid="badge-contracts-to-create">
+                    {toCreateCount}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="pl-8 h-7 text-xs" data-active={hasForReviewFilter}>
+              <Link href="/contracts?filter=for_review" data-testid="link-contracts-for-review">
+                <Eye className="h-3.5 w-3.5" />
+                <span className="flex-1">Ready for Review</span>
+                {forReviewCount > 0 && (
+                  <Badge variant="secondary" className="h-4 min-w-[16px] text-[9px] px-1 justify-center bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" data-testid="badge-contracts-for-review">
+                    {forReviewCount}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </>
+      )}
+    </>
+  );
+}
 
 export function AppSidebar() {
   const [location] = useLocation();
@@ -160,29 +235,44 @@ export function AppSidebar() {
           <SidebarGroupLabel>Work Views</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {viewNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild data-active={location === item.url}>
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span className="flex-1">{item.title}</span>
-                      {sidebarCounts[item.url] != null && sidebarCounts[item.url] > 0 && (
-                        <Badge
-                          variant={item.url === "/escalated" ? "destructive" : "secondary"}
-                          className={`h-5 min-w-[20px] text-[10px] px-1.5 justify-center ${
-                            item.url === "/escalated"
-                              ? ""
-                              : "bg-sidebar-accent text-sidebar-accent-foreground"
-                          }`}
-                          data-testid={`badge-count-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}
-                        >
-                          {sidebarCounts[item.url]}
-                        </Badge>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {viewNav.map((item) => {
+                if (item.url === "/contracts") {
+                  const toCreateCount = sidebarCounts['/contracts/to_create'] || 0;
+                  const forReviewCount = sidebarCounts['/contracts/for_review'] || 0;
+                  return (
+                    <ContractsSidebarItem
+                      key={item.title}
+                      icon={item.icon}
+                      location={location}
+                      toCreateCount={toCreateCount}
+                      forReviewCount={forReviewCount}
+                    />
+                  );
+                }
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild data-active={location === item.url}>
+                      <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span className="flex-1">{item.title}</span>
+                        {sidebarCounts[item.url] != null && sidebarCounts[item.url] > 0 && (
+                          <Badge
+                            variant={item.url === "/escalated" ? "destructive" : "secondary"}
+                            className={`h-5 min-w-[20px] text-[10px] px-1.5 justify-center ${
+                              item.url === "/escalated"
+                                ? ""
+                                : "bg-sidebar-accent text-sidebar-accent-foreground"
+                            }`}
+                            data-testid={`badge-count-${item.title.toLowerCase().replace(/[\s\/]+/g, '-')}`}
+                          >
+                            {sidebarCounts[item.url]}
+                          </Badge>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

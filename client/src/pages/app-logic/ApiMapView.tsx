@@ -220,6 +220,19 @@ const apiGroups: ApiGroup[] = [
     ],
   },
   {
+    name: "Contract Workflow",
+    file: "server/routes/contract-workflow.ts",
+    endpoints: [
+      { method: "POST", path: "/api/contracts/complete-action", description: "Log a contract workflow completion (ready_for_review, follow_up, approved, etc.)", tables: ["contract_completions"], usedBy: ["Contracts"] },
+      { method: "GET", path: "/api/contracts/completions", description: "List all contract completions with optional filters", tables: ["contract_completions"], usedBy: ["Contracts", "Dashboard", "Sidebar"] },
+      { method: "GET", path: "/api/contracts/completions/:projectId", description: "Get completions for a specific project", tables: ["contract_completions"], usedBy: ["Contracts"] },
+      { method: "GET", path: "/api/contracts/kpi-stats", description: "Calculate contract KPI metrics (throughput, avg times)", tables: ["contract_completions", "projects"], usedBy: ["Dashboard"] },
+      { method: "GET", path: "/api/contracts/workflow-rules", description: "Get configurable contract workflow rules", tables: ["contract_workflow_rules"], usedBy: ["Settings", "Contracts"] },
+      { method: "PUT", path: "/api/contracts/workflow-rules", description: "Update contract workflow rules (batch upsert)", tables: ["contract_workflow_rules"], usedBy: ["Settings"] },
+      { method: "POST", path: "/api/contracts/backfill", description: "Backfill contract completions from existing task_actions", tables: ["contract_completions", "task_actions"], usedBy: ["Settings"] },
+    ],
+  },
+  {
     name: "Claims",
     file: "server/routes/claims.ts",
     endpoints: [

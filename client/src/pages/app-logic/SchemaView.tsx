@@ -264,6 +264,34 @@ const tables: TableDef[] = [
       { name: "completedAt", type: "timestamp" },
     ],
   },
+  {
+    name: "contract_completions", domain: "kpi",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "projectId", type: "varchar FK→projects" },
+      { name: "staffName", type: "text" },
+      { name: "actionType", type: "text", note: "ready_for_review, follow_up, contract_approved, etc." },
+      { name: "fromStatus", type: "text" },
+      { name: "toStatus", type: "text" },
+      { name: "notes", type: "text" },
+      { name: "hideDays", type: "integer", note: "default: 0" },
+      { name: "completedAt", type: "timestamp" },
+    ],
+  },
+  {
+    name: "contract_workflow_rules", domain: "kpi",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "triggerAction", type: "text unique" },
+      { name: "hideDays", type: "integer", note: "default: 1" },
+      { name: "requiresFiles", type: "boolean" },
+      { name: "requiresNotes", type: "boolean" },
+      { name: "autoEscalate", type: "boolean" },
+      { name: "label", type: "text" },
+      { name: "description", type: "text" },
+      { name: "enabled", type: "boolean" },
+    ],
+  },
 ];
 
 const domainColors: Record<string, { bg: string; border: string; label: string }> = {
@@ -323,6 +351,8 @@ const positions: Record<string, { x: number; y: number }> = {
   task_claims: { x: 1100, y: 1020 },
   error_logs: { x: 0, y: 1020 },
   staff_members: { x: 280, y: 1020 },
+  contract_completions: { x: 550, y: 1200 },
+  contract_workflow_rules: { x: 830, y: 1200 },
 };
 
 const initialNodes: Node[] = tables.map((t) => ({
@@ -335,6 +365,7 @@ const initialNodes: Node[] = tables.map((t) => ({
 const fkEdges: Edge[] = [
   "project_deadlines", "task_actions", "install_schedule", "project_files",
   "escalation_tickets", "uc_completions", "rebate_completions", "task_claims", "pause_logs",
+  "contract_completions",
 ].map((source) => ({
   id: `${source}-projects`,
   source,
