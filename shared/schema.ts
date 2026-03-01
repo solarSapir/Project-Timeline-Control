@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, date, boolean, jsonb, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, date, boolean, jsonb, customType, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -802,6 +802,51 @@ export const DEFAULT_CONTRACT_WORKFLOW_RULES: InsertContractWorkflowRule[] = [
     enabled: true,
   },
 ];
+
+export const documentTemplates = pgTable("document_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  viewType: text("view_type").notNull(),
+  fileName: text("file_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileData: bytea("file_data"),
+  pageCount: integer("page_count").default(1),
+  enabled: boolean("enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+
+export const templateFields = pgTable("template_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  tag: text("tag").notNull(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").default("text"),
+  page: integer("page").default(1),
+  x: real("x").notNull(),
+  y: real("y").notNull(),
+  width: real("width").notNull(),
+  height: real("height").notNull(),
+  fontSize: integer("font_size").default(12),
+  fontColor: text("font_color").default("#000000"),
+  options: text("options"),
+  required: boolean("required").default(false),
+  defaultValue: text("default_value"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertTemplateFieldSchema = createInsertSchema(templateFields).omit({
+  id: true,
+});
+export type InsertTemplateField = z.infer<typeof insertTemplateFieldSchema>;
+export type TemplateField = typeof templateFields.$inferSelect;
 
 export const DEFAULT_STAGE_GAPS: Record<string, { gapDays: number; dependsOn: string[]; gapRelativeTo: string | null }> = {
   uc_application: { gapDays: 21, dependsOn: [], gapRelativeTo: null },

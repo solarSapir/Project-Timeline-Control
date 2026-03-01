@@ -4,6 +4,7 @@ import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
   ucCompletions, ucWorkflowRules, rebateCompletions, rebateWorkflowRules, staffMembers, pauseReasons,
   taskClaims, contractCompletions, contractWorkflowRules,
+  documentTemplates, templateFields,
   type User, type InsertUser,
   type Project, type InsertProject,
   type ProjectDeadline, type InsertProjectDeadline,
@@ -24,6 +25,8 @@ import {
   type TaskClaim, type InsertTaskClaim,
   type ContractCompletion, type InsertContractCompletion,
   type ContractWorkflowRule, type InsertContractWorkflowRule,
+  type DocumentTemplate, type InsertDocumentTemplate,
+  type TemplateField, type InsertTemplateField,
   pauseLogs,
 } from "@shared/schema";
 
@@ -113,6 +116,19 @@ export interface IStorage {
   getContractCompletionsByProject(projectId: string): Promise<ContractCompletion[]>;
   getContractWorkflowRules(): Promise<ContractWorkflowRule[]>;
   upsertContractWorkflowRule(data: InsertContractWorkflowRule): Promise<ContractWorkflowRule>;
+
+  createDocumentTemplate(data: InsertDocumentTemplate): Promise<DocumentTemplate>;
+  getDocumentTemplates(viewType?: string): Promise<DocumentTemplate[]>;
+  getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined>;
+  getDocumentTemplateWithData(id: string): Promise<DocumentTemplate | undefined>;
+  updateDocumentTemplate(id: string, data: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate | undefined>;
+  deleteDocumentTemplate(id: string): Promise<boolean>;
+
+  createTemplateField(data: InsertTemplateField): Promise<TemplateField>;
+  getTemplateFieldsByTemplate(templateId: string): Promise<TemplateField[]>;
+  updateTemplateField(id: string, data: Partial<InsertTemplateField>): Promise<TemplateField | undefined>;
+  deleteTemplateField(id: string): Promise<boolean>;
+  bulkUpsertTemplateFields(templateId: string, fields: InsertTemplateField[]): Promise<TemplateField[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -641,6 +657,91 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(contractWorkflowRules).values(data).returning();
     return created;
+  }
+
+  async createDocumentTemplate(data: InsertDocumentTemplate): Promise<DocumentTemplate> {
+    const [created] = await db.insert(documentTemplates).values(data).returning();
+    return created;
+  }
+
+  async getDocumentTemplates(viewType?: string): Promise<DocumentTemplate[]> {
+    const cols = {
+      id: documentTemplates.id,
+      name: documentTemplates.name,
+      viewType: documentTemplates.viewType,
+      fileName: documentTemplates.fileName,
+      storedName: documentTemplates.storedName,
+      mimeType: documentTemplates.mimeType,
+      pageCount: documentTemplates.pageCount,
+      enabled: documentTemplates.enabled,
+      createdAt: documentTemplates.createdAt,
+    };
+    if (viewType) {
+      return db.select(cols).from(documentTemplates)
+        .where(eq(documentTemplates.viewType, viewType))
+        .orderBy(asc(documentTemplates.name));
+    }
+    return db.select(cols).from(documentTemplates).orderBy(asc(documentTemplates.name));
+  }
+
+  async getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined> {
+    const cols = {
+      id: documentTemplates.id,
+      name: documentTemplates.name,
+      viewType: documentTemplates.viewType,
+      fileName: documentTemplates.fileName,
+      storedName: documentTemplates.storedName,
+      mimeType: documentTemplates.mimeType,
+      pageCount: documentTemplates.pageCount,
+      enabled: documentTemplates.enabled,
+      createdAt: documentTemplates.createdAt,
+    };
+    const [template] = await db.select(cols).from(documentTemplates).where(eq(documentTemplates.id, id));
+    return template;
+  }
+
+  async getDocumentTemplateWithData(id: string): Promise<DocumentTemplate | undefined> {
+    const [template] = await db.select().from(documentTemplates).where(eq(documentTemplates.id, id));
+    return template;
+  }
+
+  async updateDocumentTemplate(id: string, data: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate | undefined> {
+    const [updated] = await db.update(documentTemplates).set(data).where(eq(documentTemplates.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDocumentTemplate(id: string): Promise<boolean> {
+    await db.delete(templateFields).where(eq(templateFields.templateId, id));
+    const result = await db.delete(documentTemplates).where(eq(documentTemplates.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async createTemplateField(data: InsertTemplateField): Promise<TemplateField> {
+    const [created] = await db.insert(templateFields).values(data).returning();
+    return created;
+  }
+
+  async getTemplateFieldsByTemplate(templateId: string): Promise<TemplateField[]> {
+    return db.select().from(templateFields)
+      .where(eq(templateFields.templateId, templateId))
+      .orderBy(asc(templateFields.sortOrder), asc(templateFields.tag));
+  }
+
+  async updateTemplateField(id: string, data: Partial<InsertTemplateField>): Promise<TemplateField | undefined> {
+    const [updated] = await db.update(templateFields).set(data).where(eq(templateFields.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTemplateField(id: string): Promise<boolean> {
+    const result = await db.delete(templateFields).where(eq(templateFields.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async bulkUpsertTemplateFields(templateId: string, fields: InsertTemplateField[]): Promise<TemplateField[]> {
+    await db.delete(templateFields).where(eq(templateFields.templateId, templateId));
+    if (fields.length === 0) return [];
+    const withTemplateId = fields.map(f => ({ ...f, templateId }));
+    return db.insert(templateFields).values(withTemplateId).returning();
   }
 }
 

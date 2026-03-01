@@ -292,6 +292,40 @@ const tables: TableDef[] = [
       { name: "enabled", type: "boolean" },
     ],
   },
+  {
+    name: "document_templates", domain: "documents",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "name", type: "text" },
+      { name: "viewType", type: "text", note: "uc, contracts, rebates, etc." },
+      { name: "fileName", type: "text" },
+      { name: "storedName", type: "text" },
+      { name: "mimeType", type: "text" },
+      { name: "fileData", type: "bytea", note: "binary backup" },
+      { name: "pageCount", type: "integer", note: "default: 1" },
+      { name: "enabled", type: "boolean", note: "default: true" },
+      { name: "createdAt", type: "timestamp" },
+    ],
+  },
+  {
+    name: "template_fields", domain: "documents",
+    columns: [
+      { name: "id", type: "varchar PK" },
+      { name: "templateId", type: "varchar FK", note: "-> document_templates" },
+      { name: "tag", type: "text", note: "field identifier" },
+      { name: "label", type: "text" },
+      { name: "fieldType", type: "text", note: "text, date, number, select" },
+      { name: "page", type: "integer" },
+      { name: "x / y", type: "real", note: "% position" },
+      { name: "width / height", type: "real", note: "% size" },
+      { name: "fontSize", type: "integer" },
+      { name: "fontColor", type: "text" },
+      { name: "options", type: "text", note: "comma-separated" },
+      { name: "required", type: "boolean" },
+      { name: "defaultValue", type: "text", note: "auto-fill key" },
+      { name: "sortOrder", type: "integer" },
+    ],
+  },
 ];
 
 const domainColors: Record<string, { bg: string; border: string; label: string }> = {
@@ -353,6 +387,8 @@ const positions: Record<string, { x: number; y: number }> = {
   staff_members: { x: 280, y: 1020 },
   contract_completions: { x: 550, y: 1200 },
   contract_workflow_rules: { x: 830, y: 1200 },
+  document_templates: { x: 0, y: 1460 },
+  template_fields: { x: 300, y: 1460 },
 };
 
 const initialNodes: Node[] = tables.map((t) => ({
@@ -375,6 +411,16 @@ const fkEdges: Edge[] = [
   label: "projectId",
   labelStyle: { fontSize: 9, fill: "#94a3b8" },
 }));
+
+fkEdges.push({
+  id: "template_fields-document_templates",
+  source: "template_fields",
+  target: "document_templates",
+  animated: true,
+  style: { stroke: "#94a3b8", strokeWidth: 1.5 },
+  label: "templateId",
+  labelStyle: { fontSize: 9, fill: "#94a3b8" },
+});
 
 export default function SchemaView() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes);

@@ -1,0 +1,330 @@
+import { Router } from "express";
+import { storage } from "../storage";
+import { upload } from "../middleware/upload";
+import { randomUUID } from "crypto";
+import { existsSync, mkdirSync, readFileSync } from "fs";
+import { writeFile } from "fs/promises";
+import path from "path";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import PDFDocumentKit from "pdfkit";
+import { saveFileLocally } from "../utils/file-storage";
+
+export const documentTemplatesRouter = Router();
+
+const TEMPLATES_DIR = path.resolve(process.cwd(), "data", "templates");
+
+function ensureTemplatesDir(): string {
+  if (!existsSync(TEMPLATES_DIR)) {
+    mkdirSync(TEMPLATES_DIR, { recursive: true });
+  }
+  return TEMPLATES_DIR;
+}
+
+function getTemplatePath(storedName: string): string {
+  return path.join(TEMPLATES_DIR, storedName);
+}
+
+async function getTemplateBuffer(templateId: string, storedName: string): Promise<Buffer> {
+  const filePath = getTemplatePath(storedName);
+  if (existsSync(filePath)) {
+    return readFileSync(filePath);
+  }
+  const withData = await storage.getDocumentTemplateWithData(templateId);
+  if (withData?.fileData) {
+    ensureTemplatesDir();
+    await writeFile(filePath, withData.fileData);
+    return withData.fileData;
+  }
+  throw new Error("Template file not found on disk or in database");
+}
+
+documentTemplatesRouter.post("/", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const { name, viewType } = req.body;
+    if (!name || !viewType) {
+      return res.status(400).json({ message: "Name and viewType are required" });
+    }
+
+    const ext = path.extname(req.file.originalname);
+    const storedName = `${randomUUID()}${ext}`;
+    const dir = ensureTemplatesDir();
+    await writeFile(path.join(dir, storedName), req.file.buffer);
+
+    let pageCount = 1;
+    if (req.file.mimetype === "application/pdf") {
+      try {
+        const pdfParse = (await import("pdf-parse")).default;
+        const parsed = await pdfParse(req.file.buffer);
+        pageCount = parsed.numpages || 1;
+      } catch {
+        pageCount = 1;
+      }
+    }
+
+    const template = await storage.createDocumentTemplate({
+      name,
+      viewType,
+      fileName: req.file.originalname,
+      storedName,
+      mimeType: req.file.mimetype,
+      fileData: req.file.buffer,
+      pageCount,
+      enabled: true,
+    });
+
+    res.json(template);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.get("/", async (req, res) => {
+  try {
+    const viewType = typeof req.query.viewType === "string" ? req.query.viewType : undefined;
+    const templates = await storage.getDocumentTemplates(viewType);
+
+    const withFieldCounts = await Promise.all(
+      templates.map(async (t) => {
+        const fields = await storage.getTemplateFieldsByTemplate(t.id);
+        return { ...t, fieldCount: fields.length };
+      })
+    );
+
+    res.json(withFieldCounts);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.get("/:id", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    const fields = await storage.getTemplateFieldsByTemplate(template.id);
+    res.json({ ...template, fields });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.delete("/:id", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const filePath = getTemplatePath(template.storedName);
+    if (existsSync(filePath)) {
+      const { unlinkSync } = await import("fs");
+      try { unlinkSync(filePath); } catch {}
+    }
+
+    await storage.deleteDocumentTemplate(req.params.id);
+    res.json({ success: true });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.put("/:id/fields", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const { fields } = req.body;
+    if (!Array.isArray(fields)) {
+      return res.status(400).json({ message: "Fields array required" });
+    }
+
+    const saved = await storage.bulkUpsertTemplateFields(template.id, fields);
+    res.json(saved);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.get("/:id/preview", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const buffer = await getTemplateBuffer(template.id, template.storedName);
+    res.setHeader("Content-Type", template.mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="${template.fileName}"`);
+    res.send(buffer);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.patch("/:id", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const { name, enabled } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (typeof name === "string") updates.name = name;
+    if (typeof enabled === "boolean") updates.enabled = enabled;
+
+    const updated = await storage.updateDocumentTemplate(req.params.id, updates as any);
+    res.json(updated);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace("#", "");
+  return {
+    r: parseInt(h.substring(0, 2), 16) / 255,
+    g: parseInt(h.substring(2, 4), 16) / 255,
+    b: parseInt(h.substring(4, 6), 16) / 255,
+  };
+}
+
+documentTemplatesRouter.post("/:id/generate", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    const { projectId, values, staffName } = req.body;
+    if (!projectId || !values) {
+      return res.status(400).json({ message: "projectId and values are required" });
+    }
+
+    const fields = await storage.getTemplateFieldsByTemplate(template.id);
+
+    const missingRequired = fields
+      .filter((f) => f.required)
+      .filter((f) => !values[f.tag] || String(values[f.tag]).trim() === "");
+    if (missingRequired.length > 0) {
+      return res.status(400).json({
+        message: `Missing required fields: ${missingRequired.map((f) => f.label).join(", ")}`,
+      });
+    }
+
+    const resolvedStaffName = staffName && staffName !== "none" ? staffName : "System";
+
+    const templateBuffer = await getTemplateBuffer(template.id, template.storedName);
+
+    let outputBuffer: Buffer;
+    const isPdf = template.mimeType === "application/pdf";
+
+    if (isPdf) {
+      const pdfDoc = await PDFDocument.load(templateBuffer);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      const pages = pdfDoc.getPages();
+
+      for (const field of fields) {
+        const value = values[field.tag];
+        if (!value && value !== 0) continue;
+
+        const pageIdx = (field.page || 1) - 1;
+        if (pageIdx >= pages.length) continue;
+
+        const page = pages[pageIdx];
+        const { width: pw, height: ph } = page.getSize();
+
+        const x = (field.x / 100) * pw;
+        const y = ph - ((field.y / 100) * ph) - (field.fontSize || 12);
+        const fontSize = field.fontSize || 12;
+        const color = hexToRgb(field.fontColor || "#000000");
+
+        page.drawText(String(value), {
+          x,
+          y,
+          size: fontSize,
+          font,
+          color: rgb(color.r, color.g, color.b),
+        });
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      outputBuffer = Buffer.from(pdfBytes);
+    } else {
+      outputBuffer = await new Promise<Buffer>(async (resolve, reject) => {
+        let imgWidth = 612;
+        let imgHeight = 792;
+
+        try {
+          const sizeOf = (await import("image-size")).default;
+          const dims = sizeOf(templateBuffer);
+          if (dims.width && dims.height) {
+            imgWidth = dims.width;
+            imgHeight = dims.height;
+          }
+        } catch {}
+
+        const doc = new PDFDocumentKit({ size: [imgWidth, imgHeight], margin: 0 });
+        const chunks: Buffer[] = [];
+        doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+        doc.on("end", () => resolve(Buffer.concat(chunks)));
+        doc.on("error", reject);
+
+        doc.image(templateBuffer, 0, 0, { width: imgWidth, height: imgHeight });
+
+        for (const field of fields) {
+          const value = values[field.tag];
+          if (!value && value !== 0) continue;
+
+          const fieldPage = (field.page || 1) - 1;
+          if (fieldPage > 0) continue;
+
+          const x = (field.x / 100) * imgWidth;
+          const y = (field.y / 100) * imgHeight;
+          const fontSize = field.fontSize || 12;
+          const fontColor = field.fontColor || "#000000";
+
+          doc.fontSize(fontSize).fillColor(fontColor).text(String(value), x, y, {
+            width: (field.width / 100) * imgWidth,
+            lineBreak: false,
+          });
+        }
+
+        doc.end();
+      });
+    }
+
+    const project = await storage.getProject(projectId);
+    const outputName = `${template.name} - ${project?.name || projectId}.pdf`;
+
+    const savedFile = await saveFileLocally(
+      projectId,
+      template.viewType,
+      outputBuffer,
+      outputName,
+      "application/pdf",
+      resolvedStaffName,
+      `Generated from template: ${template.name}`
+    );
+
+    res.json(savedFile);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});

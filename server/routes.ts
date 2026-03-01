@@ -26,6 +26,7 @@ import { staffRouter } from "./routes/staff";
 import { pauseReasonsRouter } from "./routes/pause-reasons";
 import { claimsRouter } from "./routes/claims";
 import { contractWorkflowRouter } from "./routes/contract-workflow";
+import { documentTemplatesRouter } from "./routes/document-templates";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
@@ -49,6 +50,7 @@ export async function registerRoutes(
   app.use("/api/pause-reasons", pauseReasonsRouter);
   app.use("/api/claims", claimsRouter);
   app.use("/api/contracts", contractWorkflowRouter);
+  app.use("/api/document-templates", documentTemplatesRouter);
 
   app.get("/api/hrsp-config", async (_req, res) => {
     try {

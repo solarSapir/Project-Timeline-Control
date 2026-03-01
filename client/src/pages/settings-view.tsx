@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi, Database, AlertTriangle } from "lucide-react";
+import { RefreshCw, CheckCircle2, Loader2, Clock, Zap, GitBranch, FileCheck, Workflow, Users, Receipt, Wifi, Database, AlertTriangle, FileText } from "lucide-react";
 import WorkflowEditor from "@/components/settings/WorkflowEditor";
 import HrspConfigEditor from "@/components/settings/HrspConfigEditor";
 import UcWorkflowLogicEditor from "@/components/settings/UcWorkflowLogicEditor";
@@ -13,6 +13,7 @@ import EscalationSettingsEditor from "@/components/settings/EscalationSettingsEd
 import { StaffManager } from "@/components/settings/StaffManager";
 import { WebhookManager } from "@/components/settings/WebhookManager";
 import { CollapsibleSection } from "@/components/settings/CollapsibleSection";
+import { DocumentTemplateManager } from "@/components/settings/DocumentTemplateManager";
 
 interface SyncStatus {
   lastSyncTime: string | null;
@@ -196,6 +197,13 @@ export default function SyncView() {
 
       <CollapsibleSection title="Escalation Settings" icon={<AlertTriangle className="h-4 w-4" />} defaultOpen={false} testId="section-escalation-settings">
         <EscalationSettingsEditor />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Document Templates" icon={<FileText className="h-4 w-4" />} defaultOpen={false} testId="section-document-templates">
+        <p className="text-sm text-muted-foreground mb-4">
+          Upload PDF or image files as templates, place fillable fields on them, and generate completed documents for any project.
+        </p>
+        <DocumentTemplateManager />
       </CollapsibleSection>
     </div>
   );

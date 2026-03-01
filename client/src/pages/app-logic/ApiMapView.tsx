@@ -263,6 +263,20 @@ const apiGroups: ApiGroup[] = [
       { method: "POST", path: "/api/subtasks/:gid/attachment", description: "Upload subtask attachment", tables: [], usedBy: ["UC", "Rebates"] },
     ],
   },
+  {
+    name: "Document Templates",
+    file: "server/routes/document-templates.ts",
+    endpoints: [
+      { method: "POST", path: "/api/document-templates", description: "Upload a new template file (PDF/image)", tables: ["document_templates"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/document-templates", description: "List templates, optional ?viewType filter", tables: ["document_templates", "template_fields"], usedBy: ["Settings", "Project Profile"] },
+      { method: "GET", path: "/api/document-templates/:id", description: "Get template with its fields", tables: ["document_templates", "template_fields"], usedBy: ["Settings"] },
+      { method: "DELETE", path: "/api/document-templates/:id", description: "Delete template and all fields", tables: ["document_templates", "template_fields"], usedBy: ["Settings"] },
+      { method: "PATCH", path: "/api/document-templates/:id", description: "Update template metadata (name, enabled)", tables: ["document_templates"], usedBy: ["Settings"] },
+      { method: "PUT", path: "/api/document-templates/:id/fields", description: "Bulk upsert all fields for a template", tables: ["template_fields"], usedBy: ["Settings"] },
+      { method: "GET", path: "/api/document-templates/:id/preview", description: "Serve raw template file for visual editor", tables: ["document_templates"], usedBy: ["Settings"] },
+      { method: "POST", path: "/api/document-templates/:id/generate", description: "Generate filled document from template and values", tables: ["document_templates", "template_fields", "project_files"], usedBy: ["Project Profile"] },
+    ],
+  },
 ];
 
 const methodColors: Record<string, string> = {

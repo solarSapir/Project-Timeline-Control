@@ -8,8 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { FILE_CATEGORY_LABELS, type ProjectFile, type Project } from "@shared/schema";
 import {
-  FolderOpen, Upload, Download, Trash2, ExternalLink, FileText, Image, File,
+  FolderOpen, Upload, Download, Trash2, ExternalLink, FileText, Image, File, Sparkles,
 } from "lucide-react";
+import { GenerateDocumentDialog } from "@/components/documents/GenerateDocumentDialog";
 
 interface AsanaCustomField {
   name: string;
@@ -42,6 +43,7 @@ function getFileIcon(mimeType: string | null) {
 
 export function DocumentsSection({ project, projectId }: { project: Project; projectId: string }) {
   const [activeTab, setActiveTab] = useState<string>("uc");
+  const [generateOpen, setGenerateOpen] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,7 +145,17 @@ export function DocumentsSection({ project, projectId }: { project: Project; pro
           <p className="text-xs text-muted-foreground">
             {FILE_CATEGORY_LABELS[activeTab]} files
           </p>
-          <div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => setGenerateOpen(true)}
+              data-testid="button-generate-doc"
+            >
+              <Sparkles className="h-3 w-3" />
+              Generate
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -227,6 +239,13 @@ export function DocumentsSection({ project, projectId }: { project: Project; pro
           </div>
         )}
       </CardContent>
+
+      <GenerateDocumentDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        project={project}
+        viewType={activeTab}
+      />
     </Card>
   );
 }
