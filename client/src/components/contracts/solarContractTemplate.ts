@@ -262,17 +262,17 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
       <td style="width: 50%; padding: 10px; vertical-align: top; border: none;">
         <p><strong>Solar Power Store Canada Ltd.</strong></p>
         <p>Authorized Representative:</p>
-        <p style="margin-top: 2em; border-bottom: 1px solid #000; width: 90%; padding-bottom: 4px;">&nbsp;</p>
-        <p>Name: Saoir Sosnovsky</p>
+        <div style="margin-top: 0.5em;"><span class="merge-field" data-merge-field="{{signature}}">{{signature}}</span></div>
+        <p>Name: <span class="merge-field" data-merge-field="{{rep_name}}">{{rep_name}}</span></p>
         <p>Title: Project Manager</p>
         <p>Date: <span class="merge-field" data-merge-field="{{date}}">{{date}}</span></p>
       </td>
       <td style="width: 50%; padding: 10px; vertical-align: top; border: none;">
         <p><strong>Client</strong></p>
         <p>Signature:</p>
-        <div style="margin-top: 0.5em;"><span class="merge-field" data-merge-field="{{signature}}">{{signature}}</span></div>
+        <p style="margin-top: 2em; border-bottom: 1px solid #000; width: 90%; padding-bottom: 4px; color: #999; font-size: 9pt;">Pending client signature</p>
         <p>Name: <span class="merge-field" data-merge-field="{{client_name}}">{{client_name}}</span></p>
-        <p>Date: <span class="merge-field" data-merge-field="{{signer_date}}">{{signer_date}}</span></p>
+        <p>Date: ______________________</p>
       </td>
     </tr>
   </tbody>

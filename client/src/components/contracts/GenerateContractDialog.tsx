@@ -52,6 +52,7 @@ const MERGE_MAP: Record<string, (p: Project) => string> = {
   "{{total_price}}": () => "",
   "{{helcim_link}}": () => "",
   "{{date}}": () => new Date().toLocaleDateString("en-CA"),
+  "{{rep_name}}": () => "",
   "{{signer_name}}": () => "",
   "{{signer_date}}": () => new Date().toLocaleDateString("en-CA"),
   "{{client_initials}}": () => "",

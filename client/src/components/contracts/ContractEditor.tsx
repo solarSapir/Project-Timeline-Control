@@ -55,9 +55,8 @@ const MERGE_FIELDS = [
   ]},
   { group: "Dates & Signatures", fields: [
     { value: "{{date}}", label: "Today's Date" },
-    { value: "{{signature}}", label: "Signature Field" },
-    { value: "{{signer_name}}", label: "Signer Name" },
-    { value: "{{signer_date}}", label: "Signing Date" },
+    { value: "{{rep_name}}", label: "Representative Name" },
+    { value: "{{signature}}", label: "Representative Signature" },
     { value: "{{client_initials}}", label: "Client Initials" },
   ]},
 ];
