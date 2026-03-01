@@ -55,6 +55,8 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
   const [saving, setSaving] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [customFieldOpen, setCustomFieldOpen] = useState(false);
+  const [customFieldName, setCustomFieldName] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -132,10 +134,26 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
 
   const insertMergeField = useCallback((value: string) => {
     if (!editor) return;
+    if (value === "__custom__") {
+      setCustomFieldOpen(true);
+      return;
+    }
     editor.chain().focus().insertContent(
       `<span class="merge-field" data-merge-field="${value}">${value}</span>&nbsp;`
     ).run();
   }, [editor]);
+
+  const handleCustomFieldInsert = useCallback(() => {
+    if (!editor || !customFieldName.trim()) return;
+    const sanitized = customFieldName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    if (!sanitized) return;
+    const fieldValue = `{{${sanitized}}}`;
+    editor.chain().focus().insertContent(
+      `<span class="merge-field" data-merge-field="${fieldValue}">${fieldValue}</span>&nbsp;`
+    ).run();
+    setCustomFieldName("");
+    setCustomFieldOpen(false);
+  }, [editor, customFieldName]);
 
   const insertTable = useCallback(() => {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
@@ -314,7 +332,7 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        <Select onValueChange={insertMergeField}>
+        <Select onValueChange={insertMergeField} value="">
           <SelectTrigger className="h-8 w-[180px] text-xs" data-testid="select-merge-field">
             <SelectValue placeholder="Insert merge field..." />
           </SelectTrigger>
@@ -322,6 +340,9 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
             {MERGE_FIELDS.map((mf) => (
               <SelectItem key={mf.value} value={mf.value}>{mf.label}</SelectItem>
             ))}
+            <SelectItem value="__custom__" className="border-t mt-1 pt-1 font-medium text-primary">
+              + Custom Field...
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -364,6 +385,39 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={customFieldOpen} onOpenChange={(open) => { setCustomFieldOpen(open); if (!open) setCustomFieldName(""); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create Custom Merge Field</DialogTitle>
+            <DialogDescription>
+              Enter a name for your custom field. It will be inserted as a placeholder that can be filled in when generating the contract.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Field Name</Label>
+              <Input
+                value={customFieldName}
+                onChange={(e) => setCustomFieldName(e.target.value)}
+                placeholder="e.g. system_size, panel_count, warranty_years"
+                onKeyDown={(e) => { if (e.key === "Enter") handleCustomFieldInsert(); }}
+                data-testid="input-custom-field-name"
+                autoFocus
+              />
+              {customFieldName.trim() && (
+                <p className="text-xs text-muted-foreground">
+                  Will insert: <span className="font-mono text-primary">{`{{${customFieldName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "")}}}`}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCustomFieldOpen(false); setCustomFieldName(""); }}>Cancel</Button>
+            <Button onClick={handleCustomFieldInsert} disabled={!customFieldName.trim()} data-testid="button-insert-custom-field">Insert Field</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
