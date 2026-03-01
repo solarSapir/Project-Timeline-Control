@@ -5,9 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Plus, Trash2, Save, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ArrowLeft, Trash2, Save, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
@@ -270,45 +268,44 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
   const selected = selectedField !== null ? fields[selectedField] : null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      <div className="flex items-center justify-between gap-4 px-4 py-2 border-b bg-background shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-back-templates">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
           <h3 className="text-lg font-semibold">{template.name}</h3>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            Click to place fields. Drag to move. Drag corner to resize.
+          </span>
         </div>
         <div className="flex items-center gap-2">
+          {pageCount > 1 && (
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={currentPage <= 1} onClick={() => setCurrentPage(currentPage - 1)}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs w-16 text-center">{currentPage}/{pageCount}</span>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={currentPage >= pageCount} onClick={() => setCurrentPage(currentPage + 1)}>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
           <span className="text-sm text-muted-foreground">{fields.length} field{fields.length !== 1 ? "s" : ""}</span>
-          <Button onClick={handleSave} disabled={saving} data-testid="button-save-fields">
+          <Button onClick={handleSave} disabled={saving} size="sm" data-testid="button-save-fields">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
             Save Fields
           </Button>
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Click anywhere on the template to place a new field. Drag fields to reposition, drag the bottom-right corner to resize.
-      </p>
-
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0">
-          {pageCount > 1 && (
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(currentPage - 1)}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm">Page {currentPage} of {pageCount}</span>
-              <Button variant="outline" size="sm" disabled={currentPage >= pageCount} onClick={() => setCurrentPage(currentPage + 1)}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 min-w-0 overflow-auto p-4">
           <div
             ref={containerRef}
-            className="relative border rounded-lg overflow-hidden bg-white cursor-crosshair select-none"
+            className="relative border rounded-lg overflow-hidden bg-white cursor-crosshair select-none mx-auto"
+            style={{ maxWidth: 900 }}
             onClick={handleContainerClick}
             data-testid="template-canvas"
           >
@@ -380,15 +377,11 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
           </div>
         </div>
 
-        <div className="w-72 shrink-0">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Field Properties</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selected ? (
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-3 pr-2">
+        <div className="w-72 shrink-0 border-l bg-background overflow-auto">
+          <div className="p-3">
+            <h4 className="text-sm font-semibold mb-3">Field Properties</h4>
+            {selected ? (
+              <div className="space-y-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Tag (identifier)</Label>
                       <Input
@@ -466,7 +459,7 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Auto-fill From</Label>
-                      <Select value={selected.defaultValue || ""} onValueChange={(v) => updateField(selectedField!, { defaultValue: v || null })}>
+                      <Select value={selected.defaultValue || "none"} onValueChange={(v) => updateField(selectedField!, { defaultValue: v === "none" ? null : v })}>
                         <SelectTrigger className="h-8 text-sm" data-testid="select-field-default">
                           <SelectValue placeholder="None" />
                         </SelectTrigger>
@@ -501,15 +494,13 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
                       <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                       Delete Field
                     </Button>
-                  </div>
-                </ScrollArea>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground py-4">
                   Click on a field to edit its properties, or click on the template to place a new field.
                 </p>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
