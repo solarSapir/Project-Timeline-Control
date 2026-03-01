@@ -1,8 +1,7 @@
 export const SOLAR_CONTRACT_TEMPLATE = `
 <div style="text-align: center; margin-bottom: 1.5em;">
   <img src="/sps-logo.png" alt="Solar Power Store Canada" style="max-height: 80px; margin-bottom: 0.5em;" />
-  <h1 style="font-size: 22pt; font-weight: 700; margin-bottom: 0.2em;">SOLAR POWER STORE</h1>
-  <h2 style="font-size: 16pt; font-weight: 600; color: #444; margin-top: 0;">WORK CONTRACT</h2>
+  <h1 style="font-size: 22pt; font-weight: 700;">SOLAR POWER STORE WORK CONTRACT</h1>
 </div>
 
 <hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" />
