@@ -44,7 +44,7 @@ documentTemplatesRouter.post("/", upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const { name, viewType } = req.body;
+    const { name, viewType, templateType } = req.body;
     if (!name || !viewType) {
       return res.status(400).json({ message: "Name and viewType are required" });
     }
@@ -68,6 +68,7 @@ documentTemplatesRouter.post("/", upload.single("file"), async (req, res) => {
     const template = await storage.createDocumentTemplate({
       name,
       viewType,
+      templateType: templateType || "overlay",
       fileName: req.file.originalname,
       storedName,
       mimeType: req.file.mimetype,
@@ -181,13 +182,53 @@ documentTemplatesRouter.patch("/:id", async (req, res) => {
       return res.status(404).json({ message: "Template not found" });
     }
 
-    const { name, enabled } = req.body;
+    const { name, enabled, htmlContent } = req.body;
     const updates: Record<string, unknown> = {};
     if (typeof name === "string") updates.name = name;
     if (typeof enabled === "boolean") updates.enabled = enabled;
+    if (typeof htmlContent === "string") updates.htmlContent = htmlContent;
 
     const updated = await storage.updateDocumentTemplate(req.params.id, updates as any);
     res.json(updated);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.post("/:id/import-docx", upload.single("file"), async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const mammoth = await import("mammoth");
+    const result = await mammoth.default.convertToHtml(
+      { buffer: req.file.buffer },
+      {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "b => strong",
+          "i => em",
+          "u => u",
+          "strike => s",
+        ],
+      }
+    );
+
+    await storage.updateDocumentTemplate(req.params.id, {
+      htmlContent: result.value,
+    } as any);
+
+    res.json({ html: result.value, messages: result.messages });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });
@@ -202,6 +243,59 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
     b: parseInt(h.substring(4, 6), 16) / 255,
   };
 }
+
+documentTemplatesRouter.post("/:id/generate-contract", upload.single("pdf"), async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No PDF file uploaded" });
+    }
+
+    const { projectId, staffName, signatureData } = req.body;
+    if (!projectId) {
+      return res.status(400).json({ message: "projectId is required" });
+    }
+
+    const resolvedStaffName = staffName && staffName !== "none" ? staffName : "System";
+    const project = await storage.getProject(projectId);
+    const outputName = `${template.name} - ${project?.name || projectId}.pdf`;
+
+    let notes = `Generated from editable template: ${template.name}`;
+    if (signatureData) {
+      try {
+        const sigInfo = JSON.parse(signatureData);
+        const auditParts = [
+          `Signer: ${sigInfo.signerName || "Unknown"}`,
+          `Method: ${sigInfo.method === "drawn" ? "Drawn signature" : "Typed signature"}`,
+          `Timestamp: ${sigInfo.timestamp || new Date().toISOString()}`,
+          `Staff: ${resolvedStaffName}`,
+          `Template: ${template.name} (${template.id})`,
+          `Project: ${project?.name || projectId}`,
+        ];
+        notes += ` | E-SIGNATURE AUDIT: ${auditParts.join("; ")}`;
+      } catch {}
+    }
+
+    const savedFile = await saveFileLocally(
+      projectId,
+      template.viewType,
+      req.file.buffer,
+      outputName,
+      "application/pdf",
+      resolvedStaffName,
+      notes
+    );
+
+    res.json(savedFile);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
 
 documentTemplatesRouter.post("/:id/generate", async (req, res) => {
   try {

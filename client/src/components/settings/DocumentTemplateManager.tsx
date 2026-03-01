@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2 } from "lucide-react";
+import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2, PenLine, FilePlus2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateFieldEditor } from "./TemplateFieldEditor";
+import { ContractEditor } from "../contracts/ContractEditor";
 
 const VIEW_TYPES = [
   { value: "uc", label: "UC Applications" },
@@ -30,8 +31,10 @@ interface TemplateListItem {
   id: string;
   name: string;
   viewType: string;
+  templateType: string | null;
   fileName: string;
   mimeType: string;
+  htmlContent: string | null;
   pageCount: number | null;
   enabled: boolean | null;
   fieldCount: number;
@@ -47,7 +50,12 @@ export function DocumentTemplateManager() {
   const [uploadViewType, setUploadViewType] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editingContract, setEditingContract] = useState<{ id: string; name: string; htmlContent: string | null } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [createContractOpen, setCreateContractOpen] = useState(false);
+  const [contractName, setContractName] = useState("");
+  const [contractViewType, setContractViewType] = useState("");
+  const [creatingContract, setCreatingContract] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery<TemplateListItem[]>({
     queryKey: ["/api/document-templates"],
@@ -113,6 +121,45 @@ export function DocumentTemplateManager() {
     } catch {}
   };
 
+  const handleCreateContract = async () => {
+    if (!contractName || !contractViewType) {
+      toast({ title: "Please fill all fields", variant: "destructive" });
+      return;
+    }
+    setCreatingContract(true);
+    try {
+      const placeholder = new File([new Uint8Array(0)], "contract.html", { type: "text/html" });
+      const formData = new FormData();
+      formData.append("file", placeholder);
+      formData.append("name", contractName);
+      formData.append("viewType", contractViewType);
+      formData.append("templateType", "editable");
+
+      const res = await fetch("/api/document-templates", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Creation failed");
+      }
+
+      const created = await res.json();
+      toast({ title: "Contract template created" });
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      setCreateContractOpen(false);
+      setContractName("");
+      setContractViewType("");
+      setEditingContract({ id: created.id, name: created.name, htmlContent: null });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Creation failed";
+      toast({ title: msg, variant: "destructive" });
+    } finally {
+      setCreatingContract(false);
+    }
+  };
+
   const viewLabel = (vt: string) => VIEW_TYPES.find((v) => v.value === vt)?.label || vt;
 
   if (editingTemplate) {
@@ -120,6 +167,20 @@ export function DocumentTemplateManager() {
       <TemplateFieldEditor
         templateId={editingTemplate}
         onClose={() => setEditingTemplate(null)}
+      />
+    );
+  }
+
+  if (editingContract) {
+    return (
+      <ContractEditor
+        templateId={editingContract.id}
+        initialContent={editingContract.htmlContent || ""}
+        templateName={editingContract.name}
+        onClose={() => {
+          setEditingContract(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+        }}
       />
     );
   }
@@ -148,10 +209,16 @@ export function DocumentTemplateManager() {
             </Button>
           ))}
         </div>
-        <Button onClick={() => setUploadOpen(true)} data-testid="button-upload-template">
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setCreateContractOpen(true)} data-testid="button-create-contract">
+            <FilePlus2 className="h-4 w-4 mr-2" />
+            Create Contract
+          </Button>
+          <Button onClick={() => setUploadOpen(true)} data-testid="button-upload-template">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Template
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -169,14 +236,18 @@ export function DocumentTemplateManager() {
               <CardContent className="pt-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    {t.mimeType === "application/pdf" ? (
+                    {t.templateType === "editable" ? (
+                      <PenLine className="h-5 w-5 text-violet-500 shrink-0" />
+                    ) : t.mimeType === "application/pdf" ? (
                       <FileText className="h-5 w-5 text-red-500 shrink-0" />
                     ) : (
                       <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
                     )}
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate" data-testid={`text-template-name-${t.id}`}>{t.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{t.fileName}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {t.templateType === "editable" ? "Editable contract" : t.fileName}
+                      </p>
                     </div>
                   </div>
                   <Switch
@@ -188,23 +259,40 @@ export function DocumentTemplateManager() {
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline" data-testid={`badge-template-view-${t.id}`}>{viewLabel(t.viewType)}</Badge>
-                  <Badge variant="secondary">{t.fieldCount} field{t.fieldCount !== 1 ? "s" : ""}</Badge>
-                  {t.pageCount && t.pageCount > 1 && (
+                  {t.templateType === "editable" ? (
+                    <Badge variant="secondary" className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">Contract</Badge>
+                  ) : (
+                    <Badge variant="secondary">{t.fieldCount} field{t.fieldCount !== 1 ? "s" : ""}</Badge>
+                  )}
+                  {t.pageCount && t.pageCount > 1 && t.templateType !== "editable" && (
                     <Badge variant="secondary">{t.pageCount} pages</Badge>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setEditingTemplate(t.id)}
-                    data-testid={`button-edit-fields-${t.id}`}
-                  >
-                    <Settings2 className="h-3.5 w-3.5 mr-1.5" />
-                    Configure Fields
-                  </Button>
+                  {t.templateType === "editable" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setEditingContract({ id: t.id, name: t.name, htmlContent: t.htmlContent })}
+                      data-testid={`button-edit-contract-${t.id}`}
+                    >
+                      <PenLine className="h-3.5 w-3.5 mr-1.5" />
+                      Edit Contract
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setEditingTemplate(t.id)}
+                      data-testid={`button-edit-fields-${t.id}`}
+                    >
+                      <Settings2 className="h-3.5 w-3.5 mr-1.5" />
+                      Configure Fields
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -269,6 +357,49 @@ export function DocumentTemplateManager() {
             <Button onClick={handleUpload} disabled={uploading || !uploadFile || !uploadName || !uploadViewType} data-testid="button-confirm-upload">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
               Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createContractOpen} onOpenChange={setCreateContractOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Contract Template</DialogTitle>
+            <DialogDescription>
+              Create an editable contract template with a rich text editor. You can type content directly, import from a Word document, and insert merge fields.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="contract-name">Contract Name</Label>
+              <Input
+                id="contract-name"
+                placeholder="e.g. Solar Installation Agreement"
+                value={contractName}
+                onChange={(e) => setContractName(e.target.value)}
+                data-testid="input-contract-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>View Type</Label>
+              <Select value={contractViewType} onValueChange={setContractViewType}>
+                <SelectTrigger data-testid="select-contract-view-type">
+                  <SelectValue placeholder="Select which tab this contract belongs to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIEW_TYPES.map((vt) => (
+                    <SelectItem key={vt.value} value={vt.value}>{vt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateContractOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateContract} disabled={creatingContract || !contractName || !contractViewType} data-testid="button-confirm-create-contract">
+              {creatingContract ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FilePlus2 className="h-4 w-4 mr-2" />}
+              Create
             </Button>
           </DialogFooter>
         </DialogContent>

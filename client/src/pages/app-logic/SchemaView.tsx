@@ -302,6 +302,8 @@ const tables: TableDef[] = [
       { name: "storedName", type: "text" },
       { name: "mimeType", type: "text" },
       { name: "fileData", type: "bytea", note: "binary backup" },
+      { name: "templateType", type: "text", note: "overlay | editable" },
+      { name: "htmlContent", type: "text", note: "TipTap HTML for editable contracts" },
       { name: "pageCount", type: "integer", note: "default: 1" },
       { name: "enabled", type: "boolean", note: "default: true" },
       { name: "createdAt", type: "timestamp" },

@@ -212,3 +212,107 @@
     inset: -1px;
   }
 }
+
+.contract-editor-content .ProseMirror {
+  outline: none;
+  min-height: 600px;
+  padding: 2rem;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #1a1a1a;
+}
+
+.contract-editor-content .ProseMirror h1 {
+  font-size: 24pt;
+  font-weight: 700;
+  margin-bottom: 0.5em;
+  margin-top: 1em;
+}
+
+.contract-editor-content .ProseMirror h2 {
+  font-size: 18pt;
+  font-weight: 600;
+  margin-bottom: 0.4em;
+  margin-top: 0.8em;
+}
+
+.contract-editor-content .ProseMirror h3 {
+  font-size: 14pt;
+  font-weight: 600;
+  margin-bottom: 0.3em;
+  margin-top: 0.6em;
+}
+
+.contract-editor-content .ProseMirror p {
+  margin-bottom: 0.5em;
+}
+
+.contract-editor-content .ProseMirror ul,
+.contract-editor-content .ProseMirror ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.contract-editor-content .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.contract-editor-content .ProseMirror table td,
+.contract-editor-content .ProseMirror table th {
+  border: 1px solid #ccc;
+  padding: 0.5em;
+  min-width: 50px;
+  vertical-align: top;
+}
+
+.contract-editor-content .ProseMirror table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.contract-editor-content .ProseMirror hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 1.5em 0;
+}
+
+.contract-editor-content .ProseMirror .merge-field {
+  background: #e0f2fe;
+  border: 1px solid #7dd3fc;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: #0369a1;
+  white-space: nowrap;
+}
+
+.dark .contract-editor-content .ProseMirror .merge-field {
+  background: #0c4a6e;
+  border-color: #0284c7;
+  color: #7dd3fc;
+}
+
+.contract-editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.contract-editor-content .ProseMirror .signature-line {
+  border-bottom: 2px solid #000;
+  min-width: 200px;
+  display: inline-block;
+  margin: 0.5em 0;
+  padding-bottom: 2px;
+}
+
+.contract-editor-content .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}

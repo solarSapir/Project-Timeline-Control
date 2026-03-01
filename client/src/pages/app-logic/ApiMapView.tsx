@@ -274,7 +274,9 @@ const apiGroups: ApiGroup[] = [
       { method: "PATCH", path: "/api/document-templates/:id", description: "Update template metadata (name, enabled)", tables: ["document_templates"], usedBy: ["Settings"] },
       { method: "PUT", path: "/api/document-templates/:id/fields", description: "Bulk upsert all fields for a template", tables: ["template_fields"], usedBy: ["Settings"] },
       { method: "GET", path: "/api/document-templates/:id/preview", description: "Serve raw template file for visual editor", tables: ["document_templates"], usedBy: ["Settings"] },
-      { method: "POST", path: "/api/document-templates/:id/generate", description: "Generate filled document from template and values", tables: ["document_templates", "template_fields", "project_files"], usedBy: ["Project Profile"] },
+      { method: "POST", path: "/api/document-templates/:id/generate", description: "Generate filled overlay document from template and values", tables: ["document_templates", "template_fields", "project_files"], usedBy: ["Project Profile"] },
+      { method: "POST", path: "/api/document-templates/:id/generate-contract", description: "Upload client-generated contract PDF with signature audit", tables: ["document_templates", "project_files"], usedBy: ["Project Profile"] },
+      { method: "POST", path: "/api/document-templates/:id/import-docx", description: "Import Word .docx file, convert to HTML via mammoth", tables: ["document_templates"], usedBy: ["Settings"] },
     ],
   },
 ];

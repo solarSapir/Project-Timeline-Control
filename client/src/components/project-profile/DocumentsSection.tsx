@@ -8,9 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { FILE_CATEGORY_LABELS, type ProjectFile, type Project } from "@shared/schema";
 import {
-  FolderOpen, Upload, Download, Trash2, ExternalLink, FileText, Image, File, Sparkles,
+  FolderOpen, Upload, Download, Trash2, ExternalLink, FileText, Image, File, Sparkles, PenLine,
 } from "lucide-react";
 import { GenerateDocumentDialog } from "@/components/documents/GenerateDocumentDialog";
+import { GenerateContractDialog } from "@/components/contracts/GenerateContractDialog";
 
 interface AsanaCustomField {
   name: string;
@@ -44,6 +45,7 @@ function getFileIcon(mimeType: string | null) {
 export function DocumentsSection({ project, projectId }: { project: Project; projectId: string }) {
   const [activeTab, setActiveTab] = useState<string>("uc");
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +152,16 @@ export function DocumentsSection({ project, projectId }: { project: Project; pro
               size="sm"
               variant="outline"
               className="h-7 text-xs gap-1"
+              onClick={() => setContractOpen(true)}
+              data-testid="button-generate-contract"
+            >
+              <PenLine className="h-3 w-3" />
+              Contract
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
               onClick={() => setGenerateOpen(true)}
               data-testid="button-generate-doc"
             >
@@ -243,6 +255,13 @@ export function DocumentsSection({ project, projectId }: { project: Project; pro
       <GenerateDocumentDialog
         open={generateOpen}
         onOpenChange={setGenerateOpen}
+        project={project}
+        viewType={activeTab}
+      />
+
+      <GenerateContractDialog
+        open={contractOpen}
+        onOpenChange={setContractOpen}
         project={project}
         viewType={activeTab}
       />
