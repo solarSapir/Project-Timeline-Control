@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, Download, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { FILE_CATEGORY_LABELS } from "@shared/schema";
 import type { Project, StaffMember } from "@shared/schema";
 
 interface TemplateField {
@@ -168,9 +169,29 @@ export function GenerateDocumentDialog({ open, onOpenChange, project, viewType }
         {step === "select" && (
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {availableTemplates.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center" data-testid="text-no-templates-available">
-                No templates available for this category. Add templates in Settings.
-              </p>
+              <div className="py-4 text-center" data-testid="text-no-templates-available">
+                <p className="text-sm text-muted-foreground">
+                  No templates available for the "{(FILE_CATEGORY_LABELS as Record<string, string>)[viewType] || viewType}" category.
+                </p>
+                {(() => {
+                  const otherCategories = templates
+                    .filter((t) => t.enabled !== false && t.fieldCount > 0 && t.viewType !== viewType)
+                    .map((t) => (FILE_CATEGORY_LABELS as Record<string, string>)[t.viewType] || t.viewType);
+                  const unique = [...new Set(otherCategories)];
+                  if (unique.length > 0) {
+                    return (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Templates exist for: {unique.join(", ")}. Switch to that tab first.
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Add templates in Settings.
+                    </p>
+                  );
+                })()}
+              </div>
             ) : (
               availableTemplates.map((t) => (
                 <button

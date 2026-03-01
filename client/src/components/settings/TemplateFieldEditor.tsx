@@ -10,6 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Plus, Trash2, Save, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+
+GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 interface TemplateField {
   id?: string;
@@ -65,6 +68,8 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
   const [dragging, setDragging] = useState<{ fieldIdx: number; startX: number; startY: number; origX: number; origY: number } | null>(null);
   const [resizing, setResizing] = useState<{ fieldIdx: number; startX: number; startY: number; origW: number; origH: number } | null>(null);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
+  const [pdfPageDataUrl, setPdfPageDataUrl] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const { data: template, isLoading } = useQuery<TemplateData>({
     queryKey: ["/api/document-templates", templateId],
@@ -87,6 +92,43 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
   const previewUrl = `/api/document-templates/${templateId}/preview`;
   const isImage = template?.mimeType?.startsWith("image/");
   const isPdf = template?.mimeType === "application/pdf";
+
+  useEffect(() => {
+    if (!isPdf || !template) return;
+    let cancelled = false;
+    setPdfLoading(true);
+    setPdfPageDataUrl(null);
+
+    (async () => {
+      try {
+        const loadingTask = getDocument(previewUrl);
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+
+        const page = await pdf.getPage(currentPage);
+        if (cancelled) return;
+
+        const scale = 2;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (cancelled) return;
+
+        setPdfPageDataUrl(canvas.toDataURL("image/png"));
+      } catch (err) {
+        console.error("PDF render error:", err);
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isPdf, template, currentPage, previewUrl]);
   const pageCount = template?.pageCount || 1;
 
   const pageFields = fields.filter((f) => f.page === currentPage);
@@ -283,14 +325,22 @@ export function TemplateFieldEditor({ templateId, onClose }: Props) {
               />
             )}
             {isPdf && (
-              <div className="w-full bg-gray-50 flex items-center justify-center" style={{ minHeight: 800 }}>
-                <embed
-                  src={`${previewUrl}#page=${currentPage}`}
-                  type="application/pdf"
-                  className="w-full"
-                  style={{ height: 800 }}
+              pdfLoading ? (
+                <div className="w-full bg-gray-50 flex items-center justify-center" style={{ minHeight: 800 }}>
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : pdfPageDataUrl ? (
+                <img
+                  src={pdfPageDataUrl}
+                  alt={`Page ${currentPage}`}
+                  className="w-full h-auto"
+                  draggable={false}
                 />
-              </div>
+              ) : (
+                <div className="w-full bg-gray-50 flex items-center justify-center" style={{ minHeight: 800 }}>
+                  <p className="text-muted-foreground text-sm">Failed to render PDF page</p>
+                </div>
+              )
             )}
 
             {pageFields.map((field, pageIdx) => {
