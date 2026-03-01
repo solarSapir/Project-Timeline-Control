@@ -95,6 +95,15 @@ export const projects = pgTable("projects", {
   pauseReason: text("pause_reason"),
   pauseNote: text("pause_note"),
   pauseReasonSetAt: timestamp("pause_reason_set_at"),
+  clientPhone: text("client_phone"),
+  clientEmail: text("client_email"),
+  projectAddress: text("project_address"),
+  projectDescription: text("project_description"),
+  contractSubtotal: text("contract_subtotal"),
+  contractHstAmount: text("contract_hst_amount"),
+  contractTotal: text("contract_total"),
+  contractHelcimLink: text("contract_helcim_link"),
+  contractRepName: text("contract_rep_name"),
 });
 
 export const projectDeadlines = pgTable("project_deadlines", {

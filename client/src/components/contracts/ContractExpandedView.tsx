@@ -1,12 +1,15 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Project, TaskAction, ProjectFile } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import {
   CheckCircle2, Clock, DollarSign, Send, ShieldCheck, Upload,
-  FileText, ExternalLink, Eye, Wallet, MessageSquare,
+  FileText, ExternalLink, Eye, Wallet, MessageSquare, PenLine, Save, Loader2,
 } from "lucide-react";
 import { isContractSent, isContractSigned, isDepositCollected, getInstallStageLabel } from "@/utils/stages";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
@@ -14,8 +17,11 @@ import { getContractDueDate, getContractSentDate, getContractFollowUpDate } from
 import { ContractDocumentsDialog } from "./ContractDocumentsDialog";
 import { ContractApproveDialog } from "./ContractApproveDialog";
 import { ContractFollowUpDialog } from "./ContractFollowUpDialog";
+import { GenerateContractDialog } from "./GenerateContractDialog";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { TaskActionDialog } from "@/components/task-action-dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface AsanaCustomField {
   name: string;
@@ -47,6 +53,7 @@ export function ContractExpandedView({
   project: p, docUploaded, uploadedCount, docUploadAction, approved, approvalAction,
   lastFollowUp, updating, onContractSent, onContractSigned, onDepositCollected,
 }: ContractExpandedViewProps) {
+  const { toast } = useToast();
   const sent = isContractSent(p.installTeamStage);
   const signed = isContractSigned(p.installTeamStage);
   const depositDone = isDepositCollected(p.installTeamStage);
@@ -56,6 +63,50 @@ export function ContractExpandedView({
   const daysLeft = getDaysUntilDue(contractDueDate);
 
   const sharePointLink = getAsanaField(p, 'Share Point Link');
+
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const buildDetails = (proj: Project) => ({
+    clientPhone: (proj as any).clientPhone || "",
+    clientEmail: (proj as any).clientEmail || "",
+    projectAddress: (proj as any).projectAddress || "",
+    projectDescription: (proj as any).projectDescription || "",
+    contractSubtotal: (proj as any).contractSubtotal || "",
+    contractHstAmount: (proj as any).contractHstAmount || "",
+    contractTotal: (proj as any).contractTotal || "",
+    contractHelcimLink: (proj as any).contractHelcimLink || "",
+    contractRepName: (proj as any).contractRepName || "",
+  });
+  const [contractDetails, setContractDetails] = useState(buildDetails(p));
+
+  useEffect(() => {
+    setContractDetails(buildDetails(p));
+  }, [p.id, (p as any).clientPhone, (p as any).clientEmail, (p as any).projectAddress, (p as any).projectDescription, (p as any).contractSubtotal, (p as any).contractHstAmount, (p as any).contractTotal, (p as any).contractHelcimLink, (p as any).contractRepName]);
+
+  const hasUnsavedChanges = () => {
+    return contractDetails.clientPhone !== ((p as any).clientPhone || "")
+      || contractDetails.clientEmail !== ((p as any).clientEmail || "")
+      || contractDetails.projectAddress !== ((p as any).projectAddress || "")
+      || contractDetails.projectDescription !== ((p as any).projectDescription || "")
+      || contractDetails.contractSubtotal !== ((p as any).contractSubtotal || "")
+      || contractDetails.contractHstAmount !== ((p as any).contractHstAmount || "")
+      || contractDetails.contractTotal !== ((p as any).contractTotal || "")
+      || contractDetails.contractHelcimLink !== ((p as any).contractHelcimLink || "")
+      || contractDetails.contractRepName !== ((p as any).contractRepName || "");
+  };
+
+  const saveContractDetails = async () => {
+    setSaving(true);
+    try {
+      await apiRequest("PATCH", `/api/projects/${p.id}`, contractDetails);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({ title: "Contract details saved" });
+    } catch {
+      toast({ title: "Failed to save contract details", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const { data: contractFiles } = useQuery<ProjectFile[]>({
     queryKey: ['/api/projects', p.id, 'files', 'contract'],
@@ -149,6 +200,129 @@ export function ContractExpandedView({
           </div>
 
           <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Contract Details
+              </h3>
+              {hasUnsavedChanges() && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-7 text-xs gap-1"
+                  onClick={saveContractDetails}
+                  disabled={saving}
+                  data-testid={`button-save-contract-details-${p.id}`}
+                >
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2.5">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Client Phone</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.clientPhone}
+                  onChange={(e) => setContractDetails({ ...contractDetails, clientPhone: e.target.value })}
+                  placeholder="e.g. (416) 555-1234"
+                  data-testid={`input-client-phone-${p.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Client Email</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.clientEmail}
+                  onChange={(e) => setContractDetails({ ...contractDetails, clientEmail: e.target.value })}
+                  placeholder="e.g. client@email.com"
+                  data-testid={`input-client-email-${p.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Project Address</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.projectAddress}
+                  onChange={(e) => setContractDetails({ ...contractDetails, projectAddress: e.target.value })}
+                  placeholder="e.g. 123 Main St, Toronto, ON"
+                  data-testid={`input-project-address-${p.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Project Description</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.projectDescription}
+                  onChange={(e) => setContractDetails({ ...contractDetails, projectDescription: e.target.value })}
+                  placeholder="e.g. 10kW rooftop solar installation"
+                  data-testid={`input-project-description-${p.id}`}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Subtotal</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={contractDetails.contractSubtotal}
+                    onChange={(e) => setContractDetails({ ...contractDetails, contractSubtotal: e.target.value })}
+                    placeholder="$0.00"
+                    data-testid={`input-subtotal-${p.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">HST</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={contractDetails.contractHstAmount}
+                    onChange={(e) => setContractDetails({ ...contractDetails, contractHstAmount: e.target.value })}
+                    placeholder="$0.00"
+                    data-testid={`input-hst-${p.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Total</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={contractDetails.contractTotal}
+                    onChange={(e) => setContractDetails({ ...contractDetails, contractTotal: e.target.value })}
+                    placeholder="$0.00"
+                    data-testid={`input-total-${p.id}`}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Helcim Invoice Link</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.contractHelcimLink}
+                  onChange={(e) => setContractDetails({ ...contractDetails, contractHelcimLink: e.target.value })}
+                  placeholder="https://helcim.com/..."
+                  data-testid={`input-helcim-link-${p.id}`}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Representative Name</Label>
+                <Input
+                  className="h-8 text-sm"
+                  value={contractDetails.contractRepName}
+                  onChange={(e) => setContractDetails({ ...contractDetails, contractRepName: e.target.value })}
+                  placeholder="e.g. Saoir Sosnovsky"
+                  data-testid={`input-rep-name-${p.id}`}
+                />
+              </div>
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={() => setGenerateOpen(true)}
+              data-testid={`button-generate-contract-${p.id}`}
+            >
+              <PenLine className="h-4 w-4" />
+              Generate Contract
+            </Button>
+          </div>
+
+          <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Upload className="h-4 w-4" /> Documents & Approval
             </h3>
@@ -236,6 +410,13 @@ export function ContractExpandedView({
           </div>
         </div>
       </div>
+
+      <GenerateContractDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        project={p}
+        viewType="contracts"
+      />
     </div>
   );
 }
