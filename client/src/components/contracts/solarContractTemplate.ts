@@ -1,5 +1,6 @@
 export const SOLAR_CONTRACT_TEMPLATE = `
 <div style="text-align: center; margin-bottom: 1.5em;">
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" style="max-height: 80px; margin-bottom: 0.5em;" />
   <h1 style="font-size: 22pt; font-weight: 700; margin-bottom: 0.2em;">SOLAR POWER STORE</h1>
   <h2 style="font-size: 16pt; font-weight: 600; color: #444; margin-top: 0;">WORK CONTRACT</h2>
 </div>
@@ -123,6 +124,10 @@ Email: projects@solarpowerstore.ca
 
 <div style="page-break-before: always;"></div>
 
+<div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" style="max-height: 50px;" />
+</div>
+
 <h2 style="font-size: 14pt;">APPENDIX A: TERMS AND CONDITIONS</h2>
 
 <p><strong>1. Contract Work.</strong> The "Work" consists of the work described in Appendix B: Scope of Work (the "Work") to be performed by Solar Power Store Canada Ltd. (the "Contractor") in respect of the Project.</p>
@@ -156,6 +161,10 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
 </p>
 
 <div style="page-break-before: always;"></div>
+
+<div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" style="max-height: 50px;" />
+</div>
 
 <h2 style="font-size: 14pt;">APPENDIX B: SCOPE OF WORK</h2>
 
@@ -238,6 +247,10 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
 </p>
 
 <div style="page-break-before: always;"></div>
+
+<div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" style="max-height: 50px;" />
+</div>
 
 <h2 style="font-size: 14pt;">SIGNATURES</h2>
 
