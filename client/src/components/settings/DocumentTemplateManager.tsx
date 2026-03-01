@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2, PenLine, FilePlus2 } from "lucide-react";
+import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2, PenLine, FilePlus2, Eye } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateFieldEditor } from "./TemplateFieldEditor";
@@ -58,6 +58,7 @@ export function DocumentTemplateManager() {
   const [contractViewType, setContractViewType] = useState("");
   const [contractStarter, setContractStarter] = useState("solar");
   const [creatingContract, setCreatingContract] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
 
   const { data: templates = [], isLoading } = useQuery<TemplateListItem[]>({
     queryKey: ["/api/document-templates"],
@@ -280,16 +281,27 @@ export function DocumentTemplateManager() {
 
                 <div className="flex items-center gap-2">
                   {t.templateType === "editable" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setEditingContract({ id: t.id, name: t.name, htmlContent: t.htmlContent })}
-                      data-testid={`button-edit-contract-${t.id}`}
-                    >
-                      <PenLine className="h-3.5 w-3.5 mr-1.5" />
-                      Edit Contract
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setEditingContract({ id: t.id, name: t.name, htmlContent: t.htmlContent })}
+                        data-testid={`button-edit-contract-${t.id}`}
+                      >
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPreviewTemplate(t)}
+                        data-testid={`button-preview-form-${t.id}`}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" />
+                        Preview
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant="outline"
@@ -445,6 +457,74 @@ export function DocumentTemplateManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!previewTemplate} onOpenChange={(open) => !open && setPreviewTemplate(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Form Preview: {previewTemplate?.name}</DialogTitle>
+            <DialogDescription>
+              This is what the form will look like when generating a contract from this template.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {previewTemplate?.htmlContent && (() => {
+              const matches = previewTemplate.htmlContent!.match(/\{\{[^}]+\}\}/g) || [];
+              const fields = [...new Set(matches)].filter((m) => m !== "{{signature}}");
+              const hasSignature = previewTemplate.htmlContent!.includes("{{signature}}");
+              return (
+                <div className="space-y-4 py-2" data-testid="preview-form-fields">
+                  {fields.length > 0 ? (
+                    fields.map((field) => {
+                      const label = field.replace(/\{\{|\}\}/g, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                      return (
+                        <div key={field} className="space-y-1">
+                          <Label className="text-sm">{label}</Label>
+                          <Input
+                            placeholder={field}
+                            disabled
+                            className="bg-muted/30"
+                            data-testid={`preview-input-${field.replace(/[{}]/g, "")}`}
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">
+                      This template has no merge fields.
+                    </p>
+                  )}
+
+                  <div className="space-y-1 pt-2 border-t">
+                    <Label className="text-sm">Prepared By</Label>
+                    <Input placeholder="Select staff member (optional)" disabled className="bg-muted/30" />
+                  </div>
+
+                  {hasSignature && (
+                    <div className="pt-2 border-t">
+                      <Label className="text-sm mb-2 block">Electronic Signature</Label>
+                      <div className="bg-muted/30 border border-dashed rounded-md p-6 text-center text-sm text-muted-foreground">
+                        Signature pad will appear here (draw or type)
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t text-xs text-muted-foreground space-y-1">
+                    <p><strong>{fields.length}</strong> merge field{fields.length !== 1 ? "s" : ""} to fill{hasSignature ? " + electronic signature" : ""}</p>
+                  </div>
+                </div>
+              );
+            })()}
+            {previewTemplate && !previewTemplate.htmlContent && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                This template has no content yet. Edit the contract first to add merge fields.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewTemplate(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
