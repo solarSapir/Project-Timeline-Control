@@ -10,6 +10,7 @@ import { FormulaTooltip } from "./FormulaTooltip";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
 import { DecisionTimeDrilldown } from "./DecisionTimeDrilldown";
+import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
 
 interface CompletionEntry {
   date: string;
@@ -111,17 +112,22 @@ export function UcKpiSection() {
   const formatStat = (val: number | null) =>
     val !== null ? `${val} days` : "--";
 
-  return (
-    <div className="space-y-4" data-testid="section-uc-kpi">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold" data-testid="text-uc-kpi-title">
-          UC Team KPIs
-        </h2>
-        <span className="text-xs text-muted-foreground">
-          ({stats.totalUcProjects} projects requiring UC)
-        </span>
-      </div>
+  const summaryItems = [
+    { label: "This Week", value: stats.completionsThisWeek, color: "hsl(33, 93%, 54%)" },
+    { label: "Avg/Day", value: stats.avgTasksPerDay },
+    { label: "Submit", value: stats.avgDaysToSubmit !== null ? `${stats.avgDaysToSubmit}d` : "--" },
+    { label: "Decision", value: stats.avgDaysToDecision !== null ? `${stats.avgDaysToDecision}d` : "--" },
+  ];
 
+  return (
+    <CollapsibleKpiSection
+      storageKey="uc-kpi"
+      title="UC Team KPIs"
+      titleTestId="text-uc-kpi-title"
+      titleExtra={<span className="text-xs text-muted-foreground">({stats.totalUcProjects} projects requiring UC)</span>}
+      summaryItems={summaryItems}
+      testId="section-uc-kpi"
+    >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card
           className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
@@ -296,6 +302,6 @@ export function UcKpiSection() {
         details={stats.decisionTimeDetails || []}
         overallAvg={stats.avgDaysToDecision}
       />
-    </div>
+    </CollapsibleKpiSection>
   );
 }

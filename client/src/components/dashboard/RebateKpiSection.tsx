@@ -10,6 +10,7 @@ import { Activity, TrendingUp, Clock, AlertTriangle, CheckCircle2, Send } from "
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { SubmitTimeDrilldown } from "./SubmitTimeDrilldown";
 import { FormulaTooltip } from "./FormulaTooltip";
+import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
 
 interface SubmitTimeEntry {
   projectName: string;
@@ -77,18 +78,23 @@ export function RebateKpiSection() {
   const formatStat = (val: number | null) =>
     val !== null ? `${val} days` : "--";
 
+  const summaryItems = [
+    { label: "This Week", value: stats.completionsThisWeek, color: "hsl(270, 60%, 55%)" },
+    { label: "Avg/Day", value: stats.avgTasksPerDay },
+    { label: "Submit", value: stats.avgDaysToSubmit !== null ? `${stats.avgDaysToSubmit}d` : "--" },
+    { label: "Rejection", value: stats.rejectionRate !== null ? `${stats.rejectionRate}%` : "--" },
+  ];
+
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-4" data-testid="section-rebate-kpi">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold" data-testid="text-rebate-kpi-title">
-            Rebate Team KPIs
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            ({stats.totalRebateProjects} rebate-eligible projects)
-          </span>
-        </div>
-
+      <CollapsibleKpiSection
+        storageKey="rebate-kpi"
+        title="Rebate Team KPIs"
+        titleTestId="text-rebate-kpi-title"
+        titleExtra={<span className="text-xs text-muted-foreground">({stats.totalRebateProjects} rebate-eligible projects)</span>}
+        summaryItems={summaryItems}
+        testId="section-rebate-kpi"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card
             className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
@@ -233,7 +239,7 @@ export function RebateKpiSection() {
           details={stats.submitTimeDetails || []}
           overallAvg={stats.avgDaysToSubmit}
         />
-      </div>
+      </CollapsibleKpiSection>
     </TooltipProvider>
   );
 }

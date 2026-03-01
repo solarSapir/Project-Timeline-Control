@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, Clock, CheckCircle2, Timer, ShieldAlert } from "lucide-react";
 import { Link } from "wouter";
+import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
 
 interface EscalationKpiStats {
   totalTickets: number;
@@ -54,18 +55,26 @@ export function EscalationKpiSection() {
 
   const hasOverdue = stats.overdueCount > 0;
 
+  const summaryItems = [
+    { label: "Open", value: stats.openCount, color: stats.openCount > 0 ? "hsl(38, 92%, 50%)" : undefined },
+    { label: "Overdue", value: stats.overdueCount, color: stats.overdueCount > 0 ? "hsl(0, 84%, 60%)" : undefined },
+    { label: "SLA", value: stats.slaRate !== null ? `${Math.round(stats.slaRate)}%` : "--" },
+  ];
+
   return (
-    <div className="space-y-4" data-testid="escalation-kpi-section">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-amber-500" />
-          Escalation KPIs
-        </h2>
-        <Link href="/escalated-tickets" className="text-xs text-primary hover:underline" data-testid="link-view-all-tickets">
+    <CollapsibleKpiSection
+      storageKey="escalation-kpi"
+      title="Escalation KPIs"
+      titleTestId="text-escalation-kpi-title"
+      titleIcon={<ShieldAlert className="h-5 w-5 text-amber-500" />}
+      titleExtra={
+        <Link href="/escalated" className="text-xs text-primary hover:underline" data-testid="link-view-all-tickets">
           View All Tickets
         </Link>
-      </div>
-
+      }
+      summaryItems={summaryItems}
+      testId="escalation-kpi-section"
+    >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card data-testid="card-kpi-open-tickets">
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
@@ -124,6 +133,6 @@ export function EscalationKpiSection() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </CollapsibleKpiSection>
   );
 }

@@ -9,6 +9,7 @@ import {
 import { Activity, TrendingUp, Upload, Clock, FileCheck, Banknote } from "lucide-react";
 import { CompletionsDrilldown } from "./CompletionsDrilldown";
 import { FormulaTooltip } from "./FormulaTooltip";
+import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
 
 interface ContractKpiStats {
   dailyCounts: Record<string, Record<string, number>>;
@@ -64,18 +65,23 @@ export function ContractKpiSection() {
   const formatStat = (val: number | null) =>
     val !== null ? `${val} days` : "--";
 
+  const summaryItems = [
+    { label: "This Week", value: stats.completionsThisWeek, color: "hsl(180, 60%, 45%)" },
+    { label: "Avg/Day", value: stats.avgTasksPerDay },
+    { label: "Upload", value: stats.avgDaysToUpload !== null ? `${stats.avgDaysToUpload}d` : "--" },
+    { label: "Review", value: stats.avgDaysToReview !== null ? `${stats.avgDaysToReview}d` : "--" },
+  ];
+
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-4" data-testid="section-contract-kpi">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold" data-testid="text-contract-kpi-title">
-            Contract Team KPIs
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            ({stats.totalContractProjects} contract-stage projects)
-          </span>
-        </div>
-
+      <CollapsibleKpiSection
+        storageKey="contract-kpi"
+        title="Contract Team KPIs"
+        titleTestId="text-contract-kpi-title"
+        titleExtra={<span className="text-xs text-muted-foreground">({stats.totalContractProjects} contract-stage projects)</span>}
+        summaryItems={summaryItems}
+        testId="section-contract-kpi"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card
             className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
@@ -207,7 +213,7 @@ export function ContractKpiSection() {
           completions={stats.recentCompletions || []}
           dailyCounts={stats.dailyCounts}
         />
-      </div>
+      </CollapsibleKpiSection>
     </TooltipProvider>
   );
 }
