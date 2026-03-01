@@ -9,8 +9,23 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { Image as ImageExt } from "@tiptap/extension-image";
+import { Image as TiptapImage } from "@tiptap/extension-image";
 import { Placeholder } from "@tiptap/extension-placeholder";
+import { mergeAttributes } from "@tiptap/core";
+
+const ResizableImage = TiptapImage.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
+      height: { default: null, renderHTML: (attrs) => attrs.height ? { height: attrs.height } : {} },
+      style: { default: null, renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {} },
+    };
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["img", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
+  },
+});
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +38,7 @@ import {
   List, ListOrdered, Heading1, Heading2, Heading3,
   Table as TableIcon, Redo, Undo,
   ArrowLeft, Save, Loader2, Upload,
-  Minus,
+  Minus, ImageIcon,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -91,7 +106,7 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
       TableRow,
       TableCell,
       TableHeader,
-      ImageExt.configure({ inline: false, allowBase64: true }),
+      ResizableImage.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({
         placeholder: "Start typing your contract here, or import a Word document...",
       }),
@@ -347,6 +362,51 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
             data-testid="input-text-color"
           />
         </div>
+
+        {editor.isActive("image") && (
+          <>
+            <Separator orientation="vertical" className="h-6 mx-1" />
+            <div className="flex items-center gap-1">
+              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              {[40, 60, 80, 120, 200].map((size) => (
+                <Button
+                  key={size}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-1.5 text-xs"
+                  onClick={() => {
+                    editor.chain().focus().updateAttributes("image", {
+                      width: `${size}px`,
+                      style: `max-height: ${size}px; width: auto;`,
+                    }).run();
+                  }}
+                  data-testid={`button-img-size-${size}`}
+                >
+                  {size}px
+                </Button>
+              ))}
+              <Input
+                type="number"
+                className="h-7 w-16 text-xs"
+                placeholder="px"
+                min={20}
+                max={800}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = parseInt((e.target as HTMLInputElement).value);
+                    if (val >= 20 && val <= 800) {
+                      editor.chain().focus().updateAttributes("image", {
+                        width: `${val}px`,
+                        style: `max-height: ${val}px; width: auto;`,
+                      }).run();
+                    }
+                  }
+                }}
+                data-testid="input-img-custom-size"
+              />
+            </div>
+          </>
+        )}
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
