@@ -102,6 +102,42 @@ escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
       byView[t.viewType] = (byView[t.viewType] || 0) + 1;
     }
 
+    const dailyCounts: Record<string, { created: number; resolved: number }> = {};
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    for (const t of allTickets) {
+      if (t.createdAt) {
+        const d = new Date(t.createdAt);
+        if (d >= thirtyDaysAgo) {
+          const key = d.toISOString().slice(0, 10);
+          if (!dailyCounts[key]) dailyCounts[key] = { created: 0, resolved: 0 };
+          dailyCounts[key].created++;
+        }
+      }
+      if (t.resolvedAt) {
+        const d = new Date(t.resolvedAt);
+        if (d >= thirtyDaysAgo) {
+          const key = d.toISOString().slice(0, 10);
+          if (!dailyCounts[key]) dailyCounts[key] = { created: 0, resolved: 0 };
+          dailyCounts[key].resolved++;
+        }
+      }
+    }
+
+    const recentTickets = allTickets
+      .filter(t => t.createdAt)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 20)
+      .map(t => ({
+        id: t.id,
+        projectName: t.projectName,
+        viewType: t.viewType,
+        status: t.status,
+        staffName: t.staffName,
+        createdAt: t.createdAt,
+        resolvedAt: t.resolvedAt,
+      }));
+
     res.json({
       totalTickets: allTickets.length,
       openCount: open.length,
@@ -112,6 +148,8 @@ escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
       slaRate,
       byView,
       slaHours: SLA_HOURS,
+      dailyCounts,
+      recentTickets,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
