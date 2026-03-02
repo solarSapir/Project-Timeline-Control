@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   CheckCircle2, Clock, DollarSign, Send, ShieldCheck, Upload,
-  FileText, ExternalLink, Eye, Wallet, MessageSquare, PenLine, Save, Loader2, Plus, Trash2,
+  FileText, ExternalLink, Eye, Wallet, MessageSquare, PenLine, Save, Loader2, Plus, Trash2, Maximize2, Minimize2,
 } from "lucide-react";
 import { isContractSent, isContractSigned, isDepositCollected, getInstallStageLabel } from "@/utils/stages";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
@@ -92,6 +93,7 @@ export function ContractExpandedView({
   const sharePointLink = getAsanaField(p, 'Share Point Link');
 
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [milestones, setMilestones] = useState<Milestone[]>(() => {
     const saved = (p as any).contractMilestones;
@@ -269,19 +271,30 @@ export function ContractExpandedView({
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Contract Details
               </h3>
-              {hasUnsavedChanges() && (
+              <div className="flex items-center gap-1.5">
+                {hasUnsavedChanges() && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-xs gap-1"
+                    onClick={saveContractDetails}
+                    disabled={saving}
+                    data-testid={`button-save-contract-details-${p.id}`}
+                  >
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    Save
+                  </Button>
+                )}
                 <Button
                   size="sm"
-                  variant="default"
-                  className="h-7 text-xs gap-1"
-                  onClick={saveContractDetails}
-                  disabled={saving}
-                  data-testid={`button-save-contract-details-${p.id}`}
+                  variant="ghost"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setFocusMode(true)}
+                  data-testid={`button-focus-contract-${p.id}`}
                 >
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  Save
+                  <Maximize2 className="h-3.5 w-3.5" />
                 </Button>
-              )}
+              </div>
             </div>
             <div className="space-y-2.5">
               <div className="space-y-1">
