@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileText, Download, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, Download, CheckCircle2, Paperclip, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad, type SignatureData } from "./SignaturePad";
@@ -74,6 +74,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
   const [staffName, setStaffName] = useState("");
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const [generatedFile, setGeneratedFile] = useState<GeneratedFile | null>(null);
+  const [attachments, setAttachments] = useState<Record<string, File | null>>({});
   const previewRef = useRef<HTMLDivElement>(null);
 
   const { data: templates = [] } = useQuery<TemplateListItem[]>({
@@ -99,12 +100,22 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       setStaffName("");
       setSignatureData(null);
       setGeneratedFile(null);
+      setAttachments({});
     }
   }, [open]);
 
   const extractMergeFields = useCallback((html: string): string[] => {
     const matches = html.match(/\{\{[^}]+\}\}/g) || [];
     return [...new Set(matches)].filter((m) => m !== "{{signature}}");
+  }, []);
+
+  const ATTACHMENT_SECTIONS = [
+    { key: "site_plan", label: "Site Plan", detect: /site plan/i },
+    { key: "latest_proposal", label: "Latest Proposal", detect: /latest proposal/i },
+  ];
+
+  const detectAttachmentSections = useCallback((html: string) => {
+    return ATTACHMENT_SECTIONS.filter((s) => s.detect.test(html));
   }, []);
 
   const handleSelectTemplate = (t: TemplateListItem) => {
@@ -146,8 +157,20 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       html = html.replaceAll("{{signature}}", '<div style="border-bottom: 2px solid #000; width: 300px; height: 40px; margin: 10px 0;"></div>');
     }
 
+    const attachmentSections = detectAttachmentSections(html);
+    for (const section of attachmentSections) {
+      const file = attachments[section.key];
+      const placeholderRegex = new RegExp(
+        `<p[^>]*>\\s*(?:<[^>]*>)*[^<]*(?:${section.detect.source})[^<]*(?:will be attached|drag and drop|attach)[^<]*(?:</[^>]*>)*\\s*</p>`,
+        "gi"
+      );
+      if (file) {
+        html = html.replace(placeholderRegex, `<p style="text-align: center; color: #4a90d9; font-style: italic; padding: 0.5em; border: 1px dashed #4a90d9; background: #f0f7ff;">${section.label} attached: ${file.name} (see appended pages)</p>`);
+      }
+    }
+
     return html;
-  }, [selectedTemplate, mergeValues, signatureData]);
+  }, [selectedTemplate, mergeValues, signatureData, attachments, detectAttachmentSections]);
 
   const signatureDataRef = useRef<SignatureData | null>(null);
   useEffect(() => { signatureDataRef.current = signatureData; }, [signatureData]);
@@ -230,6 +253,11 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       formData.append("staffName", staffName && staffName !== "none" ? staffName : "");
       if (activeSigData) {
         formData.append("signatureData", JSON.stringify(activeSigData));
+      }
+      for (const [key, file] of Object.entries(attachments)) {
+        if (file) {
+          formData.append(`attachment_${key}`, file);
+        }
       }
 
       const res = await fetch(`/api/document-templates/${selectedTemplateId}/generate-contract`, {
@@ -319,6 +347,51 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
                 <p className="text-sm text-muted-foreground py-2">
                   This template has no merge fields. You can proceed directly.
                 </p>
+              )}
+
+              {detectAttachmentSections(selectedTemplate?.htmlContent || "").length > 0 && (
+                <div className="space-y-3 pt-3 border-t">
+                  <Label className="text-sm font-medium">File Attachments</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Attach PDF or image files to be appended as pages in the generated contract.
+                  </p>
+                  {detectAttachmentSections(selectedTemplate?.htmlContent || "").map((section) => (
+                    <div key={section.key} className="space-y-1">
+                      <Label className="text-sm">{section.label}</Label>
+                      {attachments[section.key] ? (
+                        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md border">
+                          <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm flex-1 truncate">{attachments[section.key]!.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {(attachments[section.key]!.size / 1024 / 1024).toFixed(1)} MB
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => setAttachments({ ...attachments, [section.key]: null })}
+                            data-testid={`button-remove-attachment-${section.key}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setAttachments({ ...attachments, [section.key]: file });
+                            }}
+                            className="text-sm"
+                            data-testid={`input-attachment-${section.key}`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
 
               <div className="space-y-1 pt-2 border-t">

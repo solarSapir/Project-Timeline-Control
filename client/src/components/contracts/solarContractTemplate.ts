@@ -46,13 +46,13 @@ Email: projects@solarpowerstore.ca
 <p style="font-size: 13pt;"><span class="merge-field" data-merge-field="{{project_name}}">{{project_name}}</span></p>
 
 <h2 style="font-size: 14pt;">SITE PLAN</h2>
-<p style="background: #f5f5f5; border: 1px dashed #ccc; padding: 1em; text-align: center; color: #888; font-style: italic;">
-[Attach site plan image here - drag and drop or paste the image]
+<p style="background: #f0f7ff; border: 1px dashed #4a90d9; padding: 1em; text-align: center; color: #4a90d9; font-style: italic;">
+Site plan will be attached during contract generation (supports PDF or image files)
 </p>
 
 <h2 style="font-size: 14pt;">LATEST PROPOSAL</h2>
-<p style="background: #f5f5f5; border: 1px dashed #ccc; padding: 1em; text-align: center; color: #888; font-style: italic;">
-[Attach latest proposal here - drag and drop or paste the image]
+<p style="background: #f0f7ff; border: 1px dashed #4a90d9; padding: 1em; text-align: center; color: #4a90d9; font-style: italic;">
+Latest proposal will be attached during contract generation (supports PDF or image files)
 </p>
 
 <h2 style="font-size: 14pt;">PROJECT DESCRIPTION</h2>

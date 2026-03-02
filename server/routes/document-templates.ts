@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { upload } from "../middleware/upload";
+import multer from "multer";
 import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, readFileSync } from "fs";
 import { writeFile } from "fs/promises";
@@ -244,14 +245,21 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
-documentTemplatesRouter.post("/:id/generate-contract", upload.single("pdf"), async (req, res) => {
+const largeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
+
+documentTemplatesRouter.post("/:id/generate-contract", largeUpload.any(), async (req, res) => {
   try {
     const template = await storage.getDocumentTemplateById(req.params.id);
     if (!template) {
       return res.status(404).json({ message: "Template not found" });
     }
 
-    if (!req.file) {
+    const files = req.files as Express.Multer.File[] | undefined;
+    const pdfFile = files?.find((f) => f.fieldname === "pdf");
+    if (!pdfFile) {
       return res.status(400).json({ message: "No PDF file uploaded" });
     }
 
@@ -280,10 +288,88 @@ documentTemplatesRouter.post("/:id/generate-contract", upload.single("pdf"), asy
       } catch {}
     }
 
+    const attachmentFiles = (files || []).filter((f) => f.fieldname.startsWith("attachment_"));
+    let finalBuffer: Buffer = pdfFile.buffer;
+
+    if (attachmentFiles.length > 0) {
+      const contractPdf = await PDFDocument.load(pdfFile.buffer);
+
+      for (const attachment of attachmentFiles) {
+        const label = attachment.fieldname.replace("attachment_", "").replace(/_/g, " ").toUpperCase();
+        const mime = attachment.mimetype.toLowerCase();
+
+        if (mime === "application/pdf") {
+          const attachPdf = await PDFDocument.load(attachment.buffer);
+          const pageIndices = attachPdf.getPageIndices();
+          const copiedPages = await contractPdf.copyPages(attachPdf, pageIndices);
+
+          const font = await contractPdf.embedFont(StandardFonts.HelveticaBold);
+          for (let i = 0; i < copiedPages.length; i++) {
+            const page = contractPdf.addPage(copiedPages[i]);
+            if (i === 0) {
+              const { width, height } = page.getSize();
+              page.drawText(`${label} - Page ${i + 1} of ${copiedPages.length}`, {
+                x: 20,
+                y: height - 20,
+                size: 8,
+                font,
+                color: rgb(0.4, 0.4, 0.4),
+              });
+            }
+          }
+        } else if (mime.startsWith("image/")) {
+          let embeddedImage;
+          if (mime === "image/png") {
+            embeddedImage = await contractPdf.embedPng(attachment.buffer);
+          } else {
+            embeddedImage = await contractPdf.embedJpg(attachment.buffer);
+          }
+
+          const imgDims = embeddedImage.scale(1);
+          const pageWidth = 612;
+          const pageHeight = 792;
+          const margin = 40;
+          const headerSpace = 30;
+          const availWidth = pageWidth - margin * 2;
+          const availHeight = pageHeight - margin * 2 - headerSpace;
+
+          let drawWidth = imgDims.width;
+          let drawHeight = imgDims.height;
+          if (drawWidth > availWidth || drawHeight > availHeight) {
+            const scale = Math.min(availWidth / drawWidth, availHeight / drawHeight);
+            drawWidth *= scale;
+            drawHeight *= scale;
+          }
+
+          const page = contractPdf.addPage([pageWidth, pageHeight]);
+          const font = await contractPdf.embedFont(StandardFonts.HelveticaBold);
+          page.drawText(label, {
+            x: margin,
+            y: pageHeight - margin,
+            size: 10,
+            font,
+            color: rgb(0.2, 0.2, 0.2),
+          });
+
+          const x = (pageWidth - drawWidth) / 2;
+          const y = (pageHeight - drawHeight - headerSpace) / 2;
+          page.drawImage(embeddedImage, {
+            x,
+            y,
+            width: drawWidth,
+            height: drawHeight,
+          });
+        }
+      }
+
+      const mergedBytes = await contractPdf.save();
+      finalBuffer = Buffer.from(mergedBytes);
+    }
+
     const savedFile = await saveFileLocally(
       projectId,
       template.viewType,
-      req.file.buffer,
+      finalBuffer,
       outputName,
       "application/pdf",
       resolvedStaffName,
