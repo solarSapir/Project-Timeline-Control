@@ -7,6 +7,7 @@ import { UcKpiSection } from "@/components/dashboard/UcKpiSection";
 import { RebateKpiSection } from "@/components/dashboard/RebateKpiSection";
 import { ContractKpiSection } from "@/components/dashboard/ContractKpiSection";
 import { EscalationKpiSection } from "@/components/dashboard/EscalationKpiSection";
+import { PausedKpiSection } from "@/components/dashboard/PausedKpiSection";
 import { PmStatusChart } from "@/components/dashboard/PmStatusChart";
 import { type Project, type ProjectDeadline } from "@shared/schema";
 import { TimelineIndicator, TimelineHealth } from "@/components/timeline-indicator";
@@ -110,6 +111,8 @@ export default function Dashboard() {
       <ContractKpiSection />
 
       <EscalationKpiSection />
+
+      <PausedKpiSection />
 
       <Card>
         <CardHeader>
