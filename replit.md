@@ -33,6 +33,7 @@ Solar PM is a project management application for solar installation companies. I
 - **Document Template System**: Supports two template types:
     1. **Overlay templates**: Visual placement of fillable fields on PDFs/images for auto-generation.
     2. **Editable contract templates**: Rich text editor with .docx import, full formatting, merge fields, and electronic signature support.
+    - **HTML-based generation**: Contracts are generated as standalone HTML documents (not PDFs). The HTML includes print-optimized CSS with `@page` rules, visual page separation on screen, and a "Print / Save as PDF" toolbar. Logo images are embedded as base64. Image attachments are embedded inline; PDF attachments are saved separately and linked. Merge field values are HTML-escaped to prevent XSS.
 - **Local File Storage System**: All file uploads are stored locally on the server filesystem, organized by project and category.
 - **Project Documents Section**: Provides categorized folders, file management, and SharePoint links within the project profile.
 - **PM Status Change Dialog**: Requires a note and staff selection for PM Status changes, posting to Asana.

@@ -192,8 +192,6 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
   const [milestones, setMilestones] = useState<Milestone[]>([...DEFAULT_MILESTONES]);
   const [scopeItems, setScopeItems] = useState<ScopeItem[]>(DEFAULT_SCOPE_ITEMS.map((s) => ({ ...s })));
   const [customScopeText, setCustomScopeText] = useState("");
-  const previewRef = useRef<HTMLDivElement>(null);
-
   const { data: templates = [] } = useQuery<TemplateListItem[]>({
     queryKey: ["/api/document-templates"],
     enabled: open,
@@ -260,7 +258,8 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
     const sig = overrideSigData ?? signatureData;
 
     for (const [key, value] of Object.entries(mergeValues)) {
-      html = html.replaceAll(key, value || key);
+      const escaped = (value || key).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      html = html.replaceAll(key, escaped);
     }
 
     const paymentHtml = buildPaymentScheduleHtml(milestones);
@@ -319,86 +318,8 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
     try {
       const finalHtml = buildFinalHtml(activeSigData);
 
-      const fullDocument = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            @page { margin: 0.75in; size: letter; }
-            body {
-              font-family: "Times New Roman", Georgia, serif;
-              font-size: 12pt;
-              line-height: 1.5;
-              color: #1a1a1a;
-              margin: 0;
-              padding: 0;
-            }
-            h1 { font-size: 22pt; font-weight: 700; margin: 0.4em 0; }
-            h2 { font-size: 14pt; font-weight: 600; margin: 0.5em 0 0.3em 0; }
-            h3 { font-size: 13pt; font-weight: 600; margin: 0.3em 0; }
-            p { margin: 0.3em 0; }
-            table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
-            td, th { padding: 6px 10px; vertical-align: top; }
-            td[style*="border"], th[style*="border"] { }
-            table:not([style*="border"]) td:not([style*="border"]),
-            table:not([style*="border"]) th:not([style*="border"]) {
-              border: 1px solid #ccc;
-            }
-            th:not([style*="background"]) { background: #f5f5f5; font-weight: 600; }
-            hr { border: none; border-top: 2px solid #333; margin: 1em 0; }
-            ul, ol { padding-left: 1.5em; margin: 0.3em 0; }
-            li { margin-bottom: 0.15em; }
-            img { max-width: 100%; }
-            img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
-            img[data-align="right"] { display: block; margin-left: auto; margin-right: 0; }
-            .html2pdf__page-break { display: block; page-break-before: always; }
-            div[style*="page-break-before"] { page-break-before: always; break-before: page; }
-          </style>
-        </head>
-        <body>${finalHtml}</body>
-        </html>
-      `;
-
-      const html2pdf = (await import("html2pdf.js")).default;
-
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "absolute";
-      iframe.style.left = "-9999px";
-      iframe.style.width = "8.5in";
-      iframe.style.height = "11in";
-      document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) throw new Error("Could not access iframe document");
-      iframeDoc.open();
-      iframeDoc.write(fullDocument);
-      iframeDoc.close();
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      const pageBreakDivs = iframeDoc.querySelectorAll('div[style*="page-break-before"]');
-      pageBreakDivs.forEach((el) => {
-        el.classList.add("html2pdf__page-break");
-      });
-
-      const container = iframeDoc.body;
-
-      const pdfBlob = await html2pdf()
-        .from(container)
-        .set({
-          margin: [0.75, 0.75, 0.75, 0.75],
-          filename: "contract.pdf",
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-          pagebreak: { mode: ["css"], before: ["div[style*='page-break-before']"], avoid: ["tr", "td", "th", "img"] },
-        })
-        .outputPdf("blob");
-
-      document.body.removeChild(iframe);
-
       const formData = new FormData();
-      formData.append("pdf", new File([pdfBlob], "contract.pdf", { type: "application/pdf" }));
+      formData.append("htmlContent", finalHtml);
       formData.append("projectId", project.id);
       formData.append("staffName", staffName && staffName !== "none" ? staffName : "");
       if (activeSigData) {
@@ -707,7 +628,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
           {step === "generating" && (
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Generating your contract PDF...</p>
+              <p className="text-sm text-muted-foreground">Generating your contract...</p>
             </div>
           )}
 
@@ -723,16 +644,21 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
                   </p>
                 )}
               </div>
-              <a
-                href={`/api/projects/${project.id}/files/${generatedFile.id}/download`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button variant="outline" className="gap-2" data-testid="button-download-contract">
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/projects/${project.id}/files/${generatedFile.id}/download`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="default" className="gap-2" data-testid="button-view-print-contract">
+                    <FileText className="h-4 w-4" />
+                    View & Print as PDF
+                  </Button>
+                </a>
+              </div>
+              <p className="text-xs text-muted-foreground text-center max-w-sm">
+                Opens the contract in a new tab. Use the Print button or Ctrl+P to save as PDF with perfect formatting.
+              </p>
             </div>
           )}
         </div>

@@ -39,6 +39,7 @@ function getFileIcon(mimeType: string | null) {
   if (!mimeType) return <File className="h-4 w-4 text-muted-foreground" />;
   if (mimeType.startsWith("image/")) return <Image className="h-4 w-4 text-blue-500" />;
   if (mimeType.includes("pdf")) return <FileText className="h-4 w-4 text-red-500" />;
+  if (mimeType.includes("html")) return <FileText className="h-4 w-4 text-orange-500" />;
   return <File className="h-4 w-4 text-muted-foreground" />;
 }
 

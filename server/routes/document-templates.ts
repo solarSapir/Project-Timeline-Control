@@ -257,20 +257,17 @@ documentTemplatesRouter.post("/:id/generate-contract", largeUpload.any(), async 
       return res.status(404).json({ message: "Template not found" });
     }
 
-    const files = req.files as Express.Multer.File[] | undefined;
-    const pdfFile = files?.find((f) => f.fieldname === "pdf");
-    if (!pdfFile) {
-      return res.status(400).json({ message: "No PDF file uploaded" });
-    }
-
-    const { projectId, staffName, signatureData } = req.body;
+    const { projectId, staffName, signatureData, htmlContent } = req.body;
     if (!projectId) {
       return res.status(400).json({ message: "projectId is required" });
+    }
+    if (!htmlContent) {
+      return res.status(400).json({ message: "htmlContent is required" });
     }
 
     const resolvedStaffName = staffName && staffName !== "none" ? staffName : "System";
     const project = await storage.getProject(projectId);
-    const outputName = `${template.name} - ${project?.name || projectId}.pdf`;
+    const outputName = `${template.name} - ${project?.name || projectId}.html`;
 
     let notes = `Generated from editable template: ${template.name}`;
     if (signatureData) {
@@ -288,90 +285,57 @@ documentTemplatesRouter.post("/:id/generate-contract", largeUpload.any(), async 
       } catch {}
     }
 
+    const files = req.files as Express.Multer.File[] | undefined;
     const attachmentFiles = (files || []).filter((f) => f.fieldname.startsWith("attachment_"));
-    let finalBuffer: Buffer = pdfFile.buffer;
 
-    if (attachmentFiles.length > 0) {
-      const contractPdf = await PDFDocument.load(pdfFile.buffer);
+    let finalHtml = htmlContent as string;
 
-      for (const attachment of attachmentFiles) {
-        const label = attachment.fieldname.replace("attachment_", "").replace(/_/g, " ").toUpperCase();
-        const mime = attachment.mimetype.toLowerCase();
+    for (const attachment of attachmentFiles) {
+      const label = attachment.fieldname.replace("attachment_", "").replace(/_/g, " ").toUpperCase();
+      const mime = attachment.mimetype.toLowerCase();
 
-        if (mime === "application/pdf") {
-          const attachPdf = await PDFDocument.load(attachment.buffer);
-          const pageIndices = attachPdf.getPageIndices();
-          const copiedPages = await contractPdf.copyPages(attachPdf, pageIndices);
-
-          const font = await contractPdf.embedFont(StandardFonts.HelveticaBold);
-          for (let i = 0; i < copiedPages.length; i++) {
-            const page = contractPdf.addPage(copiedPages[i]);
-            if (i === 0) {
-              const { width, height } = page.getSize();
-              page.drawText(`${label} - Page ${i + 1} of ${copiedPages.length}`, {
-                x: 20,
-                y: height - 20,
-                size: 8,
-                font,
-                color: rgb(0.4, 0.4, 0.4),
-              });
-            }
-          }
-        } else if (mime.startsWith("image/")) {
-          let embeddedImage;
-          if (mime === "image/png") {
-            embeddedImage = await contractPdf.embedPng(attachment.buffer);
-          } else {
-            embeddedImage = await contractPdf.embedJpg(attachment.buffer);
-          }
-
-          const imgDims = embeddedImage.scale(1);
-          const pageWidth = 612;
-          const pageHeight = 792;
-          const margin = 40;
-          const headerSpace = 30;
-          const availWidth = pageWidth - margin * 2;
-          const availHeight = pageHeight - margin * 2 - headerSpace;
-
-          let drawWidth = imgDims.width;
-          let drawHeight = imgDims.height;
-          if (drawWidth > availWidth || drawHeight > availHeight) {
-            const scale = Math.min(availWidth / drawWidth, availHeight / drawHeight);
-            drawWidth *= scale;
-            drawHeight *= scale;
-          }
-
-          const page = contractPdf.addPage([pageWidth, pageHeight]);
-          const font = await contractPdf.embedFont(StandardFonts.HelveticaBold);
-          page.drawText(label, {
-            x: margin,
-            y: pageHeight - margin,
-            size: 10,
-            font,
-            color: rgb(0.2, 0.2, 0.2),
-          });
-
-          const x = (pageWidth - drawWidth) / 2;
-          const y = (pageHeight - drawHeight - headerSpace) / 2;
-          page.drawImage(embeddedImage, {
-            x,
-            y,
-            width: drawWidth,
-            height: drawHeight,
-          });
-        }
+      if (mime.startsWith("image/")) {
+        const b64 = attachment.buffer.toString("base64");
+        const dataUri = `data:${mime};base64,${b64}`;
+        const imgHtml = `<div style="page-break-before: always;"></div>
+          <h3 style="font-size: 12pt; color: #333; margin-bottom: 0.5em;">${label}</h3>
+          <img src="${dataUri}" style="max-width: 100%; max-height: 9in;" />`;
+        finalHtml += imgHtml;
+      } else if (mime === "application/pdf") {
+        const attachName = `${label.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}.pdf`;
+        const attachFile = await saveFileLocally(
+          projectId,
+          template.viewType,
+          attachment.buffer,
+          attachName,
+          "application/pdf",
+          resolvedStaffName,
+          `Attachment for contract: ${label}`
+        );
+        const attachUrl = `/api/projects/${projectId}/files/${attachFile.id}/download`;
+        const embedHtml = `<div style="page-break-before: always;"></div>
+          <h3 style="font-size: 12pt; color: #333; margin-bottom: 0.5em;">${label}</h3>
+          <p style="margin: 1em 0;"><a href="${attachUrl}" target="_blank" style="color: #4a90d9; text-decoration: underline; font-weight: 600;">Open ${label} (PDF)</a></p>`;
+        finalHtml += embedHtml;
       }
-
-      const mergedBytes = await contractPdf.save();
-      finalBuffer = Buffer.from(mergedBytes);
     }
+
+    const logoPath = path.resolve(process.cwd(), "client", "public", "sps-logo.png");
+    if (existsSync(logoPath)) {
+      const logoB64 = readFileSync(logoPath).toString("base64");
+      const logoDataUri = `data:image/png;base64,${logoB64}`;
+      finalHtml = finalHtml.replace(/src="\/sps-logo\.png"/g, `src="${logoDataUri}"`);
+    }
+
+    const fullDocument = buildContractHtmlDocument(finalHtml);
+    const htmlBuffer = Buffer.from(fullDocument, "utf-8");
 
     const savedFile = await saveFileLocally(
       projectId,
       template.viewType,
-      finalBuffer,
+      htmlBuffer,
       outputName,
-      "application/pdf",
+      "text/html",
       resolvedStaffName,
       notes
     );
@@ -382,6 +346,104 @@ documentTemplatesRouter.post("/:id/generate-contract", largeUpload.any(), async 
     res.status(500).json({ message: msg });
   }
 });
+
+function buildContractHtmlDocument(bodyContent: string): string {
+  const pages = bodyContent.split(/<div\s+style\s*=\s*"page-break-before:\s*always;?\s*"[^>]*>\s*<\/div>/gi);
+  const pageHtml = pages.map((page) => `<div class="print-page">${page.trim()}</div>`).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Document</title>
+<style>
+  @page {
+    margin: 0.75in;
+    size: letter;
+  }
+  @media print {
+    body { margin: 0; padding: 0; background: white; }
+    .no-print { display: none !important; }
+    .print-page {
+      width: auto;
+      min-height: auto;
+      margin: 0;
+      padding: 0;
+      box-shadow: none;
+      page-break-after: always;
+    }
+    .print-page:last-child { page-break-after: auto; }
+  }
+  @media screen {
+    body {
+      background: #e5e7eb;
+      margin: 0;
+      padding: 0;
+    }
+    .print-page {
+      background: white;
+      width: 8.5in;
+      min-height: 11in;
+      margin: 24px auto;
+      padding: 0.75in;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      box-sizing: border-box;
+    }
+    .print-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #1a1a2e;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .print-toolbar button {
+      background: #4a90d9;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .print-toolbar button:hover { background: #3a7bc8; }
+  }
+  body {
+    font-family: "Times New Roman", Georgia, "Noto Serif", serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 20pt; font-weight: 700; margin: 0.4em 0; }
+  h2 { font-size: 13pt; font-weight: 600; margin: 0.5em 0 0.3em 0; text-transform: uppercase; }
+  h3 { font-size: 12pt; font-weight: 600; margin: 0.3em 0; }
+  p { margin: 0.3em 0; }
+  table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+  td, th { padding: 6px 10px; vertical-align: top; }
+  hr { border: none; border-top: 2px solid #333; margin: 0.8em 0; }
+  ul, ol { padding-left: 1.5em; margin: 0.3em 0; }
+  li { margin-bottom: 0.15em; }
+  img { max-width: 100%; }
+  img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+  img[data-align="right"] { display: block; margin-left: auto; margin-right: 0; }
+  .merge-field { font-weight: inherit; }
+</style>
+</head>
+<body>
+<div class="print-toolbar no-print">
+  <span style="font-size: 14px;">Contract Document</span>
+  <button onclick="window.print()">Print / Save as PDF</button>
+</div>
+${pageHtml}
+</body>
+</html>`;
+}
 
 documentTemplatesRouter.post("/:id/generate", async (req, res) => {
   try {
