@@ -98,6 +98,8 @@ export const projects = pgTable("projects", {
   clientPhone: text("client_phone"),
   clientEmail: text("client_email"),
   projectAddress: text("project_address"),
+  projectCity: text("project_city"),
+  projectPostalCode: text("project_postal_code"),
   projectDescription: text("project_description"),
   contractSubtotal: text("contract_subtotal"),
   contractHstAmount: text("contract_hst_amount"),

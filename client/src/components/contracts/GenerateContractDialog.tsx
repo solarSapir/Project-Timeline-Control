@@ -30,10 +30,19 @@ const MERGE_MAP: Record<string, (p: Project) => string> = {
   "{{client_name}}": (p) => p.name || "",
   "{{customer_name}}": (p) => p.name || "",
   "{{project_name}}": (p) => p.name || "",
-  "{{project_address}}": (p) => (p as any).projectAddress || "",
+  "{{project_address}}": (p) => {
+    const parts = [(p as any).projectAddress, (p as any).projectCity, (p as any).province, (p as any).projectPostalCode].filter(Boolean);
+    return parts.join(", ") || "";
+  },
+  "{{street_address}}": (p) => (p as any).projectAddress || "",
+  "{{city}}": (p) => (p as any).projectCity || "",
+  "{{postal_code}}": (p) => (p as any).projectPostalCode || "",
   "{{client_phone}}": (p) => (p as any).clientPhone || "",
   "{{client_email}}": (p) => (p as any).clientEmail || "",
-  "{{address}}": (p) => (p as any).projectAddress || "",
+  "{{address}}": (p) => {
+    const parts = [(p as any).projectAddress, (p as any).projectCity, (p as any).province, (p as any).projectPostalCode].filter(Boolean);
+    return parts.join(", ") || "";
+  },
   "{{province}}": (p) => (p as any).province || "",
   "{{install_type}}": (p) => (p as any).installType || "",
   "{{project_description}}": (p) => (p as any).projectDescription || "",

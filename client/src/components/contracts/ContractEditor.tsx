@@ -97,7 +97,10 @@ import { useToast } from "@/hooks/use-toast";
 const MERGE_FIELDS = [
   { group: "Client Information", fields: [
     { value: "{{client_name}}", label: "Client Name" },
-    { value: "{{project_address}}", label: "Project Address" },
+    { value: "{{project_address}}", label: "Full Address" },
+    { value: "{{street_address}}", label: "Street Address" },
+    { value: "{{city}}", label: "City" },
+    { value: "{{postal_code}}", label: "Postal Code" },
     { value: "{{client_phone}}", label: "Client Phone" },
     { value: "{{client_email}}", label: "Client Email" },
   ]},

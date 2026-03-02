@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import {
@@ -70,6 +71,8 @@ export function ContractExpandedView({
     clientPhone: (proj as any).clientPhone || "",
     clientEmail: (proj as any).clientEmail || "",
     projectAddress: (proj as any).projectAddress || "",
+    projectCity: (proj as any).projectCity || "",
+    projectPostalCode: (proj as any).projectPostalCode || "",
     projectDescription: (proj as any).projectDescription || "",
     contractSubtotal: (proj as any).contractSubtotal || "",
     contractHstAmount: (proj as any).contractHstAmount || "",
@@ -81,12 +84,14 @@ export function ContractExpandedView({
 
   useEffect(() => {
     setContractDetails(buildDetails(p));
-  }, [p.id, (p as any).clientPhone, (p as any).clientEmail, (p as any).projectAddress, (p as any).projectDescription, (p as any).contractSubtotal, (p as any).contractHstAmount, (p as any).contractTotal, (p as any).contractHelcimLink, (p as any).contractRepName]);
+  }, [p.id, (p as any).clientPhone, (p as any).clientEmail, (p as any).projectAddress, (p as any).projectCity, (p as any).projectPostalCode, (p as any).projectDescription, (p as any).contractSubtotal, (p as any).contractHstAmount, (p as any).contractTotal, (p as any).contractHelcimLink, (p as any).contractRepName]);
 
   const hasUnsavedChanges = () => {
     return contractDetails.clientPhone !== ((p as any).clientPhone || "")
       || contractDetails.clientEmail !== ((p as any).clientEmail || "")
       || contractDetails.projectAddress !== ((p as any).projectAddress || "")
+      || contractDetails.projectCity !== ((p as any).projectCity || "")
+      || contractDetails.projectPostalCode !== ((p as any).projectPostalCode || "")
       || contractDetails.projectDescription !== ((p as any).projectDescription || "")
       || contractDetails.contractSubtotal !== ((p as any).contractSubtotal || "")
       || contractDetails.contractHstAmount !== ((p as any).contractHstAmount || "")
@@ -240,22 +245,45 @@ export function ContractExpandedView({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Project Address</Label>
+                <Label className="text-xs text-muted-foreground">Street Address</Label>
                 <Input
                   className="h-8 text-sm"
                   value={contractDetails.projectAddress}
                   onChange={(e) => setContractDetails({ ...contractDetails, projectAddress: e.target.value })}
-                  placeholder="e.g. 123 Main St, Toronto, ON"
+                  placeholder="e.g. 123 Main St"
                   data-testid={`input-project-address-${p.id}`}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">City</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={contractDetails.projectCity}
+                    onChange={(e) => setContractDetails({ ...contractDetails, projectCity: e.target.value })}
+                    placeholder="e.g. Toronto"
+                    data-testid={`input-project-city-${p.id}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Postal Code</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={contractDetails.projectPostalCode}
+                    onChange={(e) => setContractDetails({ ...contractDetails, projectPostalCode: e.target.value })}
+                    placeholder="e.g. M5V 2T6"
+                    data-testid={`input-project-postal-${p.id}`}
+                  />
+                </div>
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Project Description</Label>
-                <Input
-                  className="h-8 text-sm"
+                <Textarea
+                  className="text-sm min-h-[60px] resize-y"
                   value={contractDetails.projectDescription}
                   onChange={(e) => setContractDetails({ ...contractDetails, projectDescription: e.target.value })}
-                  placeholder="e.g. 10kW rooftop solar installation"
+                  placeholder="e.g. 10kW rooftop solar installation with 25x 400W panels, string inverter, and electrical panel upgrade..."
+                  rows={3}
                   data-testid={`input-project-description-${p.id}`}
                 />
               </div>
