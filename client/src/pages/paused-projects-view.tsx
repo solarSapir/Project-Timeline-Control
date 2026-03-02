@@ -759,36 +759,20 @@ export default function PausedProjectsView() {
       </CollapsibleKpiSection>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          <button
-            onClick={() => setFilterTab("all")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            data-testid="filter-tab-all"
-          >
-            All ({pausedProjects.length})
-          </button>
-          <button
-            onClick={() => setFilterTab("active")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${filterTab === "active" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            data-testid="filter-tab-active"
-          >
-            <AlertTriangle className="h-3 w-3 text-amber-500" />
-            Needs Attention ({activeProjects.length})
-          </button>
-          <button
-            onClick={() => setFilterTab("snoozed")}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${filterTab === "snoozed" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            data-testid="filter-tab-snoozed"
-          >
-            <BellOff className="h-3 w-3 text-blue-500" />
-            Snoozed ({snoozedProjects.length})
-          </button>
-        </div>
-
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search paused projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-paused" />
         </div>
+        <Select value={filterTab} onValueChange={(v: "all" | "active" | "snoozed") => setFilterTab(v)}>
+          <SelectTrigger className="w-[220px]" data-testid="select-paused-filter">
+            <SelectValue placeholder="Filter" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Needs Attention ({activeProjects.length})</SelectItem>
+            <SelectItem value="snoozed">Snoozed ({snoozedProjects.length})</SelectItem>
+            <SelectItem value="all">All ({pausedProjects.length})</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {displayProjects.length > 0 ? (
