@@ -655,6 +655,8 @@ export const pauseLogs = pgTable("pause_logs", {
   projectId: varchar("project_id").notNull(),
   reason: text("reason"),
   note: text("note"),
+  actionRequired: text("action_required"),
+  nextSteps: text("next_steps"),
   staffName: text("staff_name"),
   followUpDate: date("follow_up_date"),
   actionType: text("action_type").default("reason"),
