@@ -9,6 +9,7 @@ import path from "path";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import PDFDocumentKit from "pdfkit";
 import { saveFileLocally } from "../utils/file-storage";
+import { exportTemplateSeedsToFile } from "../template-seed";
 
 export const documentTemplatesRouter = Router();
 
@@ -78,6 +79,7 @@ documentTemplatesRouter.post("/", upload.single("file"), async (req, res) => {
       enabled: true,
     });
 
+    exportTemplateSeedsToFile().catch(() => {});
     res.json(template);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -132,6 +134,7 @@ documentTemplatesRouter.delete("/:id", async (req, res) => {
     }
 
     await storage.deleteDocumentTemplate(req.params.id);
+    exportTemplateSeedsToFile().catch(() => {});
     res.json({ success: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -190,6 +193,7 @@ documentTemplatesRouter.patch("/:id", async (req, res) => {
     if (typeof htmlContent === "string") updates.htmlContent = htmlContent;
 
     const updated = await storage.updateDocumentTemplate(req.params.id, updates as any);
+    exportTemplateSeedsToFile().catch(() => {});
     res.json(updated);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -228,6 +232,7 @@ documentTemplatesRouter.post("/:id/import-docx", upload.single("file"), async (r
     await storage.updateDocumentTemplate(req.params.id, {
       htmlContent: result.value,
     } as any);
+    exportTemplateSeedsToFile().catch(() => {});
 
     res.json({ html: result.value, messages: result.messages });
   } catch (error: unknown) {

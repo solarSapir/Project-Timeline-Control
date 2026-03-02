@@ -27,6 +27,7 @@ import { pauseReasonsRouter } from "./routes/pause-reasons";
 import { claimsRouter } from "./routes/claims";
 import { contractWorkflowRouter } from "./routes/contract-workflow";
 import { documentTemplatesRouter } from "./routes/document-templates";
+import { exportTemplateSeedsToFile, seedTemplatesIfNeeded } from "./template-seed";
 import { DEFAULT_HRSP_INVOICE_TEMPLATE, DEFAULT_HRSP_DOCUMENTS, type HrspRequiredDocument } from "@shared/schema";
 
 export async function registerRoutes(
@@ -284,6 +285,12 @@ export async function registerRoutes(
 
   backfillEscalationCompletions().catch(err => {
     console.error("[Startup] Escalation completions backfill failed:", err);
+  });
+
+  seedTemplatesIfNeeded().then(() => {
+    exportTemplateSeedsToFile();
+  }).catch(err => {
+    console.error("[Startup] Template seed failed:", err);
   });
 
   return httpServer;
