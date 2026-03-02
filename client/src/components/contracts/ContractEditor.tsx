@@ -12,16 +12,55 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { Image as TiptapImage } from "@tiptap/extension-image";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { mergeAttributes } from "@tiptap/core";
+import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+
+function ImageNodeView({ node, selected }: { node: any; selected: boolean; updateAttributes: (attrs: Record<string, any>) => void }) {
+  const align = node.attrs["data-align"];
+  const wrapStyle: Record<string, string> = {};
+  if (align === "center") { wrapStyle.display = "flex"; wrapStyle.justifyContent = "center"; }
+  else if (align === "right") { wrapStyle.display = "flex"; wrapStyle.justifyContent = "flex-end"; }
+
+  return (
+    <NodeViewWrapper style={wrapStyle} data-drag-handle>
+      <img
+        src={node.attrs.src}
+        alt={node.attrs.alt || ""}
+        width={node.attrs.width || undefined}
+        style={{
+          maxHeight: node.attrs.width || "auto",
+          width: "auto",
+          cursor: "pointer",
+          outline: selected ? "2px solid hsl(var(--primary))" : "none",
+          outlineOffset: selected ? "2px" : undefined,
+          borderRadius: selected ? "2px" : undefined,
+        }}
+      />
+    </NodeViewWrapper>
+  );
+}
 
 const ResizableImage = TiptapImage.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
-      width: { default: null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
-      height: { default: null, renderHTML: (attrs) => attrs.height ? { height: attrs.height } : {} },
-      style: { default: null, renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {} },
+      width: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("width"),
+        renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {},
+      },
+      height: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("height"),
+        renderHTML: (attrs) => attrs.height ? { height: attrs.height } : {},
+      },
+      style: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("style"),
+        renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {},
+      },
       "data-align": {
         default: null,
+        parseHTML: (el) => el.getAttribute("data-align"),
         renderHTML: (attrs) => {
           const align = attrs["data-align"];
           if (!align) return {};
@@ -29,6 +68,9 @@ const ResizableImage = TiptapImage.extend({
         },
       },
     };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageNodeView);
   },
   renderHTML({ HTMLAttributes }) {
     return ["img", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
