@@ -325,16 +325,22 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {expanded ? "Hide" : "Reason for Pause"}
             </button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 text-[10px] px-2 gap-1"
-              onClick={() => { setExpanded(true); setShowFollowUp(!showFollowUp); }}
-              data-testid={`button-follow-up-${project.id}`}
-            >
-              <CalendarClock className="h-3 w-3" />
-              Follow Up
-            </Button>
+            {hasExistingReason ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px] px-2 gap-1"
+                onClick={() => { setExpanded(true); setShowFollowUp(!showFollowUp); }}
+                data-testid={`button-follow-up-${project.id}`}
+              >
+                <CalendarClock className="h-3 w-3" />
+                Follow Up
+              </Button>
+            ) : (
+              <span className="text-[10px] text-muted-foreground italic" data-testid={`text-no-reason-${project.id}`}>
+                Log a reason to enable follow-ups
+              </span>
+            )}
           </div>
 
           {expanded && (
