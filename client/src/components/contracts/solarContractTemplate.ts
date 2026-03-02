@@ -81,31 +81,7 @@ Latest proposal will be attached during contract generation (supports PDF or ima
 <hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" />
 
 <h2 style="font-size: 14pt;">PAYMENT SCHEDULE</h2>
-<p style="font-size: 10pt; color: #666; margin-bottom: 0.5em;">Add or remove rows from this table to match the project's payment milestones.</p>
-<table style="width: 100%; border-collapse: collapse; margin-bottom: 1em;">
-  <thead>
-    <tr style="background: #333; color: #fff;">
-      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left; width: 80px;">Milestone</th>
-      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left;">Description</th>
-      <th style="padding: 8px 10px; border: 1px solid #333; text-align: right; width: 140px;">Amount</th>
-      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left; width: 200px;">Due</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center; font-weight: 600;">1</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Equipment + 10% of labour</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: right;">$</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Upon contract signing</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center; font-weight: 600;">2</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Balance after installation complete</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: right;">$</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Within 30 days of completion</td>
-    </tr>
-  </tbody>
-</table>
+<span class="merge-field" data-merge-field="{{payment_schedule}}">{{payment_schedule}}</span>
 <p style="font-size: 10pt; color: #888; font-style: italic;">Total Payments must equal the Total Contract Price listed above.</p>
 
 <hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" />
@@ -167,79 +143,7 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
 
 <h2 style="font-size: 14pt;">APPENDIX B: SCOPE OF WORK</h2>
 
-<p style="font-size: 10pt; color: #666; margin-bottom: 0.5em;">Check the services included in this project. Edit quantities and details as needed. Remove any items that do not apply.</p>
-
-<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5em;">
-  <thead>
-    <tr style="background: #333; color: #fff;">
-      <th style="padding: 8px 10px; border: 1px solid #333; width: 40px; text-align: center;">#</th>
-      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left;">Service Description</th>
-      <th style="padding: 8px 10px; border: 1px solid #333; width: 100px; text-align: center;">Included</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">1</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Mount solar panels on the roof per site plan</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">2</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install critical loads panel</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">3</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install battery backup system of _____ kWh capacity</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes / No</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">4</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install EV charger (assumes cable distance of _____ ft, default 80 ft)</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes / No</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">5</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install critter guard</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">6</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install inverters / micro inverters</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">7</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Install rapid shutdown</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">8</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Run Teck cable and install disconnect switch</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">9</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Connect Teck cable to MSP</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">10</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Service panel upgrade from _____ A to _____ A (assumes same brand; existing breakers reused, otherwise up to _____ breakers included)</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes / No</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">11</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Call for final ESA inspection</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-    <tr>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">12</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd;">Site clean up</td>
-      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
-    </tr>
-  </tbody>
-</table>
+<span class="merge-field" data-merge-field="{{scope_of_work}}">{{scope_of_work}}</span>
 
 <p style="text-align: right; font-style: italic;">
 Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}">{{client_initials}}</span> ________

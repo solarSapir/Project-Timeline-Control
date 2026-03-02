@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileText, Download, CheckCircle2, Paperclip, X } from "lucide-react";
+import { Loader2, FileText, Download, CheckCircle2, Paperclip, X, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SignaturePad, type SignatureData } from "./SignaturePad";
@@ -67,6 +68,83 @@ const MERGE_MAP: Record<string, (p: Project) => string> = {
   "{{client_initials}}": () => "",
 };
 
+interface Milestone {
+  description: string;
+  amount: string;
+  due: string;
+}
+
+interface ScopeItem {
+  description: string;
+  included: boolean;
+  editable?: boolean;
+}
+
+const DEFAULT_MILESTONES: Milestone[] = [
+  { description: "Equipment + 10% of labour", amount: "", due: "Upon contract signing" },
+  { description: "Balance after installation complete", amount: "", due: "Within 30 days of completion" },
+];
+
+const DEFAULT_SCOPE_ITEMS: ScopeItem[] = [
+  { description: "Mount solar panels on the roof per site plan", included: true },
+  { description: "Install critical loads panel", included: false },
+  { description: "Install battery backup system of _____ kWh capacity", included: false },
+  { description: "Install EV charger (assumes cable distance of _____ ft, default 80 ft)", included: false },
+  { description: "Install critter guard", included: true },
+  { description: "Install inverters / micro inverters", included: true },
+  { description: "Install rapid shutdown", included: true },
+  { description: "Run Teck cable and install disconnect switch", included: true },
+  { description: "Connect Teck cable to MSP", included: true },
+  { description: "Service panel upgrade from _____ A to _____ A (assumes same brand; existing breakers reused, otherwise up to _____ breakers included)", included: false },
+  { description: "Call for final ESA inspection", included: true },
+  { description: "Site clean up", included: true },
+];
+
+function buildPaymentScheduleHtml(milestones: Milestone[]): string {
+  const rows = milestones.map((m, i) =>
+    `<tr>
+      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center; font-weight: 600;">${i + 1}</td>
+      <td style="padding: 8px 10px; border: 1px solid #ddd;">${m.description}</td>
+      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: right;">$${m.amount}</td>
+      <td style="padding: 8px 10px; border: 1px solid #ddd;">${m.due}</td>
+    </tr>`
+  ).join("\n");
+
+  return `<table style="width: 100%; border-collapse: collapse; margin-bottom: 1em;">
+  <thead>
+    <tr style="background: #333; color: #fff;">
+      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left; width: 80px;">Milestone</th>
+      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left;">Description</th>
+      <th style="padding: 8px 10px; border: 1px solid #333; text-align: right; width: 140px;">Amount</th>
+      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left; width: 200px;">Due</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>`;
+}
+
+function buildScopeOfWorkHtml(items: ScopeItem[]): string {
+  const included = items.filter((i) => i.included);
+  const rows = included.map((item, i) =>
+    `<tr>
+      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">${i + 1}</td>
+      <td style="padding: 8px 10px; border: 1px solid #ddd;">${item.description}</td>
+      <td style="padding: 8px 10px; border: 1px solid #ddd; text-align: center;">Yes</td>
+    </tr>`
+  ).join("\n");
+
+  return `<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5em;">
+  <thead>
+    <tr style="background: #333; color: #fff;">
+      <th style="padding: 8px 10px; border: 1px solid #333; width: 40px; text-align: center;">#</th>
+      <th style="padding: 8px 10px; border: 1px solid #333; text-align: left;">Service Description</th>
+      <th style="padding: 8px 10px; border: 1px solid #333; width: 100px; text-align: center;">Included</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>`;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,6 +162,9 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
   const [signatureData, setSignatureData] = useState<SignatureData | null>(null);
   const [generatedFile, setGeneratedFile] = useState<GeneratedFile | null>(null);
   const [attachments, setAttachments] = useState<Record<string, File | null>>({});
+  const [milestones, setMilestones] = useState<Milestone[]>([...DEFAULT_MILESTONES]);
+  const [scopeItems, setScopeItems] = useState<ScopeItem[]>(DEFAULT_SCOPE_ITEMS.map((s) => ({ ...s })));
+  const [customScopeText, setCustomScopeText] = useState("");
   const previewRef = useRef<HTMLDivElement>(null);
 
   const { data: templates = [] } = useQuery<TemplateListItem[]>({
@@ -110,12 +191,16 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       setSignatureData(null);
       setGeneratedFile(null);
       setAttachments({});
+      setMilestones([...DEFAULT_MILESTONES]);
+      setScopeItems(DEFAULT_SCOPE_ITEMS.map((s) => ({ ...s })));
+      setCustomScopeText("");
     }
   }, [open]);
 
+  const DYNAMIC_FIELDS = new Set(["{{signature}}", "{{payment_schedule}}", "{{scope_of_work}}"]);
   const extractMergeFields = useCallback((html: string): string[] => {
     const matches = html.match(/\{\{[^}]+\}\}/g) || [];
-    return [...new Set(matches)].filter((m) => m !== "{{signature}}");
+    return [...new Set(matches)].filter((m) => !DYNAMIC_FIELDS.has(m));
   }, []);
 
   const ATTACHMENT_SECTIONS = [
@@ -151,6 +236,9 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       html = html.replaceAll(key, value || key);
     }
 
+    html = html.replaceAll("{{payment_schedule}}", buildPaymentScheduleHtml(milestones));
+    html = html.replaceAll("{{scope_of_work}}", buildScopeOfWorkHtml(scopeItems));
+
     if (sig) {
       html = html.replaceAll(
         "{{signature}}",
@@ -179,7 +267,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
     }
 
     return html;
-  }, [selectedTemplate, mergeValues, signatureData, attachments, detectAttachmentSections]);
+  }, [selectedTemplate, mergeValues, signatureData, attachments, detectAttachmentSections, milestones, scopeItems]);
 
   const signatureDataRef = useRef<SignatureData | null>(null);
   useEffect(() => { signatureDataRef.current = signatureData; }, [signatureData]);
@@ -356,6 +444,138 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
                 <p className="text-sm text-muted-foreground py-2">
                   This template has no merge fields. You can proceed directly.
                 </p>
+              )}
+
+              {(selectedTemplate?.htmlContent || "").includes("{{payment_schedule}}") && (
+                <div className="space-y-3 pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Payment Milestones</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setMilestones([...milestones, { description: "", amount: "", due: "" }])}
+                      data-testid="button-add-milestone"
+                    >
+                      <Plus className="h-3 w-3" /> Add Milestone
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {milestones.map((m, idx) => (
+                      <div key={idx} className="grid grid-cols-[1fr_80px_1fr_28px] gap-1.5 items-start" data-testid={`milestone-row-${idx}`}>
+                        <Input
+                          className="h-8 text-xs"
+                          value={m.description}
+                          onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], description: e.target.value }; setMilestones(u); }}
+                          placeholder="Description"
+                          data-testid={`input-milestone-desc-${idx}`}
+                        />
+                        <Input
+                          className="h-8 text-xs"
+                          value={m.amount}
+                          onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], amount: e.target.value }; setMilestones(u); }}
+                          placeholder="$"
+                          data-testid={`input-milestone-amount-${idx}`}
+                        />
+                        <Input
+                          className="h-8 text-xs"
+                          value={m.due}
+                          onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], due: e.target.value }; setMilestones(u); }}
+                          placeholder="Due when"
+                          data-testid={`input-milestone-due-${idx}`}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => { if (milestones.length > 1) setMilestones(milestones.filter((_, i) => i !== idx)); }}
+                          disabled={milestones.length <= 1}
+                          data-testid={`button-remove-milestone-${idx}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(selectedTemplate?.htmlContent || "").includes("{{scope_of_work}}") && (
+                <div className="space-y-3 pt-3 border-t">
+                  <Label className="text-sm font-medium">Scope of Work</Label>
+                  <p className="text-xs text-muted-foreground">Check the services included in this project. Only checked items will appear in the contract.</p>
+                  <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
+                    {scopeItems.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 group" data-testid={`scope-item-${idx}`}>
+                        <Checkbox
+                          checked={item.included}
+                          onCheckedChange={(checked) => {
+                            const u = [...scopeItems];
+                            u[idx] = { ...u[idx], included: !!checked };
+                            setScopeItems(u);
+                          }}
+                          className="mt-0.5"
+                          data-testid={`checkbox-scope-${idx}`}
+                        />
+                        {item.editable ? (
+                          <Input
+                            className="h-7 text-xs flex-1"
+                            value={item.description}
+                            onChange={(e) => {
+                              const u = [...scopeItems];
+                              u[idx] = { ...u[idx], description: e.target.value };
+                              setScopeItems(u);
+                            }}
+                            data-testid={`input-scope-desc-${idx}`}
+                          />
+                        ) : (
+                          <span className={`text-xs leading-5 flex-1 ${item.included ? "" : "text-muted-foreground line-through"}`}>{item.description}</span>
+                        )}
+                        {item.editable && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                            onClick={() => setScopeItems(scopeItems.filter((_, i) => i !== idx))}
+                            data-testid={`button-remove-scope-${idx}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Input
+                      className="h-8 text-xs flex-1"
+                      value={customScopeText}
+                      onChange={(e) => setCustomScopeText(e.target.value)}
+                      placeholder="Add custom service item..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customScopeText.trim()) {
+                          setScopeItems([...scopeItems, { description: customScopeText.trim(), included: true, editable: true }]);
+                          setCustomScopeText("");
+                        }
+                      }}
+                      data-testid="input-custom-scope"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={() => {
+                        if (customScopeText.trim()) {
+                          setScopeItems([...scopeItems, { description: customScopeText.trim(), included: true, editable: true }]);
+                          setCustomScopeText("");
+                        }
+                      }}
+                      disabled={!customScopeText.trim()}
+                      data-testid="button-add-scope"
+                    >
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {detectAttachmentSections(selectedTemplate?.htmlContent || "").length > 0 && (
