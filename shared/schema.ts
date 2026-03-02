@@ -653,6 +653,7 @@ export const pauseLogs = pgTable("pause_logs", {
   reason: text("reason"),
   note: text("note"),
   staffName: text("staff_name"),
+  followUpDate: date("follow_up_date"),
   pausedAt: timestamp("paused_at").defaultNow(),
 });
 

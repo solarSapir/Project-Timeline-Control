@@ -66,11 +66,11 @@ pauseReasonsRouter.get("/logs", async (req, res) => {
 
 pauseReasonsRouter.post("/logs", async (req, res) => {
   try {
-    const { projectId, reason, note, staffName } = req.body;
+    const { projectId, reason, note, staffName, followUpDate } = req.body;
     if (!projectId) {
       return res.status(400).json({ message: "projectId is required" });
     }
-    const log = await storage.createPauseLog({ projectId, reason, note, staffName });
+    const log = await storage.createPauseLog({ projectId, reason, note, staffName, followUpDate: followUpDate || null });
 
     if (reason) {
       try {
