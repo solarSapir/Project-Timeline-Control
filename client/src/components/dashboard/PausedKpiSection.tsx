@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
   PauseCircle, AlertTriangle, BellOff, Timer,
-  CheckCircle2, Users, BarChart3, TrendingUp,
+  CheckCircle2, BarChart3, TrendingUp, XCircle,
 } from "lucide-react";
 import { FormulaTooltip } from "./FormulaTooltip";
 import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
@@ -27,7 +27,8 @@ export function PausedKpiSection() {
     const allPauseLogs = pauseLogs || [];
     const pausedProjects = projects.filter(p => p.pmStatus?.toLowerCase() === 'project paused');
     const total = pausedProjects.length;
-    if (total === 0) return { total: 0, activeCount: 0, snoozedCount: 0, avgDaysPaused: 0, actionsThisWeek: 0, withoutReason: 0, topReason: null as { reason: string; count: number } | null, topStaff: null as { name: string; count: number } | null, reasonBreakdown: [] as [string, number][] };
+    const lostProjects = projects.filter(p => p.pmStatus?.toLowerCase() === 'project lost');
+    if (total === 0) return { total: 0, activeCount: 0, snoozedCount: 0, avgDaysPaused: 0, actionsThisWeek: 0, over30: 0, over60: 0, over90: 0, lostTotal: lostProjects.length, topStaff: null as { name: string; count: number } | null, reasonBreakdown: [] as [string, number][] };
 
     const todayStr = new Date().toISOString().split("T")[0];
     const projectFollowUps = new Map<string, string>();
@@ -48,28 +49,37 @@ export function PausedKpiSection() {
       else activeCount++;
     }
 
-    const withReason = pausedProjects.filter(p => p.pauseReason).length;
-    const withoutReason = total - withReason;
-
     const reasonCounts: Record<string, number> = {};
     for (const p of pausedProjects) {
       if (p.pauseReason) {
         reasonCounts[p.pauseReason] = (reasonCounts[p.pauseReason] || 0) + 1;
       }
     }
-    const topReasonEntry = Object.entries(reasonCounts).sort(([, a], [, b]) => b - a)[0];
 
     let avgDaysPaused = 0;
     const daysPausedArr: number[] = [];
     const nowMs = Date.now();
     for (const p of pausedProjects) {
-      const created = p.projectCreatedDate ? new Date(p.projectCreatedDate) : null;
-      if (created) {
-        daysPausedArr.push(Math.floor((nowMs - created.getTime()) / 86400000));
-      }
+      const pLogs = allPauseLogs.filter(l => l.projectId === p.id);
+      const latestReset = pLogs
+        .filter(l => l.actionType === "timer_reset")
+        .sort((a, b) => new Date(b.pausedAt!).getTime() - new Date(a.pausedAt!).getTime())[0];
+      let startMs: number | null = null;
+      if (p.pauseTimerStartDate) startMs = new Date(p.pauseTimerStartDate).getTime();
+      else if (latestReset?.pausedAt) startMs = new Date(latestReset.pausedAt).getTime();
+      else if (p.pauseReasonSetAt) startMs = new Date(p.pauseReasonSetAt).getTime();
+      else if (p.projectCreatedDate) startMs = new Date(p.projectCreatedDate).getTime();
+      if (startMs) daysPausedArr.push(Math.floor((nowMs - startMs) / 86400000));
     }
     if (daysPausedArr.length > 0) {
       avgDaysPaused = Math.round(daysPausedArr.reduce((a, b) => a + b, 0) / daysPausedArr.length);
+    }
+
+    let over30 = 0, over60 = 0, over90 = 0;
+    for (const d of daysPausedArr) {
+      if (d >= 90) over90++;
+      else if (d >= 60) over60++;
+      else if (d >= 30) over30++;
     }
 
     const sevenDaysAgoMs = Date.now() - 7 * 86400000;
@@ -89,8 +99,10 @@ export function PausedKpiSection() {
       snoozedCount,
       avgDaysPaused,
       actionsThisWeek,
-      withoutReason,
-      topReason: topReasonEntry ? { reason: topReasonEntry[0], count: topReasonEntry[1] } : null,
+      over30,
+      over60,
+      over90,
+      lostTotal: lostProjects.length,
       topStaff: topStaffEntry ? { name: topStaffEntry[0], count: topStaffEntry[1] } : null,
       reasonBreakdown: Object.entries(reasonCounts).sort(([, a], [, b]) => b - a) as [string, number][],
     };
@@ -178,7 +190,7 @@ export function PausedKpiSection() {
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
               Avg Days Paused
-              <FormulaTooltip formula="AVG(today - projectCreatedDate) for all paused projects." />
+              <FormulaTooltip formula="AVG(today - pauseTimerStart) for all paused projects. Timer resets when customer confirms likely to proceed." />
             </CardTitle>
             <Timer className="h-4 w-4 text-amber-500" />
           </CardHeader>
@@ -202,35 +214,35 @@ export function PausedKpiSection() {
           </CardContent>
         </Card>
 
-        <Card data-testid="dash-kpi-no-reason">
+        <Card data-testid="dash-kpi-duration-alert">
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              No Reason
-              <FormulaTooltip formula="Paused projects without a pause reason set." />
+              Duration Alert
+              <FormulaTooltip formula="Projects paused 30+ days (yellow), 60+ days (red), 90+ days (critical)." />
             </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Timer className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.withoutReason}</div>
-            <p className="text-xs text-muted-foreground">missing pause reason</p>
+            <div className="flex items-center gap-2 text-xs">
+              {stats.over30 > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 font-medium">30d: {stats.over30}</span>}
+              {stats.over60 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-medium">60d: {stats.over60}</span>}
+              {stats.over90 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-200 font-bold">90d: {stats.over90}</span>}
+              {stats.over30 === 0 && stats.over60 === 0 && stats.over90 === 0 && <span className="text-muted-foreground">all under 30d</span>}
+            </div>
           </CardContent>
         </Card>
 
-        <Card data-testid="dash-kpi-top-reason">
+        <Card data-testid="dash-kpi-projects-lost">
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              Top Reason
-              <FormulaTooltip formula="Most common pause reason across all currently paused projects." />
+              Projects Lost
+              <FormulaTooltip formula="Projects with PM Status = 'Project Lost'." />
             </CardTitle>
-            <BarChart3 className="h-4 w-4 text-amber-500" />
+            <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-sm font-bold truncate" title={stats.topReason?.reason}>
-              {stats.topReason?.reason || "N/A"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {stats.topReason ? `${stats.topReason.count} project${stats.topReason.count !== 1 ? "s" : ""}` : "no reasons logged"}
-            </p>
+            <div className={`text-2xl font-bold ${stats.lostTotal > 0 ? "text-red-600" : ""}`}>{stats.lostTotal}</div>
+            <p className="text-xs text-muted-foreground">total lost projects</p>
           </CardContent>
         </Card>
 

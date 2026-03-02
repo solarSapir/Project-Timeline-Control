@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import {
   Search, PauseCircle, ChevronDown, ChevronUp, Plus, X, Check,
   History, CalendarClock, Clock, AlertTriangle, BarChart3, Users, PenLine,
-  BellOff, Timer, CheckCircle2, TrendingUp,
+  BellOff, Timer, CheckCircle2, TrendingUp, XCircle, RotateCcw,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
@@ -20,6 +21,51 @@ import { useToast } from "@/hooks/use-toast";
 import { CollapsibleKpiSection } from "@/components/dashboard/CollapsibleKpiSection";
 import { FormulaTooltip } from "@/components/dashboard/FormulaTooltip";
 import type { Project, PauseReason, PauseLog, StaffMember } from "@shared/schema";
+
+function getDaysPaused(project: Project, projectLogs: PauseLog[]): number {
+  if (project.pauseTimerStartDate) {
+    return Math.floor((Date.now() - new Date(project.pauseTimerStartDate).getTime()) / (1000 * 60 * 60 * 24));
+  }
+  const latestReset = projectLogs
+    .filter(l => l.actionType === "timer_reset")
+    .sort((a, b) => new Date(b.pausedAt!).getTime() - new Date(a.pausedAt!).getTime())[0];
+  if (latestReset?.pausedAt) {
+    return Math.floor((Date.now() - new Date(latestReset.pausedAt).getTime()) / (1000 * 60 * 60 * 24));
+  }
+  if (project.pauseReasonSetAt) {
+    return Math.floor((Date.now() - new Date(project.pauseReasonSetAt).getTime()) / (1000 * 60 * 60 * 24));
+  }
+  if (project.projectCreatedDate) {
+    return Math.floor((Date.now() - new Date(project.projectCreatedDate).getTime()) / (1000 * 60 * 60 * 24));
+  }
+  return 0;
+}
+
+function PauseDurationBadge({ days, onTrigger90Day }: { days: number; onTrigger90Day: () => void }) {
+  let bgClass = "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 border-green-200 dark:border-green-800";
+  let label = `${days}d paused`;
+
+  if (days >= 90) {
+    bgClass = "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200 border-red-300 dark:border-red-800 animate-pulse cursor-pointer";
+    label = `${days}d paused`;
+  } else if (days >= 60) {
+    bgClass = "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300 border-red-200 dark:border-red-800";
+  } else if (days >= 30) {
+    bgClass = "bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800";
+  }
+
+  return (
+    <span
+      className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap border flex items-center gap-0.5 ${bgClass}`}
+      onClick={days >= 90 ? onTrigger90Day : undefined}
+      data-testid="badge-pause-duration"
+    >
+      <Timer className="h-2.5 w-2.5" />
+      {label}
+      {days >= 90 && <AlertTriangle className="h-2.5 w-2.5 ml-0.5" />}
+    </span>
+  );
+}
 
 function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   project: Project;
@@ -39,11 +85,57 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const [followUpDate, setFollowUpDate] = useState("");
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpStaff, setFollowUpStaff] = useState("");
+  const [show90DayDialog, setShow90DayDialog] = useState(false);
+  const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
+  const [showProceedDialog, setShowProceedDialog] = useState(false);
+  const [lostReason, setLostReason] = useState("");
+  const [lostStaff, setLostStaff] = useState("");
 
   const projectLogs = useMemo(() =>
     allLogs.filter(l => l.projectId === project.id),
     [allLogs, project.id]
   );
+
+  const daysPaused = useMemo(() => getDaysPaused(project, projectLogs), [project, projectLogs]);
+
+  const timerResetCount = useMemo(() =>
+    projectLogs.filter(l => l.actionType === "timer_reset").length,
+    [projectLogs]
+  );
+
+  const markLostMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/pause-reasons/mark-lost", {
+        projectId: project.id,
+        reason: lostReason,
+        staffName: lostStaff || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons/logs'] });
+      toast({ title: "Project marked as lost" });
+      setShowLostReasonDialog(false);
+      setLostReason("");
+      setLostStaff("");
+    },
+  });
+
+  const resetTimerMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/pause-reasons/reset-timer", {
+        projectId: project.id,
+        staffName: lostStaff || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons/logs'] });
+      toast({ title: "Pause timer reset - customer likely to proceed" });
+      setShowProceedDialog(false);
+      setLostStaff("");
+    },
+  });
 
   const hasExistingReason = !!project.pauseReason || projectLogs.length > 0;
 
@@ -165,6 +257,13 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
             {project.installType && (
               <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
                 {project.installType}
+              </span>
+            )}
+            <PauseDurationBadge days={daysPaused} onTrigger90Day={() => setShow90DayDialog(true)} />
+            {timerResetCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-0.5" data-testid={`badge-timer-resets-${project.id}`}>
+                <RotateCcw className="h-2.5 w-2.5" />
+                {timerResetCount}x reset
               </span>
             )}
             <EscalationBadge projectId={project.id} />
@@ -444,6 +543,150 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
             </div>
           )}
         </div>
+
+        <Dialog open={show90DayDialog} onOpenChange={setShow90DayDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                Project Paused for {daysPaused} Days
+              </DialogTitle>
+              <DialogDescription>
+                This project has been paused for over 90 days. Should it be canceled and moved to lost?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2 text-sm text-muted-foreground">
+              <p className="font-medium mb-1">{project.name}</p>
+              {project.pauseReason && <p>Current pause reason: {project.pauseReason}</p>}
+              {timerResetCount > 0 && <p>Timer has been reset {timerResetCount} time{timerResetCount !== 1 ? "s" : ""} previously</p>}
+            </div>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShow90DayDialog(false);
+                  setShowLostReasonDialog(true);
+                }}
+                data-testid={`button-mark-lost-${project.id}`}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Yes, Mark as Lost
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShow90DayDialog(false);
+                  setShowProceedDialog(true);
+                }}
+                data-testid={`button-not-lost-${project.id}`}
+              >
+                No, Customer May Proceed
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showLostReasonDialog} onOpenChange={setShowLostReasonDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reason for Project Lost</DialogTitle>
+              <DialogDescription>
+                Why is this project being marked as lost? This will be tracked in insights.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Reason</label>
+                <Select value={lostReason} onValueChange={setLostReason}>
+                  <SelectTrigger data-testid={`select-lost-reason-${project.id}`}>
+                    <SelectValue placeholder="Select a reason..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Customer unresponsive">Customer unresponsive</SelectItem>
+                    <SelectItem value="Customer changed mind">Customer changed mind</SelectItem>
+                    <SelectItem value="Financial reasons">Financial reasons</SelectItem>
+                    <SelectItem value="Went with competitor">Went with competitor</SelectItem>
+                    <SelectItem value="Property issues">Property issues</SelectItem>
+                    <SelectItem value="Permit denied">Permit denied</SelectItem>
+                    <SelectItem value="Utility issues">Utility issues</SelectItem>
+                    <SelectItem value="Project no longer viable">Project no longer viable</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Staff</label>
+                <Select value={lostStaff} onValueChange={setLostStaff}>
+                  <SelectTrigger data-testid={`select-lost-staff-${project.id}`}>
+                    <SelectValue placeholder="Select staff..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffMembers.filter(s => s.active !== false).map(s => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowLostReasonDialog(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={!lostReason || markLostMutation.isPending}
+                onClick={() => markLostMutation.mutate()}
+                data-testid={`button-confirm-lost-${project.id}`}
+              >
+                {markLostMutation.isPending ? "Processing..." : "Confirm Project Lost"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showProceedDialog} onOpenChange={setShowProceedDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Is the customer likely to still proceed?</DialogTitle>
+              <DialogDescription>
+                If yes, the pause timer will reset and the 30/60/90 day cycle will start over. This helps track how often we're following up with paused projects.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Staff</label>
+                <Select value={lostStaff} onValueChange={setLostStaff}>
+                  <SelectTrigger data-testid={`select-proceed-staff-${project.id}`}>
+                    <SelectValue placeholder="Select staff..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffMembers.filter(s => s.active !== false).map(s => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+              <Button
+                onClick={() => resetTimerMutation.mutate()}
+                disabled={resetTimerMutation.isPending}
+                data-testid={`button-confirm-proceed-${project.id}`}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                {resetTimerMutation.isPending ? "Resetting..." : "Yes, Reset Timer"}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShowProceedDialog(false);
+                  setShowLostReasonDialog(true);
+                }}
+                data-testid={`button-proceed-to-lost-${project.id}`}
+              >
+                No, Mark as Lost
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -496,6 +739,11 @@ export default function PausedProjectsView() {
     return { activeProjects: active, snoozedProjects: snoozed };
   }, [pausedProjects, projectFollowUps, todayDate]);
 
+  const lostProjects = useMemo(() =>
+    (projects || []).filter(p => p.pmStatus?.toLowerCase() === 'project lost'),
+    [projects]
+  );
+
   const kpiStats = useMemo(() => {
     const total = pausedProjects.length;
 
@@ -523,16 +771,22 @@ export default function PausedProjectsView() {
 
     let avgDaysPaused = 0;
     const daysPausedArr: number[] = [];
-    const nowMs = Date.now();
     for (const p of pausedProjects) {
-      const created = p.projectCreatedDate ? new Date(p.projectCreatedDate) : null;
-      if (created) {
-        const days = Math.floor((nowMs - created.getTime()) / (1000 * 60 * 60 * 24));
-        daysPausedArr.push(days);
-      }
+      const pLogs = allPauseLogs.filter(l => l.projectId === p.id);
+      const days = getDaysPaused(p, pLogs);
+      daysPausedArr.push(days);
     }
     if (daysPausedArr.length > 0) {
       avgDaysPaused = Math.round(daysPausedArr.reduce((a, b) => a + b, 0) / daysPausedArr.length);
+    }
+
+    let over30 = 0;
+    let over60 = 0;
+    let over90 = 0;
+    for (const d of daysPausedArr) {
+      if (d >= 90) over90++;
+      else if (d >= 60) over60++;
+      else if (d >= 30) over30++;
     }
 
     const sevenDaysAgo = new Date();
@@ -554,6 +808,16 @@ export default function PausedProjectsView() {
 
     const topStaff = Object.entries(staffFollowUpCounts).sort(([, a], [, b]) => b - a)[0];
 
+    const timerResets = allPauseLogs.filter(l => l.actionType === "timer_reset").length;
+    const markedLost = allPauseLogs.filter(l => l.actionType === "marked_lost").length;
+
+    const lostReasonCounts: Record<string, number> = {};
+    for (const p of lostProjects) {
+      if (p.projectLostReason) {
+        lostReasonCounts[p.projectLostReason] = (lostReasonCounts[p.projectLostReason] || 0) + 1;
+      }
+    }
+
     return {
       total,
       withReason,
@@ -568,8 +832,15 @@ export default function PausedProjectsView() {
       actionsThisWeek,
       topStaff: topStaff ? { name: topStaff[0], count: topStaff[1] } : null,
       reasonBreakdown: Object.entries(reasonCounts).sort(([, a], [, b]) => b - a),
+      over30,
+      over60,
+      over90,
+      timerResets,
+      markedLost,
+      lostTotal: lostProjects.length,
+      lostReasonBreakdown: Object.entries(lostReasonCounts).sort(([, a], [, b]) => b - a),
     };
-  }, [pausedProjects, allPauseLogs, projectFollowUps, todayDate, snoozedProjects, activeProjects]);
+  }, [pausedProjects, allPauseLogs, projectFollowUps, todayDate, snoozedProjects, activeProjects, lostProjects]);
 
   const [filterTab, setFilterTab] = useState<"all" | "active" | "snoozed">("active");
 
@@ -680,35 +951,36 @@ export default function PausedProjectsView() {
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-no-reason">
+          <Card data-testid="kpi-duration-alert">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                No Reason
-                <FormulaTooltip formula="Paused projects without a pause reason set. Should be addressed." />
+                Duration Alert
+                <FormulaTooltip formula="Projects paused 30+ days (yellow), 60+ days (red), 90+ days (critical). Based on pause timer start or last timer reset." />
               </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Timer className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{kpiStats.withoutReason}</div>
-              <p className="text-xs text-muted-foreground">missing pause reason</p>
+              <div className="flex items-center gap-2 text-xs">
+                {kpiStats.over30 > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 font-medium">30d: {kpiStats.over30}</span>}
+                {kpiStats.over60 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-medium">60d: {kpiStats.over60}</span>}
+                {kpiStats.over90 > 0 && <span className="px-1.5 py-0.5 rounded bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-200 font-bold">90d: {kpiStats.over90}</span>}
+                {kpiStats.over30 === 0 && kpiStats.over60 === 0 && kpiStats.over90 === 0 && <span className="text-muted-foreground">all under 30d</span>}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{kpiStats.timerResets} timer reset{kpiStats.timerResets !== 1 ? "s" : ""} total</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-top-reason">
+          <Card data-testid="kpi-projects-lost">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                Top Reason
-                <FormulaTooltip formula="Most common pause reason across all currently paused projects." />
+                Projects Lost
+                <FormulaTooltip formula="Projects moved from 'Project Paused' to 'Project Lost' via the 90-day review process." />
               </CardTitle>
-              <BarChart3 className="h-4 w-4 text-amber-500" />
+              <XCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-sm font-bold truncate" title={kpiStats.topReason?.reason}>
-                {kpiStats.topReason?.reason || "N/A"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {kpiStats.topReason ? `${kpiStats.topReason.count} project${kpiStats.topReason.count !== 1 ? "s" : ""}` : "no reasons logged"}
-              </p>
+              <div className={`text-2xl font-bold ${kpiStats.lostTotal > 0 ? "text-red-600" : ""}`}>{kpiStats.lostTotal}</div>
+              <p className="text-xs text-muted-foreground">{kpiStats.markedLost} marked via review</p>
             </CardContent>
           </Card>
 
@@ -748,6 +1020,32 @@ export default function PausedProjectsView() {
                       <div
                         className="h-full rounded-full bg-amber-500/70"
                         style={{ width: `${Math.round((count / kpiStats.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {kpiStats.lostReasonBreakdown.length > 0 && (
+          <div className="mt-3 p-3 rounded-md bg-red-50/30 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+              <XCircle className="h-3 w-3 text-red-500" /> Lost Project Reasons (Insights)
+            </p>
+            <div className="space-y-1.5">
+              {kpiStats.lostReasonBreakdown.map(([reason, count]) => (
+                <div key={reason} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs truncate">{reason}</span>
+                      <span className="text-xs text-muted-foreground ml-2 shrink-0">{count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-red-500/70"
+                        style={{ width: `${Math.round((count / kpiStats.lostTotal) * 100)}%` }}
                       />
                     </div>
                   </div>

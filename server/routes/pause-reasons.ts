@@ -66,11 +66,18 @@ pauseReasonsRouter.get("/logs", async (req, res) => {
 
 pauseReasonsRouter.post("/logs", async (req, res) => {
   try {
-    const { projectId, reason, note, staffName, followUpDate } = req.body;
+    const { projectId, reason, note, staffName, followUpDate, actionType } = req.body;
     if (!projectId) {
       return res.status(400).json({ message: "projectId is required" });
     }
-    const log = await storage.createPauseLog({ projectId, reason, note, staffName, followUpDate: followUpDate || null });
+    const log = await storage.createPauseLog({
+      projectId,
+      reason,
+      note,
+      staffName,
+      followUpDate: followUpDate || null,
+      actionType: actionType || "reason",
+    });
 
     if (reason) {
       try {
@@ -81,6 +88,79 @@ pauseReasonsRouter.post("/logs", async (req, res) => {
     }
 
     res.json(log);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+pauseReasonsRouter.post("/mark-lost", async (req, res) => {
+  try {
+    const { projectId, reason, staffName } = req.body;
+    if (!projectId || !reason) {
+      return res.status(400).json({ message: "projectId and reason are required" });
+    }
+
+    const project = await storage.getProject(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    await storage.updateProject(projectId, {
+      pmStatus: "Project Lost",
+      projectLostReason: reason,
+      projectLostDate: new Date(),
+    });
+
+    if (project.asanaGid && project.asanaCustomFields) {
+      const { updateAsanaTaskField } = await import("../asana");
+      try {
+        await updateAsanaTaskField(
+          project.asanaGid,
+          project.asanaCustomFields as Record<string, unknown>[],
+          "pmStatus",
+          "Project Lost"
+        );
+      } catch (asanaErr: unknown) {
+        console.warn("Failed to update Asana PM Status to Project Lost:", asanaErr);
+      }
+    }
+
+    await storage.createPauseLog({
+      projectId,
+      reason,
+      note: `Project marked as lost: ${reason}`,
+      staffName: staffName || null,
+      followUpDate: null,
+      actionType: "marked_lost",
+    });
+
+    res.json({ success: true });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+pauseReasonsRouter.post("/reset-timer", async (req, res) => {
+  try {
+    const { projectId, staffName } = req.body;
+    if (!projectId) {
+      return res.status(400).json({ message: "projectId is required" });
+    }
+
+    await storage.updateProject(projectId, {
+      pauseTimerStartDate: new Date(),
+    });
+
+    await storage.createPauseLog({
+      projectId,
+      reason: null,
+      note: "Customer confirmed likely to proceed - pause timer reset",
+      staffName: staffName || null,
+      followUpDate: null,
+      actionType: "timer_reset",
+    });
+
+    res.json({ success: true });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ message: msg });

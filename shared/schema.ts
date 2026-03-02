@@ -95,6 +95,9 @@ export const projects = pgTable("projects", {
   pauseReason: text("pause_reason"),
   pauseNote: text("pause_note"),
   pauseReasonSetAt: timestamp("pause_reason_set_at"),
+  pauseTimerStartDate: timestamp("pause_timer_start_date"),
+  projectLostReason: text("project_lost_reason"),
+  projectLostDate: timestamp("project_lost_date"),
   clientPhone: text("client_phone"),
   clientEmail: text("client_email"),
   projectAddress: text("project_address"),
@@ -654,6 +657,7 @@ export const pauseLogs = pgTable("pause_logs", {
   note: text("note"),
   staffName: text("staff_name"),
   followUpDate: date("follow_up_date"),
+  actionType: text("action_type").default("reason"),
   pausedAt: timestamp("paused_at").defaultNow(),
 });
 
