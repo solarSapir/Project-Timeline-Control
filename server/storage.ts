@@ -102,6 +102,7 @@ export interface IStorage {
 
   getPauseLogs(projectId?: string): Promise<PauseLog[]>;
   createPauseLog(data: InsertPauseLog): Promise<PauseLog>;
+  updatePauseLog(id: string, data: Partial<InsertPauseLog>): Promise<PauseLog | undefined>;
 
   getActiveClaims(): Promise<TaskClaim[]>;
   getActiveClaimByStaff(staffName: string): Promise<TaskClaim | undefined>;
@@ -575,6 +576,11 @@ export class DatabaseStorage implements IStorage {
   async createPauseLog(data: InsertPauseLog): Promise<PauseLog> {
     const [log] = await db.insert(pauseLogs).values(data).returning();
     return log;
+  }
+
+  async updatePauseLog(id: string, data: Partial<InsertPauseLog>): Promise<PauseLog | undefined> {
+    const [updated] = await db.update(pauseLogs).set(data).where(eq(pauseLogs.id, id)).returning();
+    return updated;
   }
 
   async getActiveClaims(): Promise<TaskClaim[]> {

@@ -79,6 +79,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const [expanded, setExpanded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState("");
   const [note, setNote] = useState("");
   const [actionRequired, setActionRequired] = useState("");
@@ -174,35 +175,62 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const todayStr = new Date().toISOString().split("T")[0];
   const isFollowUpOverdue = latestFollowUp?.followUpDate ? latestFollowUp.followUpDate < todayStr : false;
 
+  const clearForm = () => {
+    setSelectedReason("");
+    setNote("");
+    setActionRequired("");
+    setNextSteps("");
+    setStaffName("");
+    setEditingLogId(null);
+    setShowForm(false);
+  };
+
+  const startEditingLog = (log: PauseLog) => {
+    setEditingLogId(log.id);
+    setSelectedReason(log.reason || "");
+    setNote(log.note || "");
+    setActionRequired(log.actionRequired || "");
+    setNextSteps(log.nextSteps || "");
+    setStaffName(log.staffName || "");
+    setShowForm(true);
+    setShowCustom(false);
+  };
+
   const logPauseMutation = useMutation({
     mutationFn: async () => {
       if (!selectedReason && !note) return;
-      await apiRequest("POST", "/api/pause-reasons/logs", {
-        projectId: project.id,
-        reason: selectedReason || null,
-        note: note || null,
-        actionRequired: actionRequired || null,
-        nextSteps: nextSteps || null,
-        staffName: staffName || null,
-      });
-      if (selectedReason) {
-        await apiRequest("PATCH", `/api/projects/${project.id}`, {
-          pauseReason: selectedReason,
-          pauseNote: note || null,
+
+      if (editingLogId) {
+        await apiRequest("PATCH", `/api/pause-reasons/logs/${editingLogId}`, {
+          reason: selectedReason || null,
+          note: note || null,
+          actionRequired: actionRequired || null,
+          nextSteps: nextSteps || null,
+          staffName: staffName || null,
         });
+      } else {
+        await apiRequest("POST", "/api/pause-reasons/logs", {
+          projectId: project.id,
+          reason: selectedReason || null,
+          note: note || null,
+          actionRequired: actionRequired || null,
+          nextSteps: nextSteps || null,
+          staffName: staffName || null,
+        });
+        if (selectedReason) {
+          await apiRequest("PATCH", `/api/projects/${project.id}`, {
+            pauseReason: selectedReason,
+            pauseNote: note || null,
+          });
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons/logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/pause-reasons'] });
-      toast({ title: "Pause reason logged" });
-      setSelectedReason("");
-      setNote("");
-      setActionRequired("");
-      setNextSteps("");
-      setStaffName("");
-      setShowForm(false);
+      toast({ title: editingLogId ? "Pause reason updated" : "Pause reason logged" });
+      clearForm();
     },
   });
 
@@ -471,7 +499,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs gap-1"
-                  onClick={() => setShowForm(true)}
+                  onClick={() => { clearForm(); setShowForm(true); }}
                   data-testid={`button-open-reason-form-${project.id}`}
                 >
                   <PenLine className="h-3 w-3" />
@@ -480,8 +508,10 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
               ) : (
                 <div className="space-y-3 p-3 rounded-md bg-muted/30 border">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">Log New Pause Reason</label>
-                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setShowForm(false)}>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {editingLogId ? "Edit Pause Reason" : "Log New Pause Reason"}
+                    </label>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={clearForm}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
@@ -570,7 +600,17 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                     </Select>
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2">
+                    {editingLogId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={clearForm}
+                      >
+                        Cancel Edit
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       className="h-7 text-xs"
@@ -578,7 +618,9 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                       disabled={logPauseMutation.isPending || (!selectedReason && !note)}
                       data-testid={`button-log-pause-${project.id}`}
                     >
-                      {logPauseMutation.isPending ? "Logging..." : "Log Pause Reason"}
+                      {logPauseMutation.isPending
+                        ? (editingLogId ? "Updating..." : "Logging...")
+                        : (editingLogId ? "Update Reason" : "Log Pause Reason")}
                     </Button>
                   </div>
                 </div>

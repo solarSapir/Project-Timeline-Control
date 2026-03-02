@@ -96,6 +96,37 @@ pauseReasonsRouter.post("/logs", async (req, res) => {
   }
 });
 
+pauseReasonsRouter.patch("/logs/:id", async (req, res) => {
+  try {
+    const { reason, note, actionRequired, nextSteps, staffName } = req.body;
+    const updates: Record<string, unknown> = {};
+    if (reason !== undefined) updates.reason = reason;
+    if (note !== undefined) updates.note = note;
+    if (actionRequired !== undefined) updates.actionRequired = actionRequired;
+    if (nextSteps !== undefined) updates.nextSteps = nextSteps;
+    if (staffName !== undefined) updates.staffName = staffName;
+
+    const updated = await storage.updatePauseLog(req.params.id, updates as any);
+    if (!updated) {
+      return res.status(404).json({ message: "Log not found" });
+    }
+
+    if (reason && updated.projectId) {
+      try {
+        await storage.updateProject(updated.projectId, {
+          pauseReason: reason,
+          pauseNote: note || null,
+        } as any);
+      } catch {}
+    }
+
+    res.json(updated);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 pauseReasonsRouter.post("/mark-lost", async (req, res) => {
   try {
     const { projectId, reason, staffName } = req.body;
