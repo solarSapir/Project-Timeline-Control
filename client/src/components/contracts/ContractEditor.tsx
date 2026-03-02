@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
@@ -88,8 +88,9 @@ import {
   List, ListOrdered, Heading1, Heading2, Heading3,
   Table as TableIcon, Redo, Undo,
   ArrowLeft, Save, Loader2, Upload,
-  Minus, ImageIcon,
+  Minus, ImageIcon, AlertTriangle,
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -140,6 +141,9 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
   const [importing, setImporting] = useState(false);
   const [customFieldOpen, setCustomFieldOpen] = useState(false);
   const [customFieldName, setCustomFieldName] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const savedContentRef = useRef(initialContent || "");
 
   const editor = useEditor({
     extensions: [
@@ -162,6 +166,9 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
       }),
     ],
     content: initialContent || "",
+    onUpdate: () => {
+      setIsDirty(true);
+    },
     editorProps: {
       attributes: {
         class: "contract-editor-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-8",
@@ -178,6 +185,7 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
         htmlContent: html,
       });
       toast({ title: "Contract template saved" });
+      setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/document-templates", templateId] });
     } catch (error: unknown) {
@@ -242,16 +250,27 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   }, [editor]);
 
+  const handleBack = useCallback(() => {
+    if (isDirty) {
+      setShowUnsavedDialog(true);
+    } else {
+      onClose();
+    }
+  }, [isDirty, onClose]);
+
   if (!editor) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       <div className="flex items-center justify-between gap-4 px-4 py-2 border-b bg-background shrink-0">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-back-from-editor">
+          <Button variant="ghost" size="sm" onClick={handleBack} data-testid="button-back-from-editor">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
+          {isDirty && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Unsaved changes</span>
+          )}
           <h3 className="text-lg font-semibold">{templateName}</h3>
         </div>
         <div className="flex items-center gap-2">
@@ -581,6 +600,30 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Unsaved Changes
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to this template. If you leave now, your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-discard">Keep Editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setShowUnsavedDialog(false); onClose(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-discard"
+            >
+              Discard Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
