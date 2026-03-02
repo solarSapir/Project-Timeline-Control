@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import {
   CheckCircle2, Clock, DollarSign, Send, ShieldCheck, Upload,
-  FileText, ExternalLink, Eye, Wallet, MessageSquare, PenLine, Save, Loader2,
+  FileText, ExternalLink, Eye, Wallet, MessageSquare, PenLine, Save, Loader2, Plus, Trash2,
 } from "lucide-react";
 import { isContractSent, isContractSigned, isDepositCollected, getInstallStageLabel } from "@/utils/stages";
 import { getDaysUntilDue, formatShortDate } from "@/utils/dates";
@@ -23,6 +23,32 @@ import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel"
 import { TaskActionDialog } from "@/components/task-action-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+interface Milestone {
+  description: string;
+  amount: string;
+  due: string;
+}
+
+const DEFAULT_MILESTONES: Milestone[] = [
+  { description: "Equipment + 10% of labour", amount: "", due: "Upon contract signing" },
+  { description: "Balance after installation complete", amount: "", due: "Within 30 days of completion" },
+];
+
+const SCOPE_ITEMS = [
+  "Mount solar panels on the roof per site plan",
+  "Install critical loads panel",
+  "Install battery backup system",
+  "Install EV charger",
+  "Install critter guard",
+  "Install inverters / micro inverters",
+  "Install rapid shutdown",
+  "Run Teck cable and install disconnect switch",
+  "Connect Teck cable to MSP",
+  "Service panel upgrade",
+  "Call for final ESA inspection",
+  "Site clean up",
+];
 
 interface AsanaCustomField {
   name: string;
@@ -67,6 +93,28 @@ export function ContractExpandedView({
 
   const [generateOpen, setGenerateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [milestones, setMilestones] = useState<Milestone[]>(() => {
+    const saved = (p as any).contractMilestones;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return DEFAULT_MILESTONES.map((m) => ({ ...m }));
+  });
+  const [scopeChecked, setScopeChecked] = useState<boolean[]>(() => {
+    const saved = (p as any).contractScopeItems;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return SCOPE_ITEMS.map((_, i) => [0, 4, 5, 6, 7, 8, 10, 11].includes(i));
+  });
+  const [customScopeItems, setCustomScopeItems] = useState<string[]>(() => {
+    const saved = (p as any).contractCustomScope;
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [];
+  });
+  const [newScopeText, setNewScopeText] = useState("");
   const buildDetails = (proj: Project) => ({
     clientPhone: (proj as any).clientPhone || "",
     clientEmail: (proj as any).clientEmail || "",
@@ -79,6 +127,9 @@ export function ContractExpandedView({
     contractTotal: (proj as any).contractTotal || "",
     contractHelcimLink: (proj as any).contractHelcimLink || "",
     contractRepName: (proj as any).contractRepName || "",
+    contractMilestones: (proj as any).contractMilestones || "",
+    contractScopeItems: (proj as any).contractScopeItems || "",
+    contractCustomScope: (proj as any).contractCustomScope || "",
   });
   const [contractDetails, setContractDetails] = useState(buildDetails(p));
 
@@ -97,13 +148,22 @@ export function ContractExpandedView({
       || contractDetails.contractHstAmount !== ((p as any).contractHstAmount || "")
       || contractDetails.contractTotal !== ((p as any).contractTotal || "")
       || contractDetails.contractHelcimLink !== ((p as any).contractHelcimLink || "")
-      || contractDetails.contractRepName !== ((p as any).contractRepName || "");
+      || contractDetails.contractRepName !== ((p as any).contractRepName || "")
+      || JSON.stringify(milestones) !== ((p as any).contractMilestones || JSON.stringify(DEFAULT_MILESTONES))
+      || JSON.stringify(scopeChecked) !== ((p as any).contractScopeItems || JSON.stringify(SCOPE_ITEMS.map((_, i) => [0, 4, 5, 6, 7, 8, 10, 11].includes(i))))
+      || JSON.stringify(customScopeItems) !== ((p as any).contractCustomScope || "[]");
   };
 
   const saveContractDetails = async () => {
     setSaving(true);
     try {
-      await apiRequest("PATCH", `/api/projects/${p.id}`, contractDetails);
+      const payload = {
+        ...contractDetails,
+        contractMilestones: JSON.stringify(milestones),
+        contractScopeItems: JSON.stringify(scopeChecked),
+        contractCustomScope: JSON.stringify(customScopeItems),
+      };
+      await apiRequest("PATCH", `/api/projects/${p.id}`, payload);
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       toast({ title: "Contract details saved" });
     } catch {
@@ -335,11 +395,133 @@ export function ContractExpandedView({
                   className="h-8 text-sm"
                   value={contractDetails.contractRepName}
                   onChange={(e) => setContractDetails({ ...contractDetails, contractRepName: e.target.value })}
-                  placeholder="e.g. Saoir Sosnovsky"
+                  placeholder="e.g. John Doe"
                   data-testid={`input-rep-name-${p.id}`}
                 />
               </div>
             </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Payment Milestones</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-[10px] gap-0.5 px-2"
+                  onClick={() => setMilestones([...milestones, { description: "", amount: "", due: "" }])}
+                  data-testid={`button-add-milestone-${p.id}`}
+                >
+                  <Plus className="h-2.5 w-2.5" /> Add
+                </Button>
+              </div>
+              {milestones.map((m, idx) => (
+                <div key={idx} className="flex items-start gap-1" data-testid={`milestone-row-${p.id}-${idx}`}>
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      className="h-7 text-xs"
+                      value={m.description}
+                      onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], description: e.target.value }; setMilestones(u); }}
+                      placeholder={`Milestone ${idx + 1} description`}
+                      data-testid={`input-milestone-desc-${p.id}-${idx}`}
+                    />
+                    <div className="grid grid-cols-2 gap-1">
+                      <Input
+                        className="h-7 text-xs"
+                        value={m.amount}
+                        onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], amount: e.target.value }; setMilestones(u); }}
+                        placeholder="$ Amount"
+                        data-testid={`input-milestone-amount-${p.id}-${idx}`}
+                      />
+                      <Input
+                        className="h-7 text-xs"
+                        value={m.due}
+                        onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], due: e.target.value }; setMilestones(u); }}
+                        placeholder="Due when"
+                        data-testid={`input-milestone-due-${p.id}-${idx}`}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-6 p-0 mt-0.5 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => { if (milestones.length > 1) setMilestones(milestones.filter((_, i) => i !== idx)); }}
+                    disabled={milestones.length <= 1}
+                    data-testid={`button-remove-milestone-${p.id}-${idx}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold">Scope of Work</Label>
+              <p className="text-[10px] text-muted-foreground">Check items to include in the contract.</p>
+              <div className="space-y-1">
+                {SCOPE_ITEMS.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2" data-testid={`scope-item-${p.id}-${idx}`}>
+                    <Checkbox
+                      checked={scopeChecked[idx] ?? false}
+                      onCheckedChange={(checked) => {
+                        const u = [...scopeChecked];
+                        u[idx] = !!checked;
+                        setScopeChecked(u);
+                      }}
+                      className="h-3.5 w-3.5"
+                      data-testid={`checkbox-scope-${p.id}-${idx}`}
+                    />
+                    <span className={`text-xs leading-4 ${scopeChecked[idx] ? "" : "text-muted-foreground line-through"}`}>{item}</span>
+                  </div>
+                ))}
+                {customScopeItems.map((item, idx) => (
+                  <div key={`custom-${idx}`} className="flex items-center gap-2 group" data-testid={`scope-custom-${p.id}-${idx}`}>
+                    <Checkbox checked className="h-3.5 w-3.5" disabled />
+                    <span className="text-xs leading-4 flex-1">{item}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      onClick={() => setCustomScopeItems(customScopeItems.filter((_, i) => i !== idx))}
+                      data-testid={`button-remove-custom-scope-${p.id}-${idx}`}
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <Input
+                  className="h-7 text-xs flex-1"
+                  value={newScopeText}
+                  onChange={(e) => setNewScopeText(e.target.value)}
+                  placeholder="Add custom item..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newScopeText.trim()) {
+                      setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
+                      setNewScopeText("");
+                    }
+                  }}
+                  data-testid={`input-custom-scope-${p.id}`}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] gap-0.5 px-2 shrink-0"
+                  onClick={() => {
+                    if (newScopeText.trim()) {
+                      setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
+                      setNewScopeText("");
+                    }
+                  }}
+                  disabled={!newScopeText.trim()}
+                  data-testid={`button-add-scope-${p.id}`}
+                >
+                  <Plus className="h-2.5 w-2.5" /> Add
+                </Button>
+              </div>
+            </div>
+
             <Button
               className="w-full gap-2"
               onClick={() => setGenerateOpen(true)}
@@ -444,6 +626,18 @@ export function ContractExpandedView({
         onOpenChange={setGenerateOpen}
         project={p}
         viewType="contracts"
+        initialMilestones={milestones}
+        initialScopeItems={[
+          ...SCOPE_ITEMS.map((desc, idx) => ({
+            description: desc,
+            included: scopeChecked[idx] ?? false,
+          })),
+          ...customScopeItems.map((desc) => ({
+            description: desc,
+            included: true,
+            editable: true,
+          })),
+        ]}
       />
     </div>
   );

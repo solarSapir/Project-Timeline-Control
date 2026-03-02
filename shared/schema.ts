@@ -106,6 +106,9 @@ export const projects = pgTable("projects", {
   contractTotal: text("contract_total"),
   contractHelcimLink: text("contract_helcim_link"),
   contractRepName: text("contract_rep_name"),
+  contractMilestones: text("contract_milestones"),
+  contractScopeItems: text("contract_scope_items"),
+  contractCustomScope: text("contract_custom_scope"),
 });
 
 export const projectDeadlines = pgTable("project_deadlines", {

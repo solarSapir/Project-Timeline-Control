@@ -175,9 +175,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   project: Project;
   viewType: string;
+  initialMilestones?: Milestone[];
+  initialScopeItems?: ScopeItem[];
 }
 
-export function GenerateContractDialog({ open, onOpenChange, project, viewType }: Props) {
+export function GenerateContractDialog({ open, onOpenChange, project, viewType, initialMilestones, initialScopeItems }: Props) {
   const { toast } = useToast();
   const [step, setStep] = useState<"select" | "fill" | "sign" | "generating" | "done">("select");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -216,8 +218,8 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       setSignatureData(null);
       setGeneratedFile(null);
       setAttachments({});
-      setMilestones([...DEFAULT_MILESTONES]);
-      setScopeItems(DEFAULT_SCOPE_ITEMS.map((s) => ({ ...s })));
+      setMilestones(initialMilestones ? initialMilestones.map((m) => ({ ...m })) : [...DEFAULT_MILESTONES]);
+      setScopeItems(initialScopeItems ? initialScopeItems.map((s) => ({ ...s })) : DEFAULT_SCOPE_ITEMS.map((s) => ({ ...s })));
       setCustomScopeText("");
     }
   }, [open]);
