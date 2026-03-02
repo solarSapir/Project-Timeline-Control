@@ -27,6 +27,7 @@ Solar PM is a project management application for solar installation companies. I
 - **Property Sector Filtering**: Excludes non-residential projects based on an Asana custom field.
 - **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, with invoice template editing.
 - **UC, Rebate & Contract KPI Systems**: Track workflow completions and key performance indicators with dashboards and drill-down views. All KPI sections use `CollapsibleKpiSection` wrapper and `FormulaTooltip` for explanations.
+- **Contract Generation Flow**: The Contracts expanded view replaces the old inline Contract Details form with a streamlined "Generate Contract" button. Users select a template, fill merge fields (pre-populated from project data), add signature, and generate. Generated contracts display with three-dot menus (View/Print, Download, Regenerate). Merge field values and milestones/scope are saved back to the project on generation.
 - **Contract Ready for Review Workflow**: Manages contracts marked "Ready for Review" with a configurable hide period and follow-up dialog.
 - **Escalated Tickets System**: Allows staff to flag "stuck" projects, creating escalation tickets with configurable hide periods and resolution reporting. Includes SLA timer and snooze/extend hide features.
 - **Escalation KPI Dashboard**: Displays 5 KPI cards: Open Tickets, Past 48h SLA, Avg Response Time, Avg Resolution Time, and SLA Compliance rate.

@@ -355,7 +355,36 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
       setGeneratedFile(file);
       setStep("done");
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "files", "contract"] });
       toast({ title: "Contract generated and saved to project files" });
+
+      try {
+        const savePayload: Record<string, string> = {};
+        const fieldMap: Record<string, string> = {
+          "{{client_phone}}": "clientPhone",
+          "{{client_email}}": "clientEmail",
+          "{{street_address}}": "projectAddress",
+          "{{city}}": "projectCity",
+          "{{postal_code}}": "projectPostalCode",
+          "{{project_description}}": "projectDescription",
+          "{{subtotal}}": "contractSubtotal",
+          "{{hst_amount}}": "contractHstAmount",
+          "{{total_price}}": "contractTotal",
+          "{{helcim_link}}": "contractHelcimLink",
+          "{{rep_name}}": "contractRepName",
+        };
+        for (const [mergeKey, dbField] of Object.entries(fieldMap)) {
+          if (mergeValues[mergeKey] !== undefined && mergeValues[mergeKey]) {
+            savePayload[dbField] = mergeValues[mergeKey];
+          }
+        }
+        savePayload.contractMilestones = JSON.stringify(milestones);
+        savePayload.contractScopeItems = JSON.stringify(scopeItems.map((s) => s.included));
+        const customItems = scopeItems.filter((s) => s.editable).map((s) => s.description);
+        savePayload.contractCustomScope = JSON.stringify(customItems);
+        await apiRequest("PATCH", `/api/projects/${project.id}`, savePayload);
+        queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      } catch {}
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Generation failed";
       toast({ title: msg, variant: "destructive" });
