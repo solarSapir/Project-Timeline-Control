@@ -571,7 +571,7 @@ export default function PausedProjectsView() {
     };
   }, [pausedProjects, allPauseLogs, projectFollowUps, todayDate, snoozedProjects, activeProjects]);
 
-  const [showSnoozed, setShowSnoozed] = useState(false);
+  const [filterTab, setFilterTab] = useState<"all" | "active" | "snoozed">("active");
 
   if (isLoading) {
     return <PageLoader title="Loading paused projects..." />;
@@ -588,6 +588,9 @@ export default function PausedProjectsView() {
       const bDate = projectFollowUps.get(b.id) || "";
       return aDate.localeCompare(bDate);
     });
+  const filteredAll = [...filteredActive, ...filteredSnoozed].sort((a, b) => a.name.localeCompare(b.name));
+
+  const displayProjects = filterTab === "all" ? filteredAll : filterTab === "active" ? filteredActive : filteredSnoozed;
 
   return (
     <div className="p-6 space-y-5">
@@ -755,56 +758,67 @@ export default function PausedProjectsView() {
         )}
       </CollapsibleKpiSection>
 
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search paused projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-paused" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+          <button
+            onClick={() => setFilterTab("all")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            data-testid="filter-tab-all"
+          >
+            All ({pausedProjects.length})
+          </button>
+          <button
+            onClick={() => setFilterTab("active")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${filterTab === "active" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            data-testid="filter-tab-active"
+          >
+            <AlertTriangle className="h-3 w-3 text-amber-500" />
+            Needs Attention ({activeProjects.length})
+          </button>
+          <button
+            onClick={() => setFilterTab("snoozed")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${filterTab === "snoozed" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            data-testid="filter-tab-snoozed"
+          >
+            <BellOff className="h-3 w-3 text-blue-500" />
+            Snoozed ({snoozedProjects.length})
+          </button>
+        </div>
+
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search paused projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-paused" />
+        </div>
       </div>
 
-      {filteredActive.length > 0 ? (
+      {displayProjects.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Needs Attention ({filteredActive.length})
-          </p>
-          {filteredActive.map(p => (
-            <PausedCard
-              key={p.id}
-              project={p}
-              pauseReasonOptions={pauseReasonOptions || []}
-              staffMembers={staffData || []}
-              allLogs={allPauseLogs}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>{search ? "No active paused projects match your search." : "All paused projects have future follow-ups scheduled."}</p>
-        </div>
-      )}
-
-      {filteredSnoozed.length > 0 && (
-        <div className="space-y-2">
-          <button
-            onClick={() => setShowSnoozed(!showSnoozed)}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-            data-testid="button-toggle-snoozed"
-          >
-            {showSnoozed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            <BellOff className="h-3.5 w-3.5 text-blue-500" />
-            Snoozed ({filteredSnoozed.length}) — hidden until follow-up date
-          </button>
-          {showSnoozed && (
-            <div className="space-y-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
-              {filteredSnoozed.map(p => (
+          {displayProjects.map(p => {
+            const isSnoozed = snoozedProjects.includes(p);
+            return (
+              <div key={p.id} className={isSnoozed && filterTab === "all" ? "pl-2 border-l-2 border-blue-200 dark:border-blue-800" : ""}>
                 <PausedCard
-                  key={p.id}
                   project={p}
                   pauseReasonOptions={pauseReasonOptions || []}
                   staffMembers={staffData || []}
                   allLogs={allPauseLogs}
                 />
-              ))}
-            </div>
-          )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>
+            {search
+              ? "No paused projects match your search."
+              : filterTab === "active"
+                ? "All paused projects have future follow-ups scheduled."
+                : filterTab === "snoozed"
+                  ? "No snoozed projects."
+                  : "No paused projects."
+            }
+          </p>
         </div>
       )}
     </div>
