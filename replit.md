@@ -1,7 +1,7 @@
 # Solar PM - Project Tracker
 
 ## Overview
-Solar PM is a project management application for solar installation companies. It synchronizes with Asana to manage the entire lifecycle of solar installation projects, including UC applications, contracts, permits, installations, payments, and close-off stages. The application provides automated deadline management, dependency gating, and aims to enhance project visibility and operational efficiency for timely project completion.
+Solar PM is a project management application designed for solar installation companies. It synchronizes with Asana to streamline the entire project lifecycle, from UC applications and contracts to installations, payments, and close-off. The application automates deadline management, enforces dependency gating, and aims to significantly improve project visibility and operational efficiency, ensuring projects are completed on time.
 
 ## User Preferences
 - Solar installation company (Solar Power Store)
@@ -14,46 +14,41 @@ Solar PM is a project management application for solar installation companies. I
 ### Stack
 - **Frontend**: React + TypeScript, Tailwind CSS, Shadcn UI, Wouter routing, TanStack Query
 - **Backend**: Express.js, Drizzle ORM, PostgreSQL
+- **AI**: OpenAI Vision (gpt-4o) for hydro bill extraction and AI insights
 
 ### Core Features and Design
-- **Project Lifecycle Management**: Tracks projects through stages: UC Applications, Contracts, Site Visits, AHJ/Permitting, Installation, Payments, and Close-off.
-- **Asana Two-Way Sync**: Bidirectional integration with Asana, serving as the single source of truth for project data.
-- **Workflow Configuration**: Settings for defining stage dependencies, customizable gap days, and completion criteria with a visual editor.
-- **Dependency Gating & Chained Due Dates**: Projects progress only when dependencies are met, with due dates calculated relative to preceding stages.
-- **Dynamic Gantt Chart**: Visualizes project timelines with target vs. expected dates.
-- **Hydro Bill Information Extraction**: UC cards support manual entry or AI-powered data extraction from uploaded hydro bill images using OpenAI Vision.
-- **Installation Calendar**: Monthly view of installations with cascading target date logic.
-- **Project Profile Page**: Comprehensive view per project, including stage values, Gantt chart, documents, and a unified Customer Timeline.
-- **Property Sector Filtering**: Excludes non-residential projects based on an Asana custom field.
-- **HRSP Document Checklist & Configuration**: Two-phase document tracking for HRSP based on grant status, configurable via settings, with invoice template editing.
-- **UC, Rebate & Contract KPI Systems**: Track workflow completions and key performance indicators with dashboards and drill-down views. All KPI sections use `CollapsibleKpiSection` wrapper and `FormulaTooltip` for explanations.
-- **Contract Generation Flow**: The Contracts expanded view replaces the old inline Contract Details form with a streamlined "Generate Contract" button. Users select a template, fill merge fields (pre-populated from project data), add signature, and generate. Generated contracts display with three-dot menus (View/Print, Download, Regenerate). Merge field values and milestones/scope are saved back to the project on generation.
-- **Contract Ready for Review Workflow**: Manages contracts marked "Ready for Review" with a configurable hide period and follow-up dialog.
-- **Escalated Tickets System**: Allows staff to flag "stuck" projects, creating escalation tickets with configurable hide periods and resolution reporting. Includes SLA timer and snooze/extend hide features.
-- **Escalation KPI Dashboard**: Displays 5 KPI cards: Open Tickets, Past 48h SLA, Avg Response Time, Avg Resolution Time, and SLA Compliance rate.
-- **Document Template System**: Supports two template types:
-    1. **Overlay templates**: Visual placement of fillable fields on PDFs/images for auto-generation.
-    2. **Editable contract templates**: Rich text editor with .docx import, full formatting, merge fields, and electronic signature support.
-    - **HTML-based generation**: Contracts are generated as standalone HTML documents (not PDFs). The HTML includes print-optimized CSS with `@page` rules, visual page separation on screen, and a "Print / Save as PDF" toolbar. Logo images are embedded as base64. Image attachments are embedded inline; PDF attachments are saved separately and linked. Merge field values are HTML-escaped to prevent XSS.
-- **Local File Storage System**: All file uploads are stored locally on the server filesystem, organized by project and category.
-- **Project Documents Section**: Provides categorized folders, file management, and SharePoint links within the project profile.
-- **PM Status Change Dialog**: Requires a note and staff selection for PM Status changes, posting to Asana.
-- **Main Timeline View**: Displays Asana parent task comments and attachments, with direct comment and file upload capabilities.
-- **Internal App Logic Documentation**: Visual documentation at `/app-logic` with interactive React Flow diagrams for database schema, API map, and workflow logic flows.
-- **Live Auto-Refresh**: Data queries poll every 30 seconds (static config data every 5 minutes, Asana API every 60 seconds).
-- **Sidebar Badge Counters**: Displays item counts needing action for each work view tab.
-- **Paused Projects View**: Dedicated `/paused` page with follow-up snoozing — projects with a future follow-up date are hidden from the main list until that date arrives. The main list shows only projects needing attention (overdue or no follow-up). Snoozed projects appear in a collapsible section below. Sidebar badge reflects active count only.
-- **PM Status Breakdown Chart**: Dashboard pie chart visualizing projects by PM Status with drill-down and filtering.
-- **Pause Reason Logging & KPIs**: Logs pause events with reasons, notes, and staff. KPI dashboard with 8 cards: Total Paused, Needs Attention, Snoozed, Avg Days Paused, Follow-ups (7d), No Reason, Top Reason, Top Staff. Includes reason breakdown chart with progress bars and FormulaTooltip explanations. Also includes `/insights` tab for AI analysis of pause logs.
-- **Project Planner View**: A `/planner` page for pre-install preparation, including a checklist (Scope, Proposals, Site Plan, Costs, Contractor Assignment, Permits) which gates projects from UC view filters until completion. Features bidirectional sync for proposal/site plan and a focus mode for subtask management.
-- **Asana Independence Strategy**: Designed for eventual disconnection from Asana, with all new features prioritizing local data storage and non-blocking Asana sync.
+- **Project Lifecycle Management**: Tracks projects through defined stages: UC Applications, Contracts, Site Visits, AHJ/Permitting, Installation, Payments, and Close-off.
+- **Asana Two-Way Sync**: Bidirectional integration with Asana, maintaining it as the single source of truth for project data, with real-time webhook updates and manual sync options.
+- **Workflow Configuration**: Customizable stage dependencies, gap days, and completion criteria managed through a visual editor.
+- **Dependency Gating & Chained Due Dates**: Ensures project progression only upon meeting dependencies, with automated due date calculations.
+- **Dynamic Gantt Chart**: Visual representation of project timelines, comparing target vs. expected dates.
+- **AI-Powered Data Extraction**: Utilizes OpenAI Vision for extracting hydro bill information from images, alongside manual entry.
+- **Installation Calendar**: Provides a monthly overview of installations with cascading target dates.
+- **Comprehensive Project Profile**: A dedicated page for each project, displaying stage values, Gantt chart, documents, and a unified customer timeline.
+- **HRSP Document Management**: Two-phase document tracking for HRSP based on grant status, configurable settings, and invoice template editing.
+- **KPI Systems**: Tracks key performance indicators for UC, Rebate, and Contract workflows through dedicated dashboards and drill-down views.
+- **Contract Generation Flow**: Streamlined process for generating contracts using templates, pre-populated merge fields, and electronic signature support. Contracts are generated as print-optimized HTML.
+- **Escalated Tickets System**: Mechanism for flagging "stuck" projects, creating tickets with SLA timers, snooze functionality, and resolution reporting.
+- **Document Template System**: Supports two types: overlay templates (visual field placement on PDFs/images) and editable contract templates (rich text editor with .docx import, merge fields, and e-signature).
+    - **Template Management**: Includes soft-deletion (archiving), restoration, and automatic purging of expired archives. Templates are seeded from `data/template-seeds.json` for environment synchronization.
+- **Local File Storage**: All uploaded files are stored locally on the server filesystem, categorized by project.
+- **Project Planner View**: A dedicated view (`/planner`) for pre-install preparation, featuring a checklist that gates projects from UC view filters until completion, with bidirectional sync and a focus mode.
+- **Asana Independence Strategy**: Designed to reduce reliance on Asana, prioritizing local data storage and non-blocking Asana synchronization for new features.
+- **Filter Criteria Banner**: Displays active filter logic across all work views for transparency and debugging.
+- **Paused Projects View**: Manages paused projects with follow-up snoozing, hiding future-dated projects from the main list until their follow-up date.
+- **Pause Reason Logging & KPIs**: Logs pause events with reasons and actions, offering a KPI dashboard with various metrics and AI insights.
 
-### Database Tables
-- `users`, `projects`, `project_deadlines`, `task_actions`, `install_schedule`, `workflow_config`, `error_logs`, `hrsp_config`, `project_files`, `escalation_tickets`, `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `staff_members`, `pause_reasons`, `pause_logs`, `task_claims`, `contract_completions`, `contract_workflow_rules`, `document_templates`, `template_fields`.
+### Database Tables (22 total)
+- **Core**: `users`, `projects`, `project_deadlines`
+- **Workflow**: `task_actions`, `install_schedule`, `workflow_config`, `pause_reasons`, `pause_logs`
+- **Documents**: `project_files`, `hrsp_config`, `document_templates`, `template_fields`
+- **Escalation**: `escalation_tickets`
+- **KPI**: `uc_completions`, `uc_workflow_rules`, `rebate_completions`, `rebate_workflow_rules`, `contract_completions`, `contract_workflow_rules`, `task_claims`
+- **System**: `error_logs`, `staff_members`
 
 ## External Dependencies
-- **Asana API**: Project synchronization, task management, custom field data, and project stories.
-- **Replit Connector**: Secure authentication and connection to Asana.
-- **OpenAI Vision (gpt-4o)**: AI-powered data extraction from hydro bill images.
-- **PostgreSQL**: Relational database.
-- **Local Filesystem**: Used in conjunction with PostgreSQL for file storage (DB as source of truth, disk as cache).
+- **Asana API**: For project synchronization, task management, custom field data, and project stories.
+- **Replit Connector**: Handles secure authentication and connection to Asana.
+- **OpenAI Vision (gpt-4o)**: Powers AI-driven data extraction from hydro bill images and provides insights for pause logs.
+- **PostgreSQL**: The relational database used for all application data, hosted on Supabase.
+- **Local Filesystem**: Used for storing uploaded files, with metadata managed in PostgreSQL.
