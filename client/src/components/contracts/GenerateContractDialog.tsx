@@ -68,6 +68,31 @@ const MERGE_MAP: Record<string, (p: Project) => string> = {
   "{{client_initials}}": () => "",
 };
 
+const PLACEHOLDER_MAP: Record<string, string> = {
+  "{{client_name}}": "e.g. John Doe",
+  "{{customer_name}}": "e.g. John Doe",
+  "{{project_name}}": "e.g. John Doe",
+  "{{client_phone}}": "e.g. (647) 555-9999",
+  "{{client_email}}": "e.g. john@example.com",
+  "{{street_address}}": "e.g. 123 Main St",
+  "{{city}}": "e.g. Toronto",
+  "{{postal_code}}": "e.g. M5V 2T6",
+  "{{province}}": "e.g. ON",
+  "{{project_address}}": "e.g. 123 Main St, Toronto, ON M5V 2T6",
+  "{{address}}": "e.g. 123 Main St, Toronto, ON M5V 2T6",
+  "{{project_description}}": "e.g. 10kW rooftop solar installation",
+  "{{subtotal}}": "e.g. 25000.00",
+  "{{hst}}": "e.g. 3250.00",
+  "{{total_price}}": "e.g. 28250.00",
+  "{{helcim_link}}": "e.g. https://helcim.com/...",
+  "{{rep_name}}": "e.g. John Doe",
+  "{{signer_name}}": "e.g. John Doe",
+  "{{signer_date}}": "e.g. 2026-03-02",
+  "{{date}}": "e.g. 2026-03-02",
+  "{{install_type}}": "e.g. Install",
+  "{{client_initials}}": "e.g. JD",
+};
+
 interface Milestone {
   description: string;
   amount: string;
@@ -236,8 +261,20 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
       html = html.replaceAll(key, value || key);
     }
 
-    html = html.replaceAll("{{payment_schedule}}", buildPaymentScheduleHtml(milestones));
-    html = html.replaceAll("{{scope_of_work}}", buildScopeOfWorkHtml(scopeItems));
+    const paymentHtml = buildPaymentScheduleHtml(milestones);
+    const scopeHtml = buildScopeOfWorkHtml(scopeItems);
+
+    if (html.includes("{{payment_schedule}}")) {
+      html = html.replaceAll("{{payment_schedule}}", paymentHtml);
+    } else if (selectedTemplate?.templateType === "editable" && milestones.some((m) => m.amount)) {
+      html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">PAYMENT SCHEDULE</h2>${paymentHtml}`;
+    }
+
+    if (html.includes("{{scope_of_work}}")) {
+      html = html.replaceAll("{{scope_of_work}}", scopeHtml);
+    } else if (selectedTemplate?.templateType === "editable" && scopeItems.some((s) => s.included)) {
+      html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">SCOPE OF WORK</h2>${scopeHtml}`;
+    }
 
     if (sig) {
       html = html.replaceAll(
@@ -435,7 +472,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
                     <Input
                       value={mergeValues[field] || ""}
                       onChange={(e) => setMergeValues({ ...mergeValues, [field]: e.target.value })}
-                      placeholder={field}
+                      placeholder={PLACEHOLDER_MAP[field] || field.replace(/\{\{|\}\}/g, "").replace(/_/g, " ")}
                       data-testid={`input-merge-${field.replace(/[{}]/g, "")}`}
                     />
                   </div>
@@ -446,7 +483,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
                 </p>
               )}
 
-              {(selectedTemplate?.htmlContent || "").includes("{{payment_schedule}}") && (
+              {selectedTemplate?.templateType === "editable" && (
                 <div className="space-y-3 pt-3 border-t">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Payment Milestones</Label>
@@ -500,7 +537,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
                 </div>
               )}
 
-              {(selectedTemplate?.htmlContent || "").includes("{{scope_of_work}}") && (
+              {selectedTemplate?.templateType === "editable" && (
                 <div className="space-y-3 pt-3 border-t">
                   <Label className="text-sm font-medium">Scope of Work</Label>
                   <p className="text-xs text-muted-foreground">Check the services included in this project. Only checked items will appear in the contract.</p>
