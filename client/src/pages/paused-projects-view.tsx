@@ -94,6 +94,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const [lostReason, setLostReason] = useState("");
   const [customLostReason, setCustomLostReason] = useState("");
   const [lostStaff, setLostStaff] = useState("");
+  const [proceedNote, setProceedNote] = useState("");
 
   const projectLogs = useMemo(() =>
     allLogs.filter(l => l.projectId === project.id),
@@ -142,6 +143,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
       await apiRequest("POST", "/api/pause-reasons/reset-timer", {
         projectId: project.id,
         staffName: lostStaff || null,
+        note: proceedNote.trim() || null,
       });
     },
     onSuccess: () => {
@@ -150,6 +152,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
       toast({ title: "Pause timer reset - customer likely to proceed" });
       setShowProceedDialog(false);
       setLostStaff("");
+      setProceedNote("");
     },
   });
 
@@ -752,6 +755,17 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
             </DialogHeader>
             <div className="space-y-3">
               <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Note</label>
+                <Textarea
+                  value={proceedNote}
+                  onChange={(e) => setProceedNote(e.target.value)}
+                  placeholder="Why do you believe the customer will proceed? Any context..."
+                  rows={3}
+                  className="text-sm resize-none"
+                  data-testid={`textarea-proceed-note-${project.id}`}
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Staff</label>
                 <Select value={lostStaff} onValueChange={setLostStaff}>
                   <SelectTrigger data-testid={`select-proceed-staff-${project.id}`}>
@@ -768,7 +782,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
             <DialogFooter className="flex gap-2 sm:gap-0">
               <Button
                 onClick={() => resetTimerMutation.mutate()}
-                disabled={resetTimerMutation.isPending}
+                disabled={resetTimerMutation.isPending || !proceedNote.trim()}
                 data-testid={`button-confirm-proceed-${project.id}`}
               >
                 <RotateCcw className="h-4 w-4 mr-1" />

@@ -144,7 +144,7 @@ pauseReasonsRouter.post("/mark-lost", async (req, res) => {
 
 pauseReasonsRouter.post("/reset-timer", async (req, res) => {
   try {
-    const { projectId, staffName } = req.body;
+    const { projectId, staffName, note } = req.body;
     if (!projectId) {
       return res.status(400).json({ message: "projectId is required" });
     }
@@ -153,10 +153,14 @@ pauseReasonsRouter.post("/reset-timer", async (req, res) => {
       pauseTimerStartDate: new Date(),
     });
 
+    const logNote = note
+      ? `Customer likely to proceed - timer reset. Note: ${note}`
+      : "Customer confirmed likely to proceed - pause timer reset";
+
     await storage.createPauseLog({
       projectId,
       reason: null,
-      note: "Customer confirmed likely to proceed - pause timer reset",
+      note: logNote,
       staffName: staffName || null,
       followUpDate: null,
       actionType: "timer_reset",
