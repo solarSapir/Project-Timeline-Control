@@ -11,8 +11,9 @@ import { Link } from "wouter";
 import {
   Search, PauseCircle, ChevronDown, ChevronUp, Plus, X, Check,
   History, CalendarClock, Clock, AlertTriangle, BarChart3, Users, PenLine,
-  BellOff, Timer, CheckCircle2, TrendingUp, XCircle, RotateCcw,
+  BellOff, Timer, CheckCircle2, TrendingUp, XCircle, RotateCcw, MoreVertical,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
@@ -102,6 +103,14 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
     projectLogs.filter(l => l.actionType === "timer_reset").length,
     [projectLogs]
   );
+
+  const sortedLogs = useMemo(() =>
+    [...projectLogs].sort((a, b) => new Date(b.pausedAt!).getTime() - new Date(a.pausedAt!).getTime()),
+    [projectLogs]
+  );
+  const latestLog = sortedLogs[0] || null;
+  const olderLogs = sortedLogs.slice(1);
+  const [showOlderLogs, setShowOlderLogs] = useState(false);
 
   const markLostMutation = useMutation({
     mutationFn: async () => {
