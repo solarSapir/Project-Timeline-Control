@@ -1,6 +1,6 @@
 export const SOLAR_CONTRACT_TEMPLATE = `
 <div style="text-align: center; margin-bottom: 1.5em;">
-  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="80px" style="max-height: 80px; width: auto; margin-bottom: 0.5em;" />
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="80px" style="max-height: 80px; width: auto; margin-bottom: 0.5em;" data-align="center" />
   <h1 style="font-size: 22pt; font-weight: 700;">SOLAR POWER STORE WORK CONTRACT</h1>
 </div>
 
@@ -124,7 +124,7 @@ Email: projects@solarpowerstore.ca
 <div style="page-break-before: always;"></div>
 
 <div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
-  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" />
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" data-align="center" />
 </div>
 
 <h2 style="font-size: 14pt;">APPENDIX A: TERMS AND CONDITIONS</h2>
@@ -162,7 +162,7 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
 <div style="page-break-before: always;"></div>
 
 <div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
-  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" />
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" data-align="center" />
 </div>
 
 <h2 style="font-size: 14pt;">APPENDIX B: SCOPE OF WORK</h2>
@@ -248,7 +248,7 @@ Client Initials: <span class="merge-field" data-merge-field="{{client_initials}}
 <div style="page-break-before: always;"></div>
 
 <div style="text-align: center; margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid #ddd;">
-  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" />
+  <img src="/sps-logo.png" alt="Solar Power Store Canada" width="50px" style="max-height: 50px; width: auto;" data-align="center" />
 </div>
 
 <h2 style="font-size: 14pt;">SIGNATURES</h2>

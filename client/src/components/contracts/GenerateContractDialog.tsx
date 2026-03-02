@@ -183,6 +183,8 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType }
             hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
             ul, ol { padding-left: 1.5em; }
             img { max-width: 100%; }
+            img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+            img[data-align="right"] { display: block; margin-left: auto; margin-right: 0; }
           </style>
         </head>
         <body>${finalHtml}</body>

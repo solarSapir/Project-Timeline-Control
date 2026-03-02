@@ -20,6 +20,14 @@ const ResizableImage = TiptapImage.extend({
       width: { default: null, renderHTML: (attrs) => attrs.width ? { width: attrs.width } : {} },
       height: { default: null, renderHTML: (attrs) => attrs.height ? { height: attrs.height } : {} },
       style: { default: null, renderHTML: (attrs) => attrs.style ? { style: attrs.style } : {} },
+      "data-align": {
+        default: null,
+        renderHTML: (attrs) => {
+          const align = attrs["data-align"];
+          if (!align) return {};
+          return { "data-align": align };
+        },
+      },
     };
   },
   renderHTML({ HTMLAttributes }) {
@@ -368,6 +376,31 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
             <Separator orientation="vertical" className="h-6 mx-1" />
             <div className="flex items-center gap-1">
               <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <Button
+                variant={editor.getAttributes("image")["data-align"] !== "center" && editor.getAttributes("image")["data-align"] !== "right" ? "secondary" : "ghost"}
+                size="sm" className="h-7 w-7 p-0"
+                onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": null }).run()}
+                data-testid="button-img-align-left"
+              >
+                <AlignLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={editor.getAttributes("image")["data-align"] === "center" ? "secondary" : "ghost"}
+                size="sm" className="h-7 w-7 p-0"
+                onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": "center" }).run()}
+                data-testid="button-img-align-center"
+              >
+                <AlignCenter className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={editor.getAttributes("image")["data-align"] === "right" ? "secondary" : "ghost"}
+                size="sm" className="h-7 w-7 p-0"
+                onClick={() => editor.chain().focus().updateAttributes("image", { "data-align": "right" }).run()}
+                data-testid="button-img-align-right"
+              >
+                <AlignRight className="h-3.5 w-3.5" />
+              </Button>
+              <Separator orientation="vertical" className="h-5 mx-0.5" />
               {[40, 60, 80, 120, 200].map((size) => (
                 <Button
                   key={size}
