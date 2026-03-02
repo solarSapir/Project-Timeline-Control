@@ -63,6 +63,317 @@ function getAsanaField(project: Project, fieldName: string): string | null {
   )?.display_value ?? null;
 }
 
+interface ContractDetailsData {
+  clientPhone: string;
+  clientEmail: string;
+  projectAddress: string;
+  projectCity: string;
+  projectPostalCode: string;
+  projectDescription: string;
+  contractSubtotal: string;
+  contractHstAmount: string;
+  contractTotal: string;
+  contractHelcimLink: string;
+  contractRepName: string;
+  contractMilestones: string;
+  contractScopeItems: string;
+  contractCustomScope: string;
+}
+
+interface ContractFormFieldsProps {
+  contractDetails: ContractDetailsData;
+  setContractDetails: (d: ContractDetailsData) => void;
+  milestones: Milestone[];
+  setMilestones: (m: Milestone[]) => void;
+  scopeChecked: boolean[];
+  setScopeChecked: (s: boolean[]) => void;
+  customScopeItems: string[];
+  setCustomScopeItems: (items: string[]) => void;
+  newScopeText: string;
+  setNewScopeText: (s: string) => void;
+  projectId: string;
+  compact?: boolean;
+}
+
+function ContractFormFields({
+  contractDetails, setContractDetails, milestones, setMilestones,
+  scopeChecked, setScopeChecked, customScopeItems, setCustomScopeItems,
+  newScopeText, setNewScopeText, projectId, compact = false,
+}: ContractFormFieldsProps) {
+  const inputH = compact ? "h-8" : "h-9";
+  const inputText = compact ? "text-sm" : "text-sm";
+  const labelText = compact ? "text-xs" : "text-xs font-medium";
+  const sectionGap = compact ? "space-y-2" : "space-y-3";
+  const milestoneInputH = compact ? "h-7" : "h-8";
+  const milestoneText = compact ? "text-xs" : "text-sm";
+
+  return (
+    <div className={sectionGap}>
+      <div className={compact ? "space-y-2" : "grid grid-cols-2 gap-x-4 gap-y-3"}>
+        <div className="space-y-1">
+          <Label className={`${labelText} text-muted-foreground`}>Client Phone</Label>
+          <Input
+            className={`${inputH} ${inputText}`}
+            value={contractDetails.clientPhone}
+            onChange={(e) => setContractDetails({ ...contractDetails, clientPhone: e.target.value })}
+            placeholder="(416) 555-1234"
+            data-testid={`input-client-phone-${projectId}`}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className={`${labelText} text-muted-foreground`}>Client Email</Label>
+          <Input
+            className={`${inputH} ${inputText}`}
+            value={contractDetails.clientEmail}
+            onChange={(e) => setContractDetails({ ...contractDetails, clientEmail: e.target.value })}
+            placeholder="client@email.com"
+            data-testid={`input-client-email-${projectId}`}
+          />
+        </div>
+      </div>
+
+      <div className={compact ? "space-y-2" : "space-y-3"}>
+        <div className="space-y-1">
+          <Label className={`${labelText} text-muted-foreground`}>Street Address</Label>
+          <Input
+            className={`${inputH} ${inputText}`}
+            value={contractDetails.projectAddress}
+            onChange={(e) => setContractDetails({ ...contractDetails, projectAddress: e.target.value })}
+            placeholder="123 Main St"
+            data-testid={`input-project-address-${projectId}`}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className={`${labelText} text-muted-foreground`}>City</Label>
+            <Input
+              className={`${inputH} ${inputText}`}
+              value={contractDetails.projectCity}
+              onChange={(e) => setContractDetails({ ...contractDetails, projectCity: e.target.value })}
+              placeholder="Toronto"
+              data-testid={`input-project-city-${projectId}`}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className={`${labelText} text-muted-foreground`}>Postal Code</Label>
+            <Input
+              className={`${inputH} ${inputText}`}
+              value={contractDetails.projectPostalCode}
+              onChange={(e) => setContractDetails({ ...contractDetails, projectPostalCode: e.target.value })}
+              placeholder="M5V 2T6"
+              data-testid={`input-project-postal-${projectId}`}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className={`${labelText} text-muted-foreground`}>Project Description</Label>
+        <Textarea
+          className={`${inputText} min-h-[60px] resize-y`}
+          value={contractDetails.projectDescription}
+          onChange={(e) => setContractDetails({ ...contractDetails, projectDescription: e.target.value })}
+          placeholder="10kW rooftop solar installation with 25x 400W panels, string inverter, and electrical panel upgrade..."
+          rows={compact ? 2 : 3}
+          data-testid={`input-project-description-${projectId}`}
+        />
+      </div>
+
+      <div className="border-t pt-3 mt-1">
+        <Label className={`${labelText} text-muted-foreground block mb-2`}>
+          <DollarSign className="h-3 w-3 inline mr-1" />
+          Pricing
+        </Label>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Subtotal</Label>
+            <Input
+              className={`${inputH} ${inputText}`}
+              value={contractDetails.contractSubtotal}
+              onChange={(e) => setContractDetails({ ...contractDetails, contractSubtotal: e.target.value })}
+              placeholder="$0.00"
+              data-testid={`input-subtotal-${projectId}`}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">HST</Label>
+            <Input
+              className={`${inputH} ${inputText}`}
+              value={contractDetails.contractHstAmount}
+              onChange={(e) => setContractDetails({ ...contractDetails, contractHstAmount: e.target.value })}
+              placeholder="$0.00"
+              data-testid={`input-hst-${projectId}`}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground font-semibold">Total</Label>
+            <Input
+              className={`${inputH} ${inputText} font-medium`}
+              value={contractDetails.contractTotal}
+              onChange={(e) => setContractDetails({ ...contractDetails, contractTotal: e.target.value })}
+              placeholder="$0.00"
+              data-testid={`input-total-${projectId}`}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={compact ? "space-y-2" : "grid grid-cols-2 gap-x-4 gap-y-3"}>
+        <div className="space-y-1">
+          <Label className={`${labelText} text-muted-foreground`}>Helcim Invoice Link</Label>
+          <Input
+            className={`${inputH} ${inputText}`}
+            value={contractDetails.contractHelcimLink}
+            onChange={(e) => setContractDetails({ ...contractDetails, contractHelcimLink: e.target.value })}
+            placeholder="https://helcim.com/..."
+            data-testid={`input-helcim-link-${projectId}`}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className={`${labelText} text-muted-foreground`}>Representative Name</Label>
+          <Input
+            className={`${inputH} ${inputText}`}
+            value={contractDetails.contractRepName}
+            onChange={(e) => setContractDetails({ ...contractDetails, contractRepName: e.target.value })}
+            placeholder="John Doe"
+            data-testid={`input-rep-name-${projectId}`}
+          />
+        </div>
+      </div>
+
+      <div className="border-t pt-3 mt-1 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className={`${labelText} font-semibold`}>
+            <Clock className="h-3 w-3 inline mr-1" />
+            Payment Milestones
+          </Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[10px] gap-0.5 px-2"
+            onClick={() => setMilestones([...milestones, { description: "", amount: "", due: "" }])}
+            data-testid={`button-add-milestone-${projectId}`}
+          >
+            <Plus className="h-2.5 w-2.5" /> Add
+          </Button>
+        </div>
+        {milestones.map((m, idx) => (
+          <div key={idx} className="flex items-start gap-1.5 bg-background/50 rounded-md p-1.5 border border-border/50" data-testid={`milestone-row-${projectId}-${idx}`}>
+            <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[9px] font-bold mt-0.5 shrink-0">
+              {idx + 1}
+            </div>
+            <div className="flex-1 space-y-1">
+              <Input
+                className={`${milestoneInputH} ${milestoneText}`}
+                value={m.description}
+                onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], description: e.target.value }; setMilestones(u); }}
+                placeholder={`Milestone ${idx + 1} description`}
+                data-testid={`input-milestone-desc-${projectId}-${idx}`}
+              />
+              <div className="grid grid-cols-2 gap-1">
+                <Input
+                  className={`${milestoneInputH} ${milestoneText}`}
+                  value={m.amount}
+                  onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], amount: e.target.value }; setMilestones(u); }}
+                  placeholder="$ Amount"
+                  data-testid={`input-milestone-amount-${projectId}-${idx}`}
+                />
+                <Input
+                  className={`${milestoneInputH} ${milestoneText}`}
+                  value={m.due}
+                  onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], due: e.target.value }; setMilestones(u); }}
+                  placeholder="Due when"
+                  data-testid={`input-milestone-due-${projectId}-${idx}`}
+                />
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 mt-0.5 text-muted-foreground hover:text-destructive shrink-0"
+              onClick={() => { if (milestones.length > 1) setMilestones(milestones.filter((_, i) => i !== idx)); }}
+              disabled={milestones.length <= 1}
+              data-testid={`button-remove-milestone-${projectId}-${idx}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t pt-3 mt-1 space-y-2">
+        <Label className={`${labelText} font-semibold`}>
+          <CheckCircle2 className="h-3 w-3 inline mr-1" />
+          Scope of Work
+        </Label>
+        <p className="text-[10px] text-muted-foreground -mt-1">Check items to include in the contract.</p>
+        <div className={compact ? "space-y-0.5" : "grid grid-cols-2 gap-x-4 gap-y-1"}>
+          {SCOPE_ITEMS.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2 py-0.5" data-testid={`scope-item-${projectId}-${idx}`}>
+              <Checkbox
+                checked={scopeChecked[idx] ?? false}
+                onCheckedChange={(checked) => {
+                  const u = [...scopeChecked];
+                  u[idx] = !!checked;
+                  setScopeChecked(u);
+                }}
+                className="h-3.5 w-3.5"
+                data-testid={`checkbox-scope-${projectId}-${idx}`}
+              />
+              <span className={`text-xs leading-4 ${scopeChecked[idx] ? "" : "text-muted-foreground line-through"}`}>{item}</span>
+            </div>
+          ))}
+          {customScopeItems.map((item, idx) => (
+            <div key={`custom-${idx}`} className="flex items-center gap-2 py-0.5 group" data-testid={`scope-custom-${projectId}-${idx}`}>
+              <Checkbox checked className="h-3.5 w-3.5" disabled />
+              <span className="text-xs leading-4 flex-1">{item}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                onClick={() => setCustomScopeItems(customScopeItems.filter((_, i) => i !== idx))}
+                data-testid={`button-remove-custom-scope-${projectId}-${idx}`}
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <Input
+            className="h-7 text-xs flex-1"
+            value={newScopeText}
+            onChange={(e) => setNewScopeText(e.target.value)}
+            placeholder="Add custom item..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newScopeText.trim()) {
+                setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
+                setNewScopeText("");
+              }
+            }}
+            data-testid={`input-custom-scope-${projectId}`}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] gap-0.5 px-2 shrink-0"
+            onClick={() => {
+              if (newScopeText.trim()) {
+                setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
+                setNewScopeText("");
+              }
+            }}
+            disabled={!newScopeText.trim()}
+            data-testid={`button-add-scope-${projectId}`}
+          >
+            <Plus className="h-2.5 w-2.5" /> Add
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ContractExpandedViewProps {
   project: Project;
   docUploaded: boolean;
@@ -266,8 +577,8 @@ export function ContractExpandedView({
             </div>
           </div>
 
-          <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="bg-muted/30 rounded-lg p-4 border space-y-0">
+            <div className="flex items-center justify-between pb-3">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Contract Details
               </h3>
@@ -296,254 +607,82 @@ export function ContractExpandedView({
                 </Button>
               </div>
             </div>
-            <div className="space-y-2.5">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Client Phone</Label>
-                <Input
-                  className="h-8 text-sm"
-                  value={contractDetails.clientPhone}
-                  onChange={(e) => setContractDetails({ ...contractDetails, clientPhone: e.target.value })}
-                  placeholder="e.g. (416) 555-1234"
-                  data-testid={`input-client-phone-${p.id}`}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Client Email</Label>
-                <Input
-                  className="h-8 text-sm"
-                  value={contractDetails.clientEmail}
-                  onChange={(e) => setContractDetails({ ...contractDetails, clientEmail: e.target.value })}
-                  placeholder="e.g. client@email.com"
-                  data-testid={`input-client-email-${p.id}`}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Street Address</Label>
-                <Input
-                  className="h-8 text-sm"
-                  value={contractDetails.projectAddress}
-                  onChange={(e) => setContractDetails({ ...contractDetails, projectAddress: e.target.value })}
-                  placeholder="e.g. 123 Main St"
-                  data-testid={`input-project-address-${p.id}`}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">City</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={contractDetails.projectCity}
-                    onChange={(e) => setContractDetails({ ...contractDetails, projectCity: e.target.value })}
-                    placeholder="e.g. Toronto"
-                    data-testid={`input-project-city-${p.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Postal Code</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={contractDetails.projectPostalCode}
-                    onChange={(e) => setContractDetails({ ...contractDetails, projectPostalCode: e.target.value })}
-                    placeholder="e.g. M5V 2T6"
-                    data-testid={`input-project-postal-${p.id}`}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Project Description</Label>
-                <Textarea
-                  className="text-sm min-h-[60px] resize-y"
-                  value={contractDetails.projectDescription}
-                  onChange={(e) => setContractDetails({ ...contractDetails, projectDescription: e.target.value })}
-                  placeholder="e.g. 10kW rooftop solar installation with 25x 400W panels, string inverter, and electrical panel upgrade..."
-                  rows={3}
-                  data-testid={`input-project-description-${p.id}`}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Subtotal</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={contractDetails.contractSubtotal}
-                    onChange={(e) => setContractDetails({ ...contractDetails, contractSubtotal: e.target.value })}
-                    placeholder="$0.00"
-                    data-testid={`input-subtotal-${p.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">HST</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={contractDetails.contractHstAmount}
-                    onChange={(e) => setContractDetails({ ...contractDetails, contractHstAmount: e.target.value })}
-                    placeholder="$0.00"
-                    data-testid={`input-hst-${p.id}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Total</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    value={contractDetails.contractTotal}
-                    onChange={(e) => setContractDetails({ ...contractDetails, contractTotal: e.target.value })}
-                    placeholder="$0.00"
-                    data-testid={`input-total-${p.id}`}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Helcim Invoice Link</Label>
-                <Input
-                  className="h-8 text-sm"
-                  value={contractDetails.contractHelcimLink}
-                  onChange={(e) => setContractDetails({ ...contractDetails, contractHelcimLink: e.target.value })}
-                  placeholder="https://helcim.com/..."
-                  data-testid={`input-helcim-link-${p.id}`}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Representative Name</Label>
-                <Input
-                  className="h-8 text-sm"
-                  value={contractDetails.contractRepName}
-                  onChange={(e) => setContractDetails({ ...contractDetails, contractRepName: e.target.value })}
-                  placeholder="e.g. John Doe"
-                  data-testid={`input-rep-name-${p.id}`}
-                />
-              </div>
-            </div>
 
-            <div className="border-t pt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">Payment Milestones</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-[10px] gap-0.5 px-2"
-                  onClick={() => setMilestones([...milestones, { description: "", amount: "", due: "" }])}
-                  data-testid={`button-add-milestone-${p.id}`}
-                >
-                  <Plus className="h-2.5 w-2.5" /> Add
-                </Button>
+            <ContractFormFields
+              contractDetails={contractDetails}
+              setContractDetails={setContractDetails}
+              milestones={milestones}
+              setMilestones={setMilestones}
+              scopeChecked={scopeChecked}
+              setScopeChecked={setScopeChecked}
+              customScopeItems={customScopeItems}
+              setCustomScopeItems={setCustomScopeItems}
+              newScopeText={newScopeText}
+              setNewScopeText={setNewScopeText}
+              projectId={p.id}
+              compact
+            />
+
+            <div className="pt-3">
+              <Button
+                className="w-full gap-2"
+                onClick={() => setGenerateOpen(true)}
+                data-testid={`button-generate-contract-${p.id}`}
+              >
+                <PenLine className="h-4 w-4" />
+                Generate Contract
+              </Button>
+            </div>
+          </div>
+
+          <Dialog open={focusMode} onOpenChange={setFocusMode}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Contract Details — {p.name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto pr-1">
+                <ContractFormFields
+                  contractDetails={contractDetails}
+                  setContractDetails={setContractDetails}
+                  milestones={milestones}
+                  setMilestones={setMilestones}
+                  scopeChecked={scopeChecked}
+                  setScopeChecked={setScopeChecked}
+                  customScopeItems={customScopeItems}
+                  setCustomScopeItems={setCustomScopeItems}
+                  newScopeText={newScopeText}
+                  setNewScopeText={setNewScopeText}
+                  projectId={p.id}
+                  compact={false}
+                />
               </div>
-              {milestones.map((m, idx) => (
-                <div key={idx} className="flex items-start gap-1" data-testid={`milestone-row-${p.id}-${idx}`}>
-                  <div className="flex-1 space-y-1">
-                    <Input
-                      className="h-7 text-xs"
-                      value={m.description}
-                      onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], description: e.target.value }; setMilestones(u); }}
-                      placeholder={`Milestone ${idx + 1} description`}
-                      data-testid={`input-milestone-desc-${p.id}-${idx}`}
-                    />
-                    <div className="grid grid-cols-2 gap-1">
-                      <Input
-                        className="h-7 text-xs"
-                        value={m.amount}
-                        onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], amount: e.target.value }; setMilestones(u); }}
-                        placeholder="$ Amount"
-                        data-testid={`input-milestone-amount-${p.id}-${idx}`}
-                      />
-                      <Input
-                        className="h-7 text-xs"
-                        value={m.due}
-                        onChange={(e) => { const u = [...milestones]; u[idx] = { ...u[idx], due: e.target.value }; setMilestones(u); }}
-                        placeholder="Due when"
-                        data-testid={`input-milestone-due-${p.id}-${idx}`}
-                      />
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between pt-3 border-t">
+                <Button variant="outline" onClick={() => setFocusMode(false)} data-testid={`button-close-focus-${p.id}`}>
+                  <Minimize2 className="h-3.5 w-3.5 mr-1.5" />
+                  Close
+                </Button>
+                <div className="flex gap-2">
+                  {hasUnsavedChanges() && (
+                    <Button onClick={saveContractDetails} disabled={saving} data-testid={`button-focus-save-${p.id}`}>
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                      Save Changes
+                    </Button>
+                  )}
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-6 p-0 mt-0.5 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => { if (milestones.length > 1) setMilestones(milestones.filter((_, i) => i !== idx)); }}
-                    disabled={milestones.length <= 1}
-                    data-testid={`button-remove-milestone-${p.id}-${idx}`}
+                    variant="default"
+                    onClick={() => { setFocusMode(false); setGenerateOpen(true); }}
+                    data-testid={`button-focus-generate-${p.id}`}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <PenLine className="h-4 w-4 mr-1.5" />
+                    Generate Contract
                   </Button>
                 </div>
-              ))}
-            </div>
-
-            <div className="border-t pt-3 space-y-2">
-              <Label className="text-xs font-semibold">Scope of Work</Label>
-              <p className="text-[10px] text-muted-foreground">Check items to include in the contract.</p>
-              <div className="space-y-1">
-                {SCOPE_ITEMS.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2" data-testid={`scope-item-${p.id}-${idx}`}>
-                    <Checkbox
-                      checked={scopeChecked[idx] ?? false}
-                      onCheckedChange={(checked) => {
-                        const u = [...scopeChecked];
-                        u[idx] = !!checked;
-                        setScopeChecked(u);
-                      }}
-                      className="h-3.5 w-3.5"
-                      data-testid={`checkbox-scope-${p.id}-${idx}`}
-                    />
-                    <span className={`text-xs leading-4 ${scopeChecked[idx] ? "" : "text-muted-foreground line-through"}`}>{item}</span>
-                  </div>
-                ))}
-                {customScopeItems.map((item, idx) => (
-                  <div key={`custom-${idx}`} className="flex items-center gap-2 group" data-testid={`scope-custom-${p.id}-${idx}`}>
-                    <Checkbox checked className="h-3.5 w-3.5" disabled />
-                    <span className="text-xs leading-4 flex-1">{item}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                      onClick={() => setCustomScopeItems(customScopeItems.filter((_, i) => i !== idx))}
-                      data-testid={`button-remove-custom-scope-${p.id}-${idx}`}
-                    >
-                      <Trash2 className="h-2.5 w-2.5" />
-                    </Button>
-                  </div>
-                ))}
               </div>
-              <div className="flex gap-1">
-                <Input
-                  className="h-7 text-xs flex-1"
-                  value={newScopeText}
-                  onChange={(e) => setNewScopeText(e.target.value)}
-                  placeholder="Add custom item..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && newScopeText.trim()) {
-                      setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
-                      setNewScopeText("");
-                    }
-                  }}
-                  data-testid={`input-custom-scope-${p.id}`}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[10px] gap-0.5 px-2 shrink-0"
-                  onClick={() => {
-                    if (newScopeText.trim()) {
-                      setCustomScopeItems([...customScopeItems, newScopeText.trim()]);
-                      setNewScopeText("");
-                    }
-                  }}
-                  disabled={!newScopeText.trim()}
-                  data-testid={`button-add-scope-${p.id}`}
-                >
-                  <Plus className="h-2.5 w-2.5" /> Add
-                </Button>
-              </div>
-            </div>
-
-            <Button
-              className="w-full gap-2"
-              onClick={() => setGenerateOpen(true)}
-              data-testid={`button-generate-contract-${p.id}`}
-            >
-              <PenLine className="h-4 w-4" />
-              Generate Contract
-            </Button>
-          </div>
+            </DialogContent>
+          </Dialog>
 
           <div className="bg-muted/30 rounded-lg p-4 border space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
