@@ -189,9 +189,9 @@ export function EscalationDialog({ projectId, projectName, viewType }: Escalatio
             {files.length > 0 && (
               <div className="mt-2 space-y-1">
                 {files.map((file, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs bg-muted/50 rounded px-2 py-1.5" data-testid={`file-attachment-${i}`}>
+                  <div key={i} className="flex items-center gap-2 text-xs bg-muted/50 rounded px-2 py-1.5 min-w-0 overflow-hidden" data-testid={`file-attachment-${i}`}>
                     <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate flex-1">{file.name}</span>
+                    <span className="truncate flex-1 min-w-0">{file.name}</span>
                     <span className="text-muted-foreground flex-shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
                     <button
                       onClick={() => removeFile(i)}
