@@ -174,7 +174,7 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
     },
     editorProps: {
       attributes: {
-        class: "contract-editor-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-8",
+        class: "contract-editor-content prose prose-sm max-w-none focus:outline-none",
       },
     },
   });
@@ -529,8 +529,8 @@ export function ContractEditor({ templateId, initialContent, templateName, onClo
         </Select>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
-        <div className="max-w-[850px] mx-auto my-8 bg-white dark:bg-gray-800 shadow-lg rounded-sm min-h-[1100px] border">
+      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 contract-editor-pages">
+        <div className="contract-page-container mx-auto my-8">
           <EditorContent editor={editor} data-testid="contract-editor-content" />
         </div>
       </div>

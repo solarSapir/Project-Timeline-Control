@@ -328,22 +328,31 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
             body {
               font-family: "Times New Roman", Georgia, serif;
               font-size: 12pt;
-              line-height: 1.6;
+              line-height: 1.5;
               color: #1a1a1a;
               margin: 0;
               padding: 0;
             }
-            h1 { font-size: 24pt; font-weight: 700; margin: 0.5em 0; }
-            h2 { font-size: 18pt; font-weight: 600; margin: 0.4em 0; }
-            h3 { font-size: 14pt; font-weight: 600; margin: 0.3em 0; }
-            table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-            td, th { border: 1px solid #ccc; padding: 0.5em; }
-            th { background: #f5f5f5; font-weight: 600; }
-            hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
-            ul, ol { padding-left: 1.5em; }
+            h1 { font-size: 22pt; font-weight: 700; margin: 0.4em 0; }
+            h2 { font-size: 14pt; font-weight: 600; margin: 0.5em 0 0.3em 0; }
+            h3 { font-size: 13pt; font-weight: 600; margin: 0.3em 0; }
+            p { margin: 0.3em 0; }
+            table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+            td, th { padding: 6px 10px; vertical-align: top; }
+            td[style*="border"], th[style*="border"] { }
+            table:not([style*="border"]) td:not([style*="border"]),
+            table:not([style*="border"]) th:not([style*="border"]) {
+              border: 1px solid #ccc;
+            }
+            th:not([style*="background"]) { background: #f5f5f5; font-weight: 600; }
+            hr { border: none; border-top: 2px solid #333; margin: 1em 0; }
+            ul, ol { padding-left: 1.5em; margin: 0.3em 0; }
+            li { margin-bottom: 0.15em; }
             img { max-width: 100%; }
             img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
             img[data-align="right"] { display: block; margin-left: auto; margin-right: 0; }
+            .html2pdf__page-break { display: block; page-break-before: always; }
+            div[style*="page-break-before"] { page-break-before: always; break-before: page; }
           </style>
         </head>
         <body>${finalHtml}</body>
@@ -367,6 +376,11 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
 
       await new Promise((r) => setTimeout(r, 500));
 
+      const pageBreakDivs = iframeDoc.querySelectorAll('div[style*="page-break-before"]');
+      pageBreakDivs.forEach((el) => {
+        el.classList.add("html2pdf__page-break");
+      });
+
       const container = iframeDoc.body;
 
       const pdfBlob = await html2pdf()
@@ -377,7 +391,7 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
           image: { type: "jpeg", quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, letterRendering: true },
           jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-          pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+          pagebreak: { mode: ["css"], before: ["div[style*='page-break-before']"], avoid: ["tr", "td", "th", "img"] },
         })
         .outputPdf("blob");
 
