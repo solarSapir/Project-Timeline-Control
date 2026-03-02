@@ -11,7 +11,7 @@ import { Link } from "wouter";
 import {
   Search, PauseCircle, ChevronDown, ChevronUp, Plus, X, Check,
   History, CalendarClock, Clock, AlertTriangle, BarChart3, Users, PenLine,
-  BellOff, Timer, CheckCircle2, TrendingUp, XCircle, RotateCcw, MoreVertical,
+  BellOff, Timer, CheckCircle2, TrendingUp, XCircle, RotateCcw, MoreVertical, Activity,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/status-badge";
@@ -22,6 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CollapsibleKpiSection } from "@/components/dashboard/CollapsibleKpiSection";
 import { FormulaTooltip } from "@/components/dashboard/FormulaTooltip";
+import { PausedActionsDrilldown } from "@/components/dashboard/PausedActionsDrilldown";
 import type { Project, PauseReason, PauseLog, StaffMember } from "@shared/schema";
 
 function getDaysPaused(project: Project, projectLogs: PauseLog[]): number {
@@ -1000,6 +1001,7 @@ export default function PausedProjectsView() {
   }, [pausedProjects, allPauseLogs, projectFollowUps, todayDate, snoozedProjects, activeProjects, lostProjects]);
 
   const [filterTab, setFilterTab] = useState<"all" | "active" | "snoozed">("active");
+  const [actionsDrilldownOpen, setActionsDrilldownOpen] = useState(false);
 
   if (isLoading) {
     return <PageLoader title="Loading paused projects..." />;
@@ -1094,17 +1096,24 @@ export default function PausedProjectsView() {
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-followups-week">
+          <Card
+            className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+            onClick={() => setActionsDrilldownOpen(true)}
+            data-testid="kpi-followups-week"
+          >
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                Actions (7d)
+                This Week
                 <FormulaTooltip formula="Count of pause logs (follow-ups scheduled + reasons logged) created in the last 7 days. Measures staff engagement with paused projects." />
               </CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-1">
+                <FormulaTooltip formula="Click for detailed breakdown by staff, action type, and daily activity chart." />
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{kpiStats.actionsThisWeek}</div>
-              <p className="text-xs text-muted-foreground">actions logged this week</p>
+              <div className="text-2xl font-bold" data-testid="text-paused-view-actions-week">{kpiStats.actionsThisWeek}</div>
+              <p className="text-xs text-muted-foreground">completions · click for details</p>
             </CardContent>
           </Card>
 
@@ -1269,6 +1278,13 @@ export default function PausedProjectsView() {
           </p>
         </div>
       )}
+
+      <PausedActionsDrilldown
+        open={actionsDrilldownOpen}
+        onOpenChange={setActionsDrilldownOpen}
+        pauseLogs={allPauseLogs}
+        projects={projects || []}
+      />
     </div>
   );
 }

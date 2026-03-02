@@ -1,17 +1,19 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
   PauseCircle, AlertTriangle, BellOff, Timer,
-  CheckCircle2, BarChart3, TrendingUp, XCircle,
+  CheckCircle2, BarChart3, TrendingUp, XCircle, Activity,
 } from "lucide-react";
 import { FormulaTooltip } from "./FormulaTooltip";
 import { CollapsibleKpiSection } from "./CollapsibleKpiSection";
+import { PausedActionsDrilldown } from "./PausedActionsDrilldown";
 import type { Project, PauseLog } from "@shared/schema";
 
 export function PausedKpiSection() {
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
@@ -124,6 +126,7 @@ export function PausedKpiSection() {
   if (!stats || stats.total === 0) return null;
 
   return (
+    <>
     <CollapsibleKpiSection
       storageKey="paused-dashboard-kpi"
       title="Paused Projects"
@@ -200,17 +203,24 @@ export function PausedKpiSection() {
           </CardContent>
         </Card>
 
-        <Card data-testid="dash-kpi-actions-week">
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setDrilldownOpen(true)}
+          data-testid="dash-kpi-actions-week"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              Actions (7d)
-              <FormulaTooltip formula="Pause logs created in the last 7 days. Measures staff engagement." />
+              This Week
+              <FormulaTooltip formula="Pause logs created in the last 7 days. Measures staff engagement with paused projects." />
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula="Click for detailed breakdown by staff, action type, and daily activity chart." />
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.actionsThisWeek}</div>
-            <p className="text-xs text-muted-foreground">actions this week</p>
+            <div className="text-2xl font-bold" data-testid="text-paused-actions-week">{stats.actionsThisWeek}</div>
+            <p className="text-xs text-muted-foreground">completions · click for details</p>
           </CardContent>
         </Card>
 
@@ -291,5 +301,13 @@ export function PausedKpiSection() {
         </div>
       )}
     </CollapsibleKpiSection>
+
+    <PausedActionsDrilldown
+      open={drilldownOpen}
+      onOpenChange={setDrilldownOpen}
+      pauseLogs={pauseLogs || []}
+      projects={projects || []}
+    />
+    </>
   );
 }
