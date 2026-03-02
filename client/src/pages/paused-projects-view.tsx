@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CollapsibleKpiSection } from "@/components/dashboard/CollapsibleKpiSection";
@@ -1169,6 +1170,15 @@ export default function PausedProjectsView() {
           </div>
         )}
       </CollapsibleKpiSection>
+
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "pmStatus", operator: "includes", value: "paused" },
+        ]}
+        activeFilter={filterTab}
+        activeFilterLabel={filterTab === "active" ? "Needs Attention" : filterTab === "snoozed" ? "Snoozed" : "All"}
+        projectCount={pausedProjects.length}
+      />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">

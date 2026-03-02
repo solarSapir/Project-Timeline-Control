@@ -24,6 +24,7 @@ import { AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 import { FocusDialog } from "@/components/shared/FocusDialog";
 import type { Project } from "@shared/schema";
 
@@ -114,6 +115,17 @@ export default function AHJView() {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">AHJ/Permitting depends on site visit completion. Expected due date is 21 days after site visit photos are uploaded.</p>
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Paused, Lost" },
+          { field: "stage", operator: "=", value: "ahj_permitting (dependencies met)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All" : filter === "action-needed" ? "Action Needed" : filter === "waiting-site-visit" ? "Waiting Site Visit" : filter === "late" ? "Running Late" : filter === "overdue" ? "Overdue" : filter === "complete" ? "Complete" : filter === "waiting_deps" ? "Waiting on Dependencies" : filter}
+        projectCount={ahjProjects.length}
+      />
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-ahj" /></div>
         <Select value={filter} onValueChange={setFilter}>

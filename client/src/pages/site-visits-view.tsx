@@ -25,6 +25,7 @@ import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel"
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 import type { Project } from "@shared/schema";
 
 function getSiteVisitDueDate(project: { contractDueDate: string | null; siteVisitDueDate: string | null }): string | null {
@@ -108,6 +109,18 @@ export default function SiteVisitsView() {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">Projects with Install Team Stage "Pending site visit". Site visits are due within 7 days of contract signing.</p>
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Paused, Lost" },
+          { field: "installTeamStage", operator: "includes", value: "Pending site visit" },
+          { field: "stage", operator: "=", value: "site_visit (dependencies met)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All" : filter === "pending" ? "Pending" : filter === "booked" ? "Booked" : filter === "complete" ? "Complete" : filter === "overdue" ? "Overdue" : filter === "waiting_deps" ? "Waiting on Dependencies" : filter}
+        projectCount={pendingProjects.length}
+      />
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-site-visits" /></div>
         <Select value={filter} onValueChange={setFilter}>

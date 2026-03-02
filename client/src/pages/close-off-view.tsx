@@ -20,6 +20,7 @@ import type { Project } from "@shared/schema";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 
 function getCloseOffDueDate(project: Project): string | null {
   if (!project.installStartDate) return project.closeOffDueDate || null;
@@ -88,6 +89,17 @@ export default function CloseOffView() {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">Projects appear here when PM Status = "Close-Off". Due date is 14 days after the install date.</p>
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "=", value: "Close-off" },
+          { field: "stage", operator: "=", value: "close_off (dependencies met)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All Close-off" : filter === "pending" ? "Pending" : filter === "overdue" ? "Overdue" : filter === "completed" ? "Completed" : filter === "waiting_deps" ? "Waiting on Dependencies" : filter}
+        projectCount={closeOffProjects.length}
+      />
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-close-off" /></div>
         <Select value={filter} onValueChange={setFilter}>

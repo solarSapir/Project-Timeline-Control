@@ -14,6 +14,7 @@ import { UCProjectCard } from "@/components/uc/UCProjectCard";
 import { UcApprovalDialog } from "@/components/uc/UcApprovalDialog";
 import { UcRejectionDialog } from "@/components/uc/UcRejectionDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 import { useActiveClaims, isProjectClaimed } from "@/components/shared/ClaimButton";
 import type { Project, EscalationTicket, UcCompletion } from "@shared/schema";
 
@@ -243,6 +244,17 @@ export default function UCView() {
           </button>
         </div>
       </div>
+
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install or diy" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Project Paused, Project Lost" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "needs_action" ? "Needs Action" : filter === "overdue" ? "Overdue" : filter === "needs_followup" ? "Needs Follow-Up" : filter === "submitted" ? "Submitted" : filter === "escalated" ? "Escalated" : filter === "waiting_for_planner" ? "Awaiting Planner" : filter === "hidden" ? "Hidden" : filter === "completed" ? "Completed" : filter === "all" ? "All" : filter}
+        projectCount={installProjects.length}
+      />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">

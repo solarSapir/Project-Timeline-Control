@@ -20,6 +20,7 @@ import { RebateFollowUpDialog } from "@/components/hrsp/RebateFollowUpDialog";
 import { CloseOffSubmittedDialog } from "@/components/hrsp/CloseOffSubmittedDialog";
 import { StatusChangeDialog } from "@/components/shared/StatusChangeDialog";
 import { ClaimButton, useActiveClaims, isProjectClaimed } from "@/components/shared/ClaimButton";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 
 function HrspInfo({ project }: { project: Project }) {
   const [actionLoading, setActionLoading] = useState<"resync" | "create" | null>(null);
@@ -345,6 +346,19 @@ export default function PaymentsView() {
           <Badge variant="outline" data-testid="badge-project-count">{filtered.length} projects</Badge>
         </div>
       </div>
+
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "province", operator: "includes", value: "Ontario" },
+          { field: "ucTeam", operator: "includes", value: "Load Displacement" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Paused, Lost (unless All filter)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All" : filter === "needs_attention" ? "Needs Attention" : filter === "needs_followup" ? "Needs Follow-Up" : filter === "hidden" ? "Hidden" : filter === "hrsp_issues" ? "Overdue Tasks" : filter === "not_required" ? "Not Required" : filter}
+        projectCount={filtered.length}
+      />
 
       <div className="space-y-1.5">
         <div className="flex items-center gap-3 flex-wrap">

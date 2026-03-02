@@ -20,6 +20,7 @@ import { ExpandedProjectView } from "@/components/uc/ExpandedProjectView";
 import { RebateProjectModal } from "@/components/hrsp/RebateProjectModal";
 import { InstallTeamSubtaskPanel, AhjSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationIssueDisplay } from "@/components/shared/EscalationIssueDisplay";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 import { EscalationSlaTimer } from "@/components/shared/EscalationSlaTimer";
 
 function TicketCard({ ticket, project, onFocus }: { ticket: EscalationTicket; project?: Project; onFocus: (ticket: EscalationTicket, project: Project) => void }) {
@@ -477,6 +478,16 @@ export default function EscalatedTicketsView() {
           <span>{resolvedCount} resolved</span>
         </div>
       </div>
+
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "source", operator: "=", value: "Escalation tickets table (all views)" },
+          { field: "status", operator: "=", value: filter === "all" ? "Any" : filter },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "open" ? "Open" : filter === "responded" ? "Responded" : filter === "resolved" ? "Resolved" : "All"}
+        projectCount={filtered.length}
+      />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">

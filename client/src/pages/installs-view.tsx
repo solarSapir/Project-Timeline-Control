@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { InstallTeamSubtaskPanel } from "@/components/shared/SubtaskExpandPanel";
 import { EscalationDialog } from "@/components/shared/EscalationDialog";
 import { EscalationBadge } from "@/components/shared/EscalationBadge";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 
 const taskIcons: Record<string, typeof Wrench> = {
   "Equipment Arrival": Truck,
@@ -112,6 +113,19 @@ export default function InstallsView() {
         </div>
       </div>
       <p className="text-sm text-muted-foreground">Projects enter installation coordination when AHJ Status is "Permit Issued". Expected due date is 7 days after AHJ completion.</p>
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Paused, Lost, Close-off" },
+          { field: "stage", operator: "=", value: "install_booking (dependencies met)" },
+          { field: "ahjStatus", operator: "=", value: "Permit Issued (for ready projects)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All" : filter === "action-needed" ? "Permit Issued - Ready" : filter === "waiting-ahj" ? "Waiting on AHJ" : filter === "late" ? "Running Late" : filter === "overdue" ? "Overdue" : filter === "scheduled" ? "Has Schedule" : filter === "waiting_deps" ? "Waiting on Dependencies" : filter}
+        projectCount={installViewProjects.length}
+      />
+
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

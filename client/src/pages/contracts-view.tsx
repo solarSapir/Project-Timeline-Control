@@ -18,6 +18,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Project, TaskAction, ContractCompletion, ContractWorkflowRule } from "@shared/schema";
+import { FilterCriteriaBanner } from "@/components/shared/FilterCriteriaBanner";
 
 export type ContractFileDetail = { total: number; contract: boolean; proposal: boolean; sitePlan: boolean };
 export type ContractFileCounts = Record<string, ContractFileDetail>;
@@ -216,6 +217,18 @@ export default function ContractCreationView() {
           <span className="ml-1 text-amber-600 dark:text-amber-400">({waitingDepsProjects.length} project{waitingDepsProjects.length !== 1 ? 's' : ''} waiting on dependencies)</span>
         )}
       </p>
+
+      <FilterCriteriaBanner
+        criteria={[
+          { field: "installType", operator: "=", value: "install" },
+          { field: "propertySector", operator: "=", value: "Residential" },
+          { field: "pmStatus", operator: "excludes", value: "Complete, Paused, Lost" },
+          { field: "stage", operator: "=", value: "contract_signing (dependencies met)" },
+        ]}
+        activeFilter={filter}
+        activeFilterLabel={filter === "all" ? "All UC-Ready" : filter === "needs_contract" ? "Needs Contract" : filter === "for_review" ? "For Review" : filter === "needs_followup" ? "Needs Follow-up" : filter === "pending_signature" ? "Pending Signature" : filter === "pending_deposit" ? "Pending Deposit" : filter === "complete" ? "Complete" : filter === "overdue" ? "Overdue" : filter === "waiting_deps" ? "Waiting on Dependencies" : filter}
+        projectCount={depsMetProjects.length}
+      />
 
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
