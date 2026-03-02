@@ -267,14 +267,24 @@ export function GenerateContractDialog({ open, onOpenChange, project, viewType, 
 
     if (html.includes("{{payment_schedule}}")) {
       html = html.replaceAll("{{payment_schedule}}", paymentHtml);
-    } else if (selectedTemplate?.templateType === "editable" && milestones.some((m) => m.amount)) {
-      html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">PAYMENT SCHEDULE</h2>${paymentHtml}`;
+    } else {
+      const replaced = html.replace(/<table[^>]*>[\s\S]*?<th[^>]*>[\s\S]*?Milestone[\s\S]*?<\/table>/i, paymentHtml);
+      if (replaced !== html) {
+        html = replaced;
+      } else if (selectedTemplate?.templateType === "editable") {
+        html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">PAYMENT SCHEDULE</h2>${paymentHtml}`;
+      }
     }
 
     if (html.includes("{{scope_of_work}}")) {
       html = html.replaceAll("{{scope_of_work}}", scopeHtml);
-    } else if (selectedTemplate?.templateType === "editable" && scopeItems.some((s) => s.included)) {
-      html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">SCOPE OF WORK</h2>${scopeHtml}`;
+    } else {
+      const replaced = html.replace(/<table[^>]*>[\s\S]*?<th[^>]*>[\s\S]*?Service Description[\s\S]*?<\/table>/i, scopeHtml);
+      if (replaced !== html) {
+        html = replaced;
+      } else if (selectedTemplate?.templateType === "editable") {
+        html += `<hr style="border: none; border-top: 2px solid #333; margin: 1.5em 0;" /><h2 style="font-size: 14pt;">SCOPE OF WORK</h2>${scopeHtml}`;
+      }
     }
 
     if (sig) {
