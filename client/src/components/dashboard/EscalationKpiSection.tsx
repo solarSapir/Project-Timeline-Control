@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, CheckCircle2, Timer, ShieldAlert } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertTriangle, Clock, CheckCircle2, Timer, ShieldAlert, ChevronRight, ChevronDown, ListChecks } from "lucide-react";
 import { Link } from "wouter";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
@@ -20,6 +21,21 @@ interface RecentTicket {
   staffName: string;
   createdAt: string;
   resolvedAt: string | null;
+  resolvedBy: string | null;
+  issue: string | null;
+}
+
+interface ActivityEntry {
+  id: string;
+  projectName: string;
+  viewType: string;
+  status: string;
+  staffName: string;
+  createdAt: string;
+  respondedAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  issue: string | null;
 }
 
 interface EscalationKpiStats {
@@ -27,6 +43,7 @@ interface EscalationKpiStats {
   openCount: number;
   resolvedCount: number;
   overdueCount: number;
+  resolvedThisWeekCount: number;
   avgResponseHours: number | null;
   avgResolutionHours: number | null;
   slaRate: number | null;
@@ -34,6 +51,7 @@ interface EscalationKpiStats {
   slaHours: number;
   dailyCounts: Record<string, { created: number; resolved: number }>;
   recentTickets: RecentTicket[];
+  recentActivity: ActivityEntry[];
 }
 
 function formatHours(hours: number | null): string {
@@ -58,8 +76,22 @@ const STATUS_COLORS: Record<string, string> = {
   resolved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
 };
 
+const VIEW_LABELS: Record<string, string> = {
+  uc: "UC",
+  contracts: "Contracts",
+  rebates: "Rebates",
+  ahj: "AHJ",
+  install: "Install",
+  close_off: "Close Off",
+  payments: "Payments",
+  site_visit: "Site Visit",
+};
+
 export function EscalationKpiSection() {
   const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [activityDrilldownOpen, setActivityDrilldownOpen] = useState(false);
+  const [staffFilter, setStaffFilter] = useState("all");
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const { data: stats, isLoading } = useQuery<EscalationKpiStats>({
     queryKey: ["/api/escalation/kpi-stats"],
   });
@@ -76,12 +108,41 @@ export function EscalationKpiSection() {
     return entries;
   }, [stats?.dailyCounts]);
 
+  const staffList = useMemo(() => {
+    if (!stats?.recentActivity) return [];
+    const names = new Set<string>();
+    for (const t of stats.recentActivity) {
+      if (t.staffName) names.add(t.staffName);
+      if (t.resolvedBy) names.add(t.resolvedBy);
+    }
+    return Array.from(names).sort();
+  }, [stats?.recentActivity]);
+
+  const filteredActivity = useMemo(() => {
+    if (!stats?.recentActivity) return [];
+    if (staffFilter === "all") return stats.recentActivity;
+    return stats.recentActivity.filter(t =>
+      t.staffName === staffFilter || t.resolvedBy === staffFilter
+    );
+  }, [stats?.recentActivity, staffFilter]);
+
+  const activityByDate = useMemo(() => {
+    const grouped: Record<string, ActivityEntry[]> = {};
+    for (const t of filteredActivity) {
+      const dateKey = new Date(t.createdAt).toISOString().slice(0, 10);
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(t);
+    }
+    return Object.entries(grouped)
+      .sort(([a], [b]) => b.localeCompare(a));
+  }, [filteredActivity]);
+
   if (isLoading) {
     return (
       <div className="space-y-4" data-testid="escalation-kpi-loading">
         <h2 className="text-lg font-semibold">Escalation KPIs</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
@@ -113,7 +174,7 @@ export function EscalationKpiSection() {
       summaryItems={summaryItems}
       testId="escalation-kpi-section"
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <Card
           className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           onClick={() => setDrilldownOpen(true)}
@@ -189,6 +250,24 @@ export function EscalationKpiSection() {
             <p className="text-xs text-muted-foreground mt-1">resolved within {stats.slaHours}h</p>
           </CardContent>
         </Card>
+
+        <Card
+          className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          onClick={() => setActivityDrilldownOpen(true)}
+          data-testid="card-kpi-tasks-completed"
+        >
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tasks Completed</CardTitle>
+            <div className="flex items-center gap-1">
+              <FormulaTooltip formula={"Count of escalation tickets resolved in the last 7 days.\n\nFormula: COUNT(tickets) WHERE status = 'resolved' AND resolvedAt >= (now - 7 days)\n\nClick to see detailed activity log."} />
+              <ListChecks className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-tasks-completed">{stats.resolvedThisWeekCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">resolved this week · click for details</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -244,6 +323,135 @@ export function EscalationKpiSection() {
             ))}
             {(!stats.recentTickets || stats.recentTickets.length === 0) && (
               <p className="text-sm text-muted-foreground text-center py-4">No escalation tickets recorded yet.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={activityDrilldownOpen} onOpenChange={setActivityDrilldownOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5" />
+              Escalation Activity Log
+            </DialogTitle>
+            <DialogDescription>
+              Recent ticket activity across all escalation tickets
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-3 pb-2">
+            <label className="text-xs font-medium text-muted-foreground">Filter by staff:</label>
+            <Select value={staffFilter} onValueChange={setStaffFilter}>
+              <SelectTrigger className="h-8 w-[200px] text-sm" data-testid="select-activity-staff-filter">
+                <SelectValue placeholder="All staff" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Staff</SelectItem>
+                {staffList.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Daily Activity (Last 30 Days)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dailyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={dailyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                    <YAxis allowDecimals={false} />
+                    <RechartsTooltip />
+                    <Legend />
+                    <Bar dataKey="created" fill="hsl(38, 92%, 50%)" name="Created" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="resolved" fill="hsl(142, 60%, 45%)" name="Resolved" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">No activity in the last 30 days.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3 mt-2">
+            {activityByDate.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No escalation activity to display.</p>
+            ) : (
+              activityByDate.map(([dateKey, tickets]) => (
+                <div key={dateKey} className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground sticky top-0 bg-background py-1">
+                    <span>{new Date(dateKey + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                    <span className="text-[10px]">({tickets.length} ticket{tickets.length !== 1 ? "s" : ""})</span>
+                  </div>
+                  {tickets.map((ticket) => (
+                    <div key={ticket.id} className="rounded-lg border" data-testid={`activity-ticket-${ticket.id}`}>
+                      <div
+                        className="flex items-center gap-2 p-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)}
+                      >
+                        {expandedTicket === ticket.id ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <Badge variant="secondary" className={`${STATUS_COLORS[ticket.status] || ""} text-[10px] px-1.5 py-0`}>
+                          {ticket.status}
+                        </Badge>
+                        <span className="text-sm font-medium truncate flex-1">{ticket.projectName}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {VIEW_LABELS[ticket.viewType] || ticket.viewType}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {new Date(ticket.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+                        </span>
+                      </div>
+                      {expandedTicket === ticket.id && (
+                        <div className="px-4 pb-3 pt-1 border-t space-y-2 bg-muted/20">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Created by:</span>{" "}
+                              <span className="font-medium">{ticket.staffName}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Created:</span>{" "}
+                              <span className="font-medium">{new Date(ticket.createdAt).toLocaleString()}</span>
+                            </div>
+                            {ticket.respondedAt && (
+                              <div>
+                                <span className="text-muted-foreground">Responded:</span>{" "}
+                                <span className="font-medium">{new Date(ticket.respondedAt).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {ticket.resolvedAt && (
+                              <div>
+                                <span className="text-muted-foreground">Resolved:</span>{" "}
+                                <span className="font-medium">{new Date(ticket.resolvedAt).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {ticket.resolvedBy && (
+                              <div>
+                                <span className="text-muted-foreground">Resolved by:</span>{" "}
+                                <span className="font-medium">{ticket.resolvedBy}</span>
+                              </div>
+                            )}
+                          </div>
+                          {ticket.issue && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">Issue:</span>
+                              <p className="mt-0.5 whitespace-pre-wrap text-muted-foreground">{ticket.issue}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))
             )}
           </div>
         </DialogContent>

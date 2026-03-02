@@ -136,6 +136,32 @@ escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
         staffName: t.staffName,
         createdAt: t.createdAt,
         resolvedAt: t.resolvedAt,
+        resolvedBy: t.resolvedBy || null,
+        issue: t.issue || null,
+      }));
+
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const resolvedThisWeek = resolved.filter(t => {
+      if (!t.resolvedAt) return false;
+      return new Date(t.resolvedAt) >= sevenDaysAgo;
+    });
+
+    const recentActivity = allTickets
+      .filter(t => t.createdAt)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 50)
+      .map(t => ({
+        id: t.id,
+        projectName: t.projectName,
+        viewType: t.viewType,
+        status: t.status,
+        staffName: t.staffName,
+        createdAt: t.createdAt,
+        respondedAt: t.respondedAt || null,
+        resolvedAt: t.resolvedAt || null,
+        resolvedBy: t.resolvedBy || null,
+        issue: t.issue || null,
       }));
 
     res.json({
@@ -143,6 +169,7 @@ escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
       openCount: open.length,
       resolvedCount: resolved.length,
       overdueCount: overdue.length,
+      resolvedThisWeekCount: resolvedThisWeek.length,
       avgResponseHours,
       avgResolutionHours,
       slaRate,
@@ -150,6 +177,7 @@ escalationRouter.get("/escalation/kpi-stats", async (_req, res) => {
       slaHours: SLA_HOURS,
       dailyCounts,
       recentTickets,
+      recentActivity,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
