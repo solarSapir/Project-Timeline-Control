@@ -66,7 +66,7 @@ pauseReasonsRouter.get("/logs", async (req, res) => {
 
 pauseReasonsRouter.post("/logs", async (req, res) => {
   try {
-    const { projectId, reason, note, staffName, followUpDate, actionType } = req.body;
+    const { projectId, reason, note, actionRequired, nextSteps, staffName, followUpDate, actionType } = req.body;
     if (!projectId) {
       return res.status(400).json({ message: "projectId is required" });
     }
@@ -74,6 +74,8 @@ pauseReasonsRouter.post("/logs", async (req, res) => {
       projectId,
       reason,
       note,
+      actionRequired: actionRequired || null,
+      nextSteps: nextSteps || null,
       staffName,
       followUpDate: followUpDate || null,
       actionType: actionType || "reason",

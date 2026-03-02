@@ -80,6 +80,8 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [selectedReason, setSelectedReason] = useState("");
   const [note, setNote] = useState("");
+  const [actionRequired, setActionRequired] = useState("");
+  const [nextSteps, setNextSteps] = useState("");
   const [staffName, setStaffName] = useState("");
   const [customReason, setCustomReason] = useState("");
   const [showCustom, setShowCustom] = useState(false);
@@ -90,6 +92,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
   const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
   const [showProceedDialog, setShowProceedDialog] = useState(false);
   const [lostReason, setLostReason] = useState("");
+  const [customLostReason, setCustomLostReason] = useState("");
   const [lostStaff, setLostStaff] = useState("");
 
   const projectLogs = useMemo(() =>
@@ -114,9 +117,12 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
 
   const markLostMutation = useMutation({
     mutationFn: async () => {
+      const finalReason = lostReason === "Other" && customLostReason.trim()
+        ? `Other: ${customLostReason.trim()}`
+        : lostReason;
       await apiRequest("POST", "/api/pause-reasons/mark-lost", {
         projectId: project.id,
-        reason: lostReason,
+        reason: finalReason,
         staffName: lostStaff || null,
       });
     },
@@ -126,6 +132,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
       toast({ title: "Project marked as lost" });
       setShowLostReasonDialog(false);
       setLostReason("");
+      setCustomLostReason("");
       setLostStaff("");
     },
   });
@@ -170,6 +177,8 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
         projectId: project.id,
         reason: selectedReason || null,
         note: note || null,
+        actionRequired: actionRequired || null,
+        nextSteps: nextSteps || null,
         staffName: staffName || null,
       });
       if (selectedReason) {
@@ -186,6 +195,8 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
       toast({ title: "Pause reason logged" });
       setSelectedReason("");
       setNote("");
+      setActionRequired("");
+      setNextSteps("");
       setStaffName("");
       setShowForm(false);
     },
@@ -354,17 +365,37 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
 
           {expanded && (
             <div className="space-y-3 pt-1 border-t">
-              {hasExistingReason && (
-                <div className="space-y-2">
-                  {project.pauseReason && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-muted-foreground">Current Reason:</span>
-                      <span className="font-medium text-amber-700 dark:text-amber-400">{project.pauseReason}</span>
+              {hasExistingReason && latestLog && (
+                <div className="space-y-2 p-2.5 rounded-md bg-muted/40 border">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-xs text-amber-700 dark:text-amber-400">{latestLog.reason || project.pauseReason}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatLogDate(latestLog.pausedAt)}</span>
+                  </div>
+                  {latestLog.note && (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Why Paused</span>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestLog.note}</p>
                     </div>
                   )}
-                  {project.pauseNote && (
-                    <p className="text-xs text-muted-foreground pl-0.5">{project.pauseNote}</p>
+                  {latestLog.actionRequired && (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Action Required</span>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestLog.actionRequired}</p>
+                    </div>
                   )}
+                  {latestLog.nextSteps && (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Next Steps</span>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestLog.nextSteps}</p>
+                    </div>
+                  )}
+                  {latestLog.staffName && <p className="text-[10px] text-muted-foreground italic">-- {latestLog.staffName}</p>}
+                </div>
+              )}
+              {hasExistingReason && !latestLog && project.pauseReason && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground">Current Reason:</span>
+                  <span className="font-medium text-amber-700 dark:text-amber-400">{project.pauseReason}</span>
                 </div>
               )}
 
@@ -486,14 +517,38 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                   )}
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Note</label>
+                    <label className="text-xs font-medium text-muted-foreground">Why is this project paused?</label>
                     <Textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Additional context..."
+                      placeholder="Describe why the project is on hold..."
                       rows={2}
                       className="text-sm resize-none"
                       data-testid={`textarea-pause-note-${project.id}`}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">What action is required from our end, if any?</label>
+                    <Textarea
+                      value={actionRequired}
+                      onChange={(e) => setActionRequired(e.target.value)}
+                      placeholder="e.g. Follow up with customer, send revised quote..."
+                      rows={2}
+                      className="text-sm resize-none"
+                      data-testid={`textarea-action-required-${project.id}`}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">What are the next steps?</label>
+                    <Textarea
+                      value={nextSteps}
+                      onChange={(e) => setNextSteps(e.target.value)}
+                      placeholder="e.g. Wait for customer response, schedule site visit..."
+                      rows={2}
+                      className="text-sm resize-none"
+                      data-testid={`textarea-next-steps-${project.id}`}
                     />
                   </div>
 
@@ -548,7 +603,24 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                           </div>
                           <span className="text-muted-foreground whitespace-nowrap">{formatLogDate(log.pausedAt)}</span>
                         </div>
-                        {log.note && <p className="text-muted-foreground whitespace-pre-wrap">{log.note}</p>}
+                        {log.note && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Why Paused</span>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{log.note}</p>
+                          </div>
+                        )}
+                        {log.actionRequired && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Action Required</span>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{log.actionRequired}</p>
+                          </div>
+                        )}
+                        {log.nextSteps && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Next Steps</span>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{log.nextSteps}</p>
+                          </div>
+                        )}
                         {log.staffName && <p className="text-muted-foreground italic">-- {log.staffName}</p>}
                       </div>
                     ))}
@@ -612,7 +684,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Reason</label>
-                <Select value={lostReason} onValueChange={setLostReason}>
+                <Select value={lostReason} onValueChange={(val) => { setLostReason(val); if (val !== "Other") setCustomLostReason(""); }}>
                   <SelectTrigger data-testid={`select-lost-reason-${project.id}`}>
                     <SelectValue placeholder="Select a reason..." />
                   </SelectTrigger>
@@ -629,6 +701,19 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
                   </SelectContent>
                 </Select>
               </div>
+              {lostReason === "Other" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Please specify</label>
+                  <Input
+                    value={customLostReason}
+                    onChange={(e) => setCustomLostReason(e.target.value)}
+                    placeholder="Type the reason..."
+                    className="h-9 text-sm"
+                    autoFocus
+                    data-testid={`input-custom-lost-reason-${project.id}`}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Staff</label>
                 <Select value={lostStaff} onValueChange={setLostStaff}>
@@ -647,7 +732,7 @@ function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
               <Button variant="outline" onClick={() => setShowLostReasonDialog(false)}>Cancel</Button>
               <Button
                 variant="destructive"
-                disabled={!lostReason || markLostMutation.isPending}
+                disabled={!lostReason || (lostReason === "Other" && !customLostReason.trim()) || markLostMutation.isPending}
                 onClick={() => markLostMutation.mutate()}
                 data-testid={`button-confirm-lost-${project.id}`}
               >
