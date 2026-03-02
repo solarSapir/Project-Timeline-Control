@@ -42,9 +42,9 @@ Solar PM is a project management application for solar installation companies. I
 - **Internal App Logic Documentation**: Visual documentation at `/app-logic` with interactive React Flow diagrams for database schema, API map, and workflow logic flows.
 - **Live Auto-Refresh**: Data queries poll every 30 seconds (static config data every 5 minutes, Asana API every 60 seconds).
 - **Sidebar Badge Counters**: Displays item counts needing action for each work view tab.
-- **Paused Projects View**: Dedicated `/paused` page listing projects with "Project Paused" status, including search.
+- **Paused Projects View**: Dedicated `/paused` page with follow-up snoozing — projects with a future follow-up date are hidden from the main list until that date arrives. The main list shows only projects needing attention (overdue or no follow-up). Snoozed projects appear in a collapsible section below. Sidebar badge reflects active count only.
 - **PM Status Breakdown Chart**: Dashboard pie chart visualizing projects by PM Status with drill-down and filtering.
-- **Pause Reason Logging**: Logs pause events with reasons, notes, and staff. Includes a dedicated `/insights` tab for KPIs and analysis of pause logs.
+- **Pause Reason Logging & KPIs**: Logs pause events with reasons, notes, and staff. KPI dashboard with 8 cards: Total Paused, Needs Attention, Snoozed, Avg Days Paused, Follow-ups (7d), No Reason, Top Reason, Top Staff. Includes reason breakdown chart with progress bars and FormulaTooltip explanations. Also includes `/insights` tab for AI analysis of pause logs.
 - **Project Planner View**: A `/planner` page for pre-install preparation, including a checklist (Scope, Proposals, Site Plan, Costs, Contractor Assignment, Permits) which gates projects from UC view filters until completion. Features bidirectional sync for proposal/site plan and a focus mode for subtask management.
 - **Asana Independence Strategy**: Designed for eventual disconnection from Asana, with all new features prioritizing local data storage and non-blocking Asana sync.
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Project, EscalationTicket, ContractCompletion } from "@shared/schema";
+import type { Project, EscalationTicket, ContractCompletion, PauseLog } from "@shared/schema";
 import { isUcComplete, isAhjComplete, isVisitComplete, isVisitBooked, isPermitIssued, isContractSent } from "@/utils/stages";
 import { areDependenciesMet, type WorkflowConfig } from "@/lib/stage-dependencies";
 
@@ -56,12 +56,31 @@ export function useSidebarCounts() {
     refetchInterval: 60000,
   });
 
+  const { data: pauseLogs } = useQuery<PauseLog[]>({
+    queryKey: ['/api/pause-reasons/logs'],
+    refetchInterval: 60000,
+  });
+
   if (!projects) return {};
 
   const allProjects = projects;
   const residential = allProjects.filter(isResidentialInstall);
 
-  const paused = allProjects.filter(p => p.pmStatus?.toLowerCase() === 'project paused').length;
+  const pausedAll = allProjects.filter(p => p.pmStatus?.toLowerCase() === 'project paused');
+  const todayStr = new Date().toISOString().split("T")[0];
+  const projectFollowUps = new Map<string, string>();
+  for (const log of (pauseLogs || [])) {
+    if (log.followUpDate) {
+      const existing = projectFollowUps.get(log.projectId);
+      if (!existing || log.followUpDate > existing) {
+        projectFollowUps.set(log.projectId, log.followUpDate);
+      }
+    }
+  }
+  const paused = pausedAll.filter(p => {
+    const fu = projectFollowUps.get(p.id);
+    return !fu || fu <= todayStr;
+  }).length;
 
   const escalated = (escalationTickets || []).filter(t => t.status === 'open').length;
 

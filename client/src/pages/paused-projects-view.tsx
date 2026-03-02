@@ -10,6 +10,7 @@ import { Link } from "wouter";
 import {
   Search, PauseCircle, ChevronDown, ChevronUp, Plus, X, Check,
   History, CalendarClock, Clock, AlertTriangle, BarChart3, Users, PenLine,
+  BellOff, Timer, CheckCircle2, TrendingUp,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatShortDate } from "@/utils/dates";
@@ -17,6 +18,7 @@ import { EscalationBadge } from "@/components/shared/EscalationBadge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CollapsibleKpiSection } from "@/components/dashboard/CollapsibleKpiSection";
+import { FormulaTooltip } from "@/components/dashboard/FormulaTooltip";
 import type { Project, PauseReason, PauseLog, StaffMember } from "@shared/schema";
 
 function PausedCard({ project, pauseReasonOptions, staffMembers, allLogs }: {
@@ -465,6 +467,35 @@ export default function PausedProjectsView() {
     [projects]
   );
 
+  const projectFollowUps = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const log of allPauseLogs) {
+      if (log.followUpDate) {
+        const existing = map.get(log.projectId);
+        if (!existing || log.followUpDate > existing) {
+          map.set(log.projectId, log.followUpDate);
+        }
+      }
+    }
+    return map;
+  }, [allPauseLogs]);
+
+  const todayDate = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  const { activeProjects, snoozedProjects } = useMemo(() => {
+    const active: Project[] = [];
+    const snoozed: Project[] = [];
+    for (const p of pausedProjects) {
+      const latestFu = projectFollowUps.get(p.id);
+      if (latestFu && latestFu > todayDate) {
+        snoozed.push(p);
+      } else {
+        active.push(p);
+      }
+    }
+    return { activeProjects: active, snoozedProjects: snoozed };
+  }, [pausedProjects, projectFollowUps, todayDate]);
+
   const kpiStats = useMemo(() => {
     const total = pausedProjects.length;
 
@@ -479,21 +510,9 @@ export default function PausedProjectsView() {
     }
     const topReason = Object.entries(reasonCounts).sort(([, a], [, b]) => b - a)[0];
 
-    const todayDate = new Date().toISOString().split("T")[0];
+    const pausedIds = new Set(pausedProjects.map(p => p.id));
     let followUpsDue = 0;
     let followUpsScheduled = 0;
-    const projectFollowUps = new Map<string, string>();
-
-    for (const log of allPauseLogs) {
-      if (log.followUpDate) {
-        const existing = projectFollowUps.get(log.projectId);
-        if (!existing || log.followUpDate > existing) {
-          projectFollowUps.set(log.projectId, log.followUpDate);
-        }
-      }
-    }
-
-    const pausedIds = new Set(pausedProjects.map(p => p.id));
     for (const [pid, dateStr] of projectFollowUps) {
       if (!pausedIds.has(pid)) continue;
       followUpsScheduled++;
@@ -516,6 +535,25 @@ export default function PausedProjectsView() {
       avgDaysPaused = Math.round(daysPausedArr.reduce((a, b) => a + b, 0) / daysPausedArr.length);
     }
 
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoMs = sevenDaysAgo.getTime();
+    let actionsThisWeek = 0;
+    const staffFollowUpCounts: Record<string, number> = {};
+    for (const log of allPauseLogs) {
+      if (log.pausedAt) {
+        const logTime = new Date(log.pausedAt).getTime();
+        if (logTime >= sevenDaysAgoMs) {
+          actionsThisWeek++;
+          if (log.staffName) {
+            staffFollowUpCounts[log.staffName] = (staffFollowUpCounts[log.staffName] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    const topStaff = Object.entries(staffFollowUpCounts).sort(([, a], [, b]) => b - a)[0];
+
     return {
       total,
       withReason,
@@ -525,19 +563,31 @@ export default function PausedProjectsView() {
       followUpsScheduled,
       noFollowUp,
       avgDaysPaused,
+      snoozedCount: snoozedProjects.length,
+      activeCount: activeProjects.length,
+      actionsThisWeek,
+      topStaff: topStaff ? { name: topStaff[0], count: topStaff[1] } : null,
+      reasonBreakdown: Object.entries(reasonCounts).sort(([, a], [, b]) => b - a),
     };
-  }, [pausedProjects, allPauseLogs]);
+  }, [pausedProjects, allPauseLogs, projectFollowUps, todayDate, snoozedProjects, activeProjects]);
+
+  const [showSnoozed, setShowSnoozed] = useState(false);
 
   if (isLoading) {
     return <PageLoader title="Loading paused projects..." />;
   }
 
-  const filtered = pausedProjects.filter(p => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  const searchLower = search.toLowerCase();
+  const filteredActive = activeProjects
+    .filter(p => !search || p.name.toLowerCase().includes(searchLower))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const filteredSnoozed = snoozedProjects
+    .filter(p => !search || p.name.toLowerCase().includes(searchLower))
+    .sort((a, b) => {
+      const aDate = projectFollowUps.get(a.id) || "";
+      const bDate = projectFollowUps.get(b.id) || "";
+      return aDate.localeCompare(bDate);
+    });
 
   return (
     <div className="p-6 space-y-5">
@@ -545,21 +595,24 @@ export default function PausedProjectsView() {
         storageKey="paused-kpi"
         title="Paused Projects"
         titleIcon={<PauseCircle className="h-5 w-5 text-amber-500" />}
-        titleExtra={<span className="text-sm text-muted-foreground" data-testid="text-paused-count">{kpiStats.total} paused</span>}
+        titleExtra={<span className="text-sm text-muted-foreground" data-testid="text-paused-count">{kpiStats.total} paused ({kpiStats.activeCount} active, {kpiStats.snoozedCount} snoozed)</span>}
         titleTestId="text-paused-title"
         testId="section-paused-kpi"
         accentColor="hsl(45, 93%, 47%)"
         summaryItems={[
-          { label: "Total", value: kpiStats.total, color: "hsl(45, 93%, 47%)" },
+          { label: "Active", value: kpiStats.activeCount, color: "hsl(45, 93%, 47%)" },
           { label: "Follow-ups Due", value: kpiStats.followUpsDue, color: kpiStats.followUpsDue > 0 ? "hsl(0, 84%, 60%)" : undefined },
-          { label: "No Follow-up", value: kpiStats.noFollowUp },
-          { label: "No Reason", value: kpiStats.withoutReason },
+          { label: "Snoozed", value: kpiStats.snoozedCount, color: "hsl(220, 70%, 50%)" },
+          { label: "Avg Days Paused", value: kpiStats.avgDaysPaused },
         ]}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
           <Card data-testid="kpi-total-paused">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Paused</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Total Paused
+                <FormulaTooltip formula="Count of projects with PM Status = 'Project Paused'" />
+              </CardTitle>
               <PauseCircle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
@@ -568,42 +621,68 @@ export default function PausedProjectsView() {
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-followups-due">
+          <Card data-testid="kpi-active-needing-attention">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Follow-ups Due</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Needs Attention
+                <FormulaTooltip formula="Paused projects with overdue follow-ups or no follow-up date set. These appear in the main list." />
+              </CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${kpiStats.followUpsDue > 0 ? "text-red-600" : ""}`}>{kpiStats.followUpsDue}</div>
-              <p className="text-xs text-muted-foreground">overdue follow-ups</p>
+              <div className={`text-2xl font-bold ${kpiStats.activeCount > 0 ? "text-amber-600" : ""}`}>{kpiStats.activeCount}</div>
+              <p className="text-xs text-muted-foreground">{kpiStats.followUpsDue} overdue, {kpiStats.noFollowUp} no follow-up</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-followups-scheduled">
+          <Card data-testid="kpi-snoozed">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Scheduled</CardTitle>
-              <CalendarClock className="h-4 w-4 text-blue-500" />
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Snoozed
+                <FormulaTooltip formula="Projects with a future follow-up date. Hidden from the main list until the follow-up date arrives." />
+              </CardTitle>
+              <BellOff className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{kpiStats.followUpsScheduled}</div>
-              <p className="text-xs text-muted-foreground">have follow-ups set</p>
+              <div className="text-2xl font-bold text-blue-600">{kpiStats.snoozedCount}</div>
+              <p className="text-xs text-muted-foreground">hidden until follow-up</p>
             </CardContent>
           </Card>
 
-          <Card data-testid="kpi-no-followup">
+          <Card data-testid="kpi-avg-days-paused">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">No Follow-up</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Avg Days Paused
+                <FormulaTooltip formula="AVG(today - projectCreatedDate) for all paused projects. Measures how long projects stay on hold." />
+              </CardTitle>
+              <Timer className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{kpiStats.noFollowUp}</div>
-              <p className="text-xs text-muted-foreground">need attention</p>
+              <div className="text-2xl font-bold">{kpiStats.avgDaysPaused}d</div>
+              <p className="text-xs text-muted-foreground">average hold time</p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="kpi-followups-week">
+            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Actions (7d)
+                <FormulaTooltip formula="Count of pause logs (follow-ups scheduled + reasons logged) created in the last 7 days. Measures staff engagement with paused projects." />
+              </CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpiStats.actionsThisWeek}</div>
+              <p className="text-xs text-muted-foreground">actions logged this week</p>
             </CardContent>
           </Card>
 
           <Card data-testid="kpi-no-reason">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">No Reason</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                No Reason
+                <FormulaTooltip formula="Paused projects without a pause reason set. Should be addressed." />
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -614,7 +693,10 @@ export default function PausedProjectsView() {
 
           <Card data-testid="kpi-top-reason">
             <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Top Reason</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Top Reason
+                <FormulaTooltip formula="Most common pause reason across all currently paused projects." />
+              </CardTitle>
               <BarChart3 className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
@@ -626,7 +708,51 @@ export default function PausedProjectsView() {
               </p>
             </CardContent>
           </Card>
+
+          <Card data-testid="kpi-top-staff">
+            <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                Top Staff (7d)
+                <FormulaTooltip formula="Staff member with the most follow-up actions in the last 7 days." />
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm font-bold truncate" title={kpiStats.topStaff?.name}>
+                {kpiStats.topStaff?.name || "N/A"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {kpiStats.topStaff ? `${kpiStats.topStaff.count} follow-up${kpiStats.topStaff.count !== 1 ? "s" : ""}` : "no activity"}
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        {kpiStats.reasonBreakdown.length > 1 && (
+          <div className="mt-3 p-3 rounded-md bg-muted/30 border">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+              <BarChart3 className="h-3 w-3" /> Pause Reason Breakdown
+            </p>
+            <div className="space-y-1.5">
+              {kpiStats.reasonBreakdown.map(([reason, count]) => (
+                <div key={reason} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs truncate">{reason}</span>
+                      <span className="text-xs text-muted-foreground ml-2 shrink-0">{count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-amber-500/70"
+                        style={{ width: `${Math.round((count / kpiStats.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CollapsibleKpiSection>
 
       <div className="relative flex-1 min-w-[200px]">
@@ -634,12 +760,12 @@ export default function PausedProjectsView() {
         <Input placeholder="Search paused projects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" data-testid="input-search-paused" />
       </div>
 
-      {sorted.length > 0 ? (
+      {filteredActive.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <PauseCircle className="h-3.5 w-3.5 text-amber-500" /> Paused ({sorted.length})
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Needs Attention ({filteredActive.length})
           </p>
-          {sorted.map(p => (
+          {filteredActive.map(p => (
             <PausedCard
               key={p.id}
               project={p}
@@ -650,8 +776,35 @@ export default function PausedProjectsView() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>{search ? "No paused projects match your search." : "No projects are currently paused."}</p>
+        <div className="text-center py-8 text-muted-foreground">
+          <p>{search ? "No active paused projects match your search." : "All paused projects have future follow-ups scheduled."}</p>
+        </div>
+      )}
+
+      {filteredSnoozed.length > 0 && (
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowSnoozed(!showSnoozed)}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-toggle-snoozed"
+          >
+            {showSnoozed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <BellOff className="h-3.5 w-3.5 text-blue-500" />
+            Snoozed ({filteredSnoozed.length}) — hidden until follow-up date
+          </button>
+          {showSnoozed && (
+            <div className="space-y-2 pl-2 border-l-2 border-blue-200 dark:border-blue-800">
+              {filteredSnoozed.map(p => (
+                <PausedCard
+                  key={p.id}
+                  project={p}
+                  pauseReasonOptions={pauseReasonOptions || []}
+                  staffMembers={staffData || []}
+                  allLogs={allPauseLogs}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
