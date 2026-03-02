@@ -158,6 +158,7 @@ const FIELD_NAME_MAP: Record<string, string[]> = {
   paymentMethod: ['How will the customer pay'],
   rebateStatus: ['GRANTS STATUS.', 'GRANTS STATUS'],
   installTeamStage: ['Install Team Stage'],
+  propertySector: ['Property Sector'],
 };
 
 function findCustomFieldGid(asanaCustomFields: any[], localFieldName: string): string | null {

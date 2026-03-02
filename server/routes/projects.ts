@@ -17,7 +17,7 @@ import {
 
 export const projectsRouter = Router();
 
-const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'installTeamStage'];
+const ASANA_SYNCED_FIELDS = ['ucStatus', 'ahjStatus', 'siteVisitStatus', 'contractStatus', 'designStatus', 'pmStatus', 'paymentMethod', 'installTeamStage', 'propertySector'];
 
 projectsRouter.get("/", async (_req, res) => {
   try {

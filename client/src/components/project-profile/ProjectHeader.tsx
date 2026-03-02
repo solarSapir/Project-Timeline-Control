@@ -2,13 +2,17 @@ import { useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatProfileDate } from "./InfoRow";
-import { MapPin, Loader2, Upload, Paperclip, X } from "lucide-react";
+import { MapPin, Loader2, Upload, Paperclip, X, ChevronDown } from "lucide-react";
 import { StaffSelect } from "@/components/shared/StaffSelect";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
 
 function getPmStatusColor(pmStatus: string | null): string {
@@ -34,7 +38,31 @@ export function ProjectHeader({ project, pmOptions, onPmStatusChange, isPending 
   const [staffName, setStaffName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [sectorOpen, setSectorOpen] = useState(false);
+  const [sectorUpdating, setSectorUpdating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const { data: sectorOptions } = useQuery<{ gid: string; name: string }[]>({
+    queryKey: ['/api/asana/field-options/propertySector'],
+    enabled: sectorOpen,
+  });
+
+  const handleSectorChange = async (newSector: string) => {
+    if (newSector === (project.propertySector || '')) return;
+    setSectorUpdating(true);
+    setSectorOpen(false);
+    try {
+      await apiRequest("PATCH", `/api/projects/${project.id}`, { propertySector: newSector });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] });
+      toast({ title: "Property sector updated", description: `Changed to ${newSector}` });
+    } catch (error: unknown) {
+      toast({ title: "Update failed", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setSectorUpdating(false);
+    }
+  };
 
   const handleSelectStatus = (newStatus: string) => {
     if (newStatus === project.pmStatus) return;
@@ -85,13 +113,44 @@ export function ProjectHeader({ project, pmOptions, onPmStatusChange, isPending 
               {project.province}
             </Badge>
           )}
-          <Badge variant="outline" className={`text-xs ${
-            project.propertySector && project.propertySector.toLowerCase() !== 'residential'
-              ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
-              : ""
-          }`} data-testid="badge-property-sector">
-            {project.propertySector || "Residential"}
-          </Badge>
+          <Popover open={sectorOpen} onOpenChange={setSectorOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors cursor-pointer hover:bg-muted ${
+                  project.propertySector && project.propertySector.toLowerCase() !== 'residential'
+                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
+                    : "border-input"
+                }`}
+                data-testid="badge-property-sector"
+                disabled={sectorUpdating}
+              >
+                {sectorUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                {project.propertySector || "Residential"}
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-1" align="start">
+              <div className="space-y-0.5">
+                {(sectorOptions || []).map(opt => (
+                  <button
+                    key={opt.gid}
+                    className={`w-full text-left text-sm px-2.5 py-1.5 rounded-sm hover:bg-accent transition-colors ${
+                      (project.propertySector || '').toLowerCase() === opt.name.toLowerCase() ? "bg-accent font-medium" : ""
+                    }`}
+                    onClick={() => handleSectorChange(opt.name)}
+                    data-testid={`option-sector-${opt.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {opt.name}
+                  </button>
+                ))}
+                {!sectorOptions && (
+                  <div className="flex items-center justify-center py-2" data-testid="loader-sector-options">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
           {project.projectCreatedDate && (
