@@ -837,11 +837,13 @@ export const documentTemplates = pgTable("document_templates", {
   pageCount: integer("page_count").default(1),
   enabled: boolean("enabled").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  archivedAt: timestamp("archived_at"),
 });
 
 export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
   id: true,
   createdAt: true,
+  archivedAt: true,
 });
 export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
 export type DocumentTemplate = typeof documentTemplates.$inferSelect;

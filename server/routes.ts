@@ -293,6 +293,14 @@ export async function registerRoutes(
     console.error("[Startup] Template seed failed:", err);
   });
 
+  storage.purgeExpiredArchivedTemplates(120).then(count => {
+    if (count > 0) {
+      console.log(`[Startup] Purged ${count} expired archived template(s)`);
+    }
+  }).catch(err => {
+    console.error("[Startup] Template purge failed:", err);
+  });
+
   return httpServer;
 }
 

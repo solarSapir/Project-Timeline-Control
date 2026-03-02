@@ -1,4 +1,4 @@
-import { eq, and, lte, gte, isNull, or, desc, asc, ilike } from "drizzle-orm";
+import { eq, and, lte, gte, isNull, isNotNull, or, desc, asc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, projects, projectDeadlines, taskActions, installSchedule, workflowConfig, errorLogs, hrspConfig, projectFiles, escalationTickets,
@@ -123,7 +123,12 @@ export interface IStorage {
   getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined>;
   getDocumentTemplateWithData(id: string): Promise<DocumentTemplate | undefined>;
   updateDocumentTemplate(id: string, data: Partial<InsertDocumentTemplate>): Promise<DocumentTemplate | undefined>;
+  archiveDocumentTemplate(id: string): Promise<DocumentTemplate | undefined>;
+  restoreDocumentTemplate(id: string): Promise<DocumentTemplate | undefined>;
+  getArchivedDocumentTemplates(): Promise<DocumentTemplate[]>;
+  permanentlyDeleteDocumentTemplate(id: string): Promise<boolean>;
   deleteDocumentTemplate(id: string): Promise<boolean>;
+  purgeExpiredArchivedTemplates(daysToKeep: number): Promise<number>;
 
   createTemplateField(data: InsertTemplateField): Promise<TemplateField>;
   getTemplateFieldsByTemplate(templateId: string): Promise<TemplateField[]>;
@@ -683,13 +688,15 @@ export class DatabaseStorage implements IStorage {
       pageCount: documentTemplates.pageCount,
       enabled: documentTemplates.enabled,
       createdAt: documentTemplates.createdAt,
+      archivedAt: documentTemplates.archivedAt,
     };
+    const conditions = [isNull(documentTemplates.archivedAt)];
     if (viewType) {
-      return db.select(cols).from(documentTemplates)
-        .where(eq(documentTemplates.viewType, viewType))
-        .orderBy(asc(documentTemplates.name));
+      conditions.push(eq(documentTemplates.viewType, viewType));
     }
-    return db.select(cols).from(documentTemplates).orderBy(asc(documentTemplates.name));
+    return db.select(cols).from(documentTemplates)
+      .where(and(...conditions))
+      .orderBy(asc(documentTemplates.name));
   }
 
   async getDocumentTemplateById(id: string): Promise<DocumentTemplate | undefined> {
@@ -705,6 +712,7 @@ export class DatabaseStorage implements IStorage {
       pageCount: documentTemplates.pageCount,
       enabled: documentTemplates.enabled,
       createdAt: documentTemplates.createdAt,
+      archivedAt: documentTemplates.archivedAt,
     };
     const [template] = await db.select(cols).from(documentTemplates).where(eq(documentTemplates.id, id));
     return template;
@@ -720,10 +728,65 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async archiveDocumentTemplate(id: string): Promise<DocumentTemplate | undefined> {
+    const [updated] = await db.update(documentTemplates)
+      .set({ archivedAt: new Date() })
+      .where(eq(documentTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async restoreDocumentTemplate(id: string): Promise<DocumentTemplate | undefined> {
+    const [updated] = await db.update(documentTemplates)
+      .set({ archivedAt: null })
+      .where(eq(documentTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getArchivedDocumentTemplates(): Promise<DocumentTemplate[]> {
+    const cols = {
+      id: documentTemplates.id,
+      name: documentTemplates.name,
+      viewType: documentTemplates.viewType,
+      templateType: documentTemplates.templateType,
+      fileName: documentTemplates.fileName,
+      storedName: documentTemplates.storedName,
+      mimeType: documentTemplates.mimeType,
+      htmlContent: documentTemplates.htmlContent,
+      pageCount: documentTemplates.pageCount,
+      enabled: documentTemplates.enabled,
+      createdAt: documentTemplates.createdAt,
+      archivedAt: documentTemplates.archivedAt,
+    };
+    return db.select(cols).from(documentTemplates)
+      .where(isNotNull(documentTemplates.archivedAt))
+      .orderBy(desc(documentTemplates.archivedAt));
+  }
+
+  async permanentlyDeleteDocumentTemplate(id: string): Promise<boolean> {
+    await db.delete(templateFields).where(eq(templateFields.templateId, id));
+    const result = await db.delete(documentTemplates).where(eq(documentTemplates.id, id)).returning();
+    return result.length > 0;
+  }
+
   async deleteDocumentTemplate(id: string): Promise<boolean> {
     await db.delete(templateFields).where(eq(templateFields.templateId, id));
     const result = await db.delete(documentTemplates).where(eq(documentTemplates.id, id)).returning();
     return result.length > 0;
+  }
+
+  async purgeExpiredArchivedTemplates(daysToKeep: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - daysToKeep);
+    const expired = await db.select({ id: documentTemplates.id })
+      .from(documentTemplates)
+      .where(lte(documentTemplates.archivedAt, cutoff));
+    for (const t of expired) {
+      await db.delete(templateFields).where(eq(templateFields.templateId, t.id));
+      await db.delete(documentTemplates).where(eq(documentTemplates.id, t.id));
+    }
+    return expired.length;
   }
 
   async createTemplateField(data: InsertTemplateField): Promise<TemplateField> {

@@ -106,6 +106,16 @@ documentTemplatesRouter.get("/", async (req, res) => {
   }
 });
 
+documentTemplatesRouter.get("/archived/list", async (_req, res) => {
+  try {
+    const templates = await storage.getArchivedDocumentTemplates();
+    res.json(templates);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
 documentTemplatesRouter.get("/:id", async (req, res) => {
   try {
     const template = await storage.getDocumentTemplateById(req.params.id);
@@ -127,13 +137,43 @@ documentTemplatesRouter.delete("/:id", async (req, res) => {
       return res.status(404).json({ message: "Template not found" });
     }
 
+    await storage.archiveDocumentTemplate(req.params.id);
+    exportTemplateSeedsToFile().catch(() => {});
+    res.json({ success: true, archived: true });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.post("/:id/restore", async (req, res) => {
+  try {
+    const restored = await storage.restoreDocumentTemplate(req.params.id);
+    if (!restored) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    exportTemplateSeedsToFile().catch(() => {});
+    res.json(restored);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ message: msg });
+  }
+});
+
+documentTemplatesRouter.delete("/:id/permanent", async (req, res) => {
+  try {
+    const template = await storage.getDocumentTemplateById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
     const filePath = getTemplatePath(template.storedName);
     if (existsSync(filePath)) {
       const { unlinkSync } = await import("fs");
       try { unlinkSync(filePath); } catch {}
     }
 
-    await storage.deleteDocumentTemplate(req.params.id);
+    await storage.permanentlyDeleteDocumentTemplate(req.params.id);
     exportTemplateSeedsToFile().catch(() => {});
     res.json({ success: true });
   } catch (error: unknown) {

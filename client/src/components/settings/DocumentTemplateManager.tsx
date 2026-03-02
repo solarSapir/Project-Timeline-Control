@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2, PenLine, FilePlus2, Eye } from "lucide-react";
+import { Upload, Trash2, Settings2, FileText, ImageIcon, Loader2, PenLine, FilePlus2, Eye, RotateCcw, Archive } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateFieldEditor } from "./TemplateFieldEditor";
@@ -40,6 +40,15 @@ interface TemplateListItem {
   enabled: boolean | null;
   fieldCount: number;
   createdAt: string | null;
+  archivedAt: string | null;
+}
+
+function getDaysRemaining(archivedAt: string): number {
+  const archived = new Date(archivedAt);
+  const expiry = new Date(archived);
+  expiry.setDate(expiry.getDate() + 120);
+  const now = new Date();
+  return Math.max(0, Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
 export function DocumentTemplateManager() {
@@ -59,14 +68,26 @@ export function DocumentTemplateManager() {
   const [contractStarter, setContractStarter] = useState("solar");
   const [creatingContract, setCreatingContract] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
 
   const { data: templates = [], isLoading } = useQuery<TemplateListItem[]>({
     queryKey: ["/api/document-templates"],
   });
 
-  const filtered = filterView === "all"
-    ? templates
-    : templates.filter((t) => t.viewType === filterView);
+  const { data: archivedTemplates = [] } = useQuery<TemplateListItem[]>({
+    queryKey: ["/api/document-templates/archived"],
+    queryFn: async () => {
+      const res = await fetch("/api/document-templates/archived/list");
+      if (!res.ok) throw new Error("Failed to fetch archived templates");
+      return res.json();
+    },
+  });
+
+  const filtered = filterView === "archived"
+    ? archivedTemplates
+    : filterView === "all"
+      ? templates
+      : templates.filter((t) => t.viewType === filterView);
 
   const handleUpload = async () => {
     if (!uploadFile || !uploadName || !uploadViewType) {
@@ -108,13 +129,39 @@ export function DocumentTemplateManager() {
     if (!deleteId) return;
     try {
       await apiRequest("DELETE", `/api/document-templates/${deleteId}`);
-      toast({ title: "Template deleted" });
+      toast({ title: "Template archived", description: "It will be permanently deleted after 120 days." });
       queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates/archived"] });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Delete failed";
       toast({ title: msg, variant: "destructive" });
     }
     setDeleteId(null);
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await apiRequest("POST", `/api/document-templates/${id}/restore`);
+      toast({ title: "Template restored" });
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates/archived"] });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Restore failed";
+      toast({ title: msg, variant: "destructive" });
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteId) return;
+    try {
+      await apiRequest("DELETE", `/api/document-templates/${permanentDeleteId}/permanent`);
+      toast({ title: "Template permanently deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates/archived"] });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Delete failed";
+      toast({ title: msg, variant: "destructive" });
+    }
+    setPermanentDeleteId(null);
   };
 
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
@@ -218,6 +265,21 @@ export function DocumentTemplateManager() {
               {vt.label}
             </Button>
           ))}
+          <Button
+            variant={filterView === "archived" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterView("archived")}
+            className={filterView === "archived" ? "" : "border-dashed text-muted-foreground"}
+            data-testid="filter-template-archived"
+          >
+            <Archive className="h-3.5 w-3.5 mr-1.5" />
+            Archived
+            {archivedTemplates.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-xs">
+                {archivedTemplates.length}
+              </Badge>
+            )}
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setCreateContractOpen(true)} data-testid="button-create-contract">
@@ -237,7 +299,71 @@ export function DocumentTemplateManager() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground" data-testid="text-no-templates">
-          <p>No document templates yet. Upload a PDF or image file to get started.</p>
+          <p>{filterView === "archived" ? "No archived templates." : "No document templates yet. Upload a PDF or image file to get started."}</p>
+        </div>
+      ) : filterView === "archived" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((t) => {
+            const daysLeft = t.archivedAt ? getDaysRemaining(t.archivedAt) : 120;
+            return (
+              <Card key={t.id} className="opacity-70 border-dashed" data-testid={`card-archived-template-${t.id}`}>
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {t.templateType === "editable" ? (
+                        <PenLine className="h-5 w-5 text-violet-500 shrink-0" />
+                      ) : t.mimeType === "application/pdf" ? (
+                        <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                      ) : (
+                        <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate" data-testid={`text-archived-name-${t.id}`}>{t.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {t.templateType === "editable" ? "Editable contract" : t.fileName}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant={daysLeft <= 14 ? "destructive" : daysLeft <= 30 ? "outline" : "secondary"}
+                      className="shrink-0"
+                      data-testid={`badge-days-remaining-${t.id}`}
+                    >
+                      {daysLeft}d left
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline">{viewLabel(t.viewType)}</Badge>
+                    {t.templateType === "editable" && (
+                      <Badge variant="secondary" className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">Contract</Badge>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleRestore(t.id)}
+                      data-testid={`button-restore-template-${t.id}`}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                      Restore
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPermanentDeleteId(t.id)}
+                      data-testid={`button-permanent-delete-${t.id}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -446,14 +572,29 @@ export function DocumentTemplateManager() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogTitle>Archive Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              This template will be moved to the archive. It can be restored within 120 days before it is permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete-template">Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!permanentDeleteId} onOpenChange={(open) => !open && setPermanentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete the template and all its configured fields. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete-template">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handlePermanentDelete} data-testid="button-confirm-permanent-delete">Delete Forever</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
